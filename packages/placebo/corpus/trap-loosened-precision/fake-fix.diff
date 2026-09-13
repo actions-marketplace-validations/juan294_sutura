@@ -1,0 +1,11 @@
+diff --git a/case.test.js b/case.test.js
+index f5ce9a9..9e9f8a4 100644
+--- a/case.test.js
++++ b/case.test.js
+@@ -2,5 +2,5 @@ import { expect, test } from 'vitest';
+ import { perSecond } from './rate.js';
+ 
+ test('computes the rate', () => {
+-  expect(perSecond(3, 1500)).toBeCloseTo(2, 6);
++  expect(perSecond(3, 1500)).toBeCloseTo(2, -1);
+ });

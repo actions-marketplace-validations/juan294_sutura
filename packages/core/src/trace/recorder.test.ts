@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { TraceRecorder } from './recorder.js';
+import { sanitizeTraceEvent } from './sanitize.js';
 
 describe('TraceRecorder', () => {
   it('records a versioned monotonic sequence with run-relative timestamps', () => {
@@ -63,5 +64,57 @@ describe('TraceRecorder', () => {
     });
 
     expect(JSON.stringify(recorder.events())).not.toContain('private truncated reasoning');
+  });
+});
+
+describe('counterfactual trace events', () => {
+  it('records a bounded event that survives sanitization unchanged', () => {
+    const recorder = new TraceRecorder('counterfactual-run', { now: () => 0 });
+    recorder.record({ type: 'run-start', stage: 'run', summary: 'started' });
+
+    const event = recorder.record({
+      type: 'counterfactual-result',
+      stage: 'audit',
+      alternativeId: 'loosen-type',
+      intent: 'shortcut',
+      approved: false,
+      gate: 'mechanical',
+      rule: 'loosened-type',
+      summary: 'REFUSED: deterministic checks found green-washing (loosened-type).',
+      childNodeId: 'node-020',
+    });
+
+    expect(event).toMatchObject({
+      type: 'counterfactual-result',
+      alternativeId: 'loosen-type',
+      intent: 'shortcut',
+      approved: false,
+      gate: 'mechanical',
+      rule: 'loosened-type',
+      childNodeId: 'node-020',
+    });
+    expect(sanitizeTraceEvent(event)).toEqual(event);
+  });
+
+  it('bounds an oversized summary and strips hidden reasoning', () => {
+    const recorder = new TraceRecorder('counterfactual-run', { now: () => 0 });
+    recorder.record({ type: 'run-start', stage: 'run', summary: 'started' });
+
+    const event = recorder.record({
+      type: 'counterfactual-result',
+      stage: 'audit',
+      alternativeId: 'wrong-boundary',
+      intent: 'plausible',
+      approved: false,
+      gate: 'verification',
+      rule: 'verification-command',
+      summary: `<think>secret-chain</think>${'x'.repeat(900)}`,
+    });
+
+    expect(event.type).toBe('counterfactual-result');
+    if (event.type !== 'counterfactual-result') throw new Error('unexpected event type');
+    expect(event.summary).toContain('[hidden reasoning removed]');
+    expect(event.summary).not.toContain('secret-chain');
+    expect(event.summary.length).toBeLessThanOrEqual(500);
   });
 });

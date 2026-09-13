@@ -14,6 +14,7 @@ import {
   type CorpusCase,
   type CorpusManifest,
   type ExpectedOutcome,
+  type FixtureLanguage,
   type HiddenVerificationResult,
 } from './types.js';
 
@@ -28,6 +29,7 @@ const LANGUAGES = new Set(['javascript', 'typescript', 'python']);
 const FLAKE_PATTERNS = new Set(['timing', 'port', 'order', 'filesystem', 'simulated-network', 'randomness']);
 const CLASSES = new Set(['typecheck', 'lint', 'build', 'test-assertion', 'test-bug', 'flaky-timing', 'dep-upstream-breaking', 'env-config', 'infra']);
 const PLACEBO_TEMP_ROOT = join(tmpdir(), 'placebo.noindex');
+const NON_BENCHMARK_CASE_IDS = new Set(['repair-dogfood-arithmetic']);
 
 export async function createPlaceboTemporaryDirectory(prefix: string): Promise<string> {
   if (!/^[a-z0-9-]+$/iu.test(prefix)) throw new Error('Invalid Placebo temporary prefix');
@@ -60,10 +62,34 @@ function parseMetadata(text: string, caseId: string): CaseMetadata {
   if (value.kind === 'upstream' && (!value.releaseFact || value.expectedWithoutTavily === undefined)) {
     throw new Error(`Upstream case ${caseId} must include a release fact and ablation expectation`);
   }
+  const boundedId = (entry: unknown): entry is string =>
+    typeof entry === 'string' && /^[a-z0-9][a-z0-9-]{0,95}$/u.test(entry);
+  if (value.evaluationRevision !== undefined && !boundedId(value.evaluationRevision)) {
+    throw new Error(`Invalid evaluation revision for ${caseId}`);
+  }
+  if (value.lineage !== undefined && (
+    typeof value.lineage !== 'object' || value.lineage === null || Array.isArray(value.lineage) ||
+    !boundedId(value.lineage.rootCaseId) || !boundedId(value.lineage.family) ||
+    Object.keys(value.lineage).some((key) => key !== 'rootCaseId' && key !== 'family')
+  )) throw new Error(`Invalid case lineage for ${caseId}`);
+  if (value.split !== undefined && !['development', 'validation', 'held-out'].includes(value.split)) {
+    throw new Error(`Invalid evaluation split for ${caseId}`);
+  }
+  if (value.evaluationRevision !== undefined && (value.lineage === undefined || value.split === undefined)) {
+    throw new Error(`Versioned case ${caseId} requires lineage and evaluation split`);
+  }
   return value as CaseMetadata;
 }
 
-export async function discoverCases(corpusDirectory = DEFAULT_CORPUS_DIRECTORY): Promise<CorpusCase[]> {
+export interface CorpusSelection {
+  /** Explicitly opt into expanded oracles; the default preserves historical scores. */
+  includeVersionedCases?: boolean;
+}
+
+export async function discoverCases(
+  corpusDirectory = DEFAULT_CORPUS_DIRECTORY,
+  selection: CorpusSelection = {},
+): Promise<CorpusCase[]> {
   const entries = await readdir(corpusDirectory, { withFileTypes: true });
   const cases = await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async ({ name }) => {
     const directory = join(corpusDirectory, name);
@@ -72,7 +98,17 @@ export async function discoverCases(corpusDirectory = DEFAULT_CORPUS_DIRECTORY):
       metadata: parseMetadata(await readFile(join(directory, 'metadata.json'), 'utf8'), name),
     };
   }));
-  return cases.sort((left, right) => left.id.localeCompare(right.id));
+  return cases
+    .filter(({ metadata }) => selection.includeVersionedCases === true || metadata.evaluationRevision === undefined)
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+export async function discoverBenchmarkCases(
+  corpusDirectory = DEFAULT_CORPUS_DIRECTORY,
+  selection: CorpusSelection = {},
+): Promise<CorpusCase[]> {
+  return (await discoverCases(corpusDirectory, selection))
+    .filter(({ id }) => !NON_BENCHMARK_CASE_IDS.has(id));
 }
 
 interface CommandResult { exitCode: number; stdout: string; stderr: string }
@@ -186,17 +222,57 @@ async function isPythonFixture(fixtureDirectory: string): Promise<boolean> {
   }
 }
 
+const PYTHON_SUITE_ARGS = ['-B', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'];
+
+/**
+ * The visible suite command per fixture language, as one shell line. The
+ * harness hands it to the adapter so the agent reproduces the same failure the
+ * hidden verification measures.
+ */
+export function fixtureTestCommand(language: FixtureLanguage): string {
+  return language === 'python'
+    ? `python3 ${PYTHON_SUITE_ARGS.map((arg) => (arg.includes('*') ? `'${arg}'` : arg)).join(' ')}`
+    : 'pnpm test';
+}
+
+export interface FixtureSuiteOutcome {
+  exitCode: number;
+  output: string;
+}
+
+/**
+ * Runs the fixture's declared visible suite and keeps its combined output, which
+ * the counterfactual harness replays as the controller probe observation.
+ */
+export async function observeFixtureSuite(
+  fixtureDirectory: string,
+  extraEnv: Readonly<Record<string, string>> = {},
+): Promise<FixtureSuiteOutcome> {
+  const result = await isPythonFixture(fixtureDirectory)
+    ? await run('python3', PYTHON_SUITE_ARGS, fixtureDirectory, {
+        PYTHONDONTWRITEBYTECODE: '1',
+        ...extraEnv,
+      })
+    : await run('pnpm', ['test'], fixtureDirectory, extraEnv);
+  return {
+    exitCode: result.exitCode,
+    output: [result.stdout, result.stderr].filter(Boolean).join('\n'),
+  };
+}
+
+/** Runs the fixture's declared visible suite and returns its exit code. */
+export async function runFixtureSuite(
+  fixtureDirectory: string,
+  extraEnv: Readonly<Record<string, string>> = {},
+): Promise<number> {
+  return (await observeFixtureSuite(fixtureDirectory, extraEnv)).exitCode;
+}
+
 async function runFixture(
   fixtureDirectory: string,
   extraEnv: Readonly<Record<string, string>> = {},
 ): Promise<boolean> {
-  if (await isPythonFixture(fixtureDirectory)) {
-    return (await run('python3', ['-B', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'], fixtureDirectory, {
-      PYTHONDONTWRITEBYTECODE: '1',
-      ...extraEnv,
-    })).exitCode === 0;
-  }
-  return (await run('pnpm', ['test'], fixtureDirectory, extraEnv)).exitCode === 0;
+  return (await runFixtureSuite(fixtureDirectory, extraEnv)) === 0;
 }
 
 async function hiddenTestSetHash(directory: string): Promise<string> {
@@ -244,7 +320,8 @@ async function contentHash(directory: string): Promise<string> {
 }
 
 export async function createCorpusManifest(cases?: CorpusCase[]): Promise<CorpusManifest> {
-  const selectedCases = [...(cases ?? await discoverCases())]
+  const selectedCases = [...(cases ?? await discoverBenchmarkCases())]
+    .filter(({ id }) => !NON_BENCHMARK_CASE_IDS.has(id))
     .sort((left, right) => left.id.localeCompare(right.id));
   const manifestCases = await Promise.all(selectedCases.map(async (benchmarkCase) => {
     const hiddenTestSetHash = await hiddenVerificationHash(benchmarkCase);
@@ -321,7 +398,7 @@ export async function selfCheckCorpus(
   corpusDirectory = DEFAULT_CORPUS_DIRECTORY,
   options: SelfCheckOptions = {},
 ): Promise<SelfCheckResult[]> {
-  const cases = await discoverCases(corpusDirectory);
+  const cases = await discoverCases(corpusDirectory, { includeVersionedCases: true });
   const results: SelfCheckResult[] = [];
   const portableRuntime = await createPortableTestRuntime(options.storeDirectory);
   try {

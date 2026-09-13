@@ -465,9 +465,13 @@ export class ReplayRecorder {
   registerCheckoutPath(checkoutDir: string): string {
     const existing = this.checkoutPaths.get(checkoutDir);
     if (existing) return existing;
-    const recordedPath = `checkout-${this.checkoutPaths.size + 1}`;
+    const recordedPath = `checkout-${new Set(this.checkoutPaths.values()).size + 1}`;
     this.checkoutPaths.set(checkoutDir, recordedPath);
     return recordedPath;
+  }
+
+  registerCheckoutAlias(aliasDir: string, checkoutDir: string): void {
+    this.checkoutPaths.set(aliasDir, this.registerCheckoutPath(checkoutDir));
   }
 
   private safeValue(value: unknown, boundary: ReplayOverflowBoundary): unknown {

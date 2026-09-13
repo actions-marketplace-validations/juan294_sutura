@@ -7,6 +7,7 @@ import type { CapacitySnapshot, ChatMessage, FunctionToolCall, TierLlm } from '.
 import type { ModelPrice } from '../llm/cost.js';
 import type { RepositoryPolicy } from '../policy/schema.js';
 import { redactExternalJsonValue } from '../security/external-text.js';
+import type { RepairAuthorizationContext } from './repair-authorization.js';
 import type { RepairBudget } from './repair-budget.js';
 import { publicRepairReason, requestRepairModel } from './repair-model-call.js';
 import {
@@ -17,6 +18,7 @@ import {
   type RepairToolState,
 } from './repair-tools.js';
 import type { RepairSourceContext } from './repair.js';
+import type { RuntimeId } from '../runtime/types.js';
 import type { TraceRecorder } from '../trace/recorder.js';
 
 const MAX_AGENT_OUTPUT_TOKENS = 8_192;
@@ -49,6 +51,9 @@ export interface RepairAgentContext {
   budget: RepairBudget;
   trustedCommands: Readonly<Record<string, string>>;
   sourceContext: RepairSourceContext;
+  /** Decides how a related-source pair resolves an import; defaults to Node. */
+  runtimeId?: RuntimeId;
+  authorization?: RepairAuthorizationContext;
   branchId?: string;
   operationIdPrefix?: string;
   observeCapacity?: (capacity: CapacitySnapshot) => void;
@@ -172,6 +177,8 @@ export async function runRepairAgent(ctx: RepairAgentContext): Promise<RepairAge
     budget: ctx.budget,
     trustedCommands: ctx.trustedCommands,
     sourceContext: ctx.sourceContext,
+    ...(ctx.authorization === undefined ? {} : { authorization: ctx.authorization }),
+    ...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
     ...(ctx.operationIdPrefix === undefined ? {} : { operationIdPrefix: ctx.operationIdPrefix }),
     ...(ctx.onOperationStart === undefined ? {} : { onOperationStart: ctx.onOperationStart }),
     ...(ctx.observe === undefined ? {} : { observe: ctx.observe }),

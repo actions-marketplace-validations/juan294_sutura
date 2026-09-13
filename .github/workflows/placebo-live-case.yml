@@ -1,0 +1,132 @@
+name: Placebo live case
+run-name: Placebo live ${{ inputs.controller-id }} ${{ inputs.case-id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      controller-sha:
+        description: Exact integrated controller commit
+        required: true
+        type: string
+      subject-sha:
+        description: Exact v0.2.1 candidate commit
+        required: true
+        type: string
+      case-id:
+        description: Exact canonical Placebo case ID
+        required: true
+        type: string
+      controller-id:
+        description: Bounded controller correlation ID
+        required: true
+        type: string
+      counterfactual:
+        description: Evaluate the case's declared counterfactual alternatives
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  case:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Validate bounded dispatch input
+        env:
+          CONTROLLER_SHA: ${{ inputs.controller-sha }}
+          SUBJECT_SHA: ${{ inputs.subject-sha }}
+          CASE_ID: ${{ inputs.case-id }}
+          CONTROLLER_ID: ${{ inputs.controller-id }}
+        run: |
+          [[ "$CONTROLLER_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$SUBJECT_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$CASE_ID" =~ ^[a-z0-9-]{1,100}$ ]]
+          [[ "$CONTROLLER_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]]
+
+      - name: Check out exact controller
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.controller-sha }}
+          path: controller
+          persist-credentials: false
+
+      - name: Check out exact subject
+        uses: actions/checkout@v7
+        with:
+          repository: juan294/sutura
+          ref: ${{ inputs.subject-sha }}
+          path: subject
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            controller/pnpm-lock.yaml
+            subject/pnpm-lock.yaml
+
+      - name: Verify exact identities and canonical case
+        env:
+          CONTROLLER_SHA: ${{ inputs.controller-sha }}
+          SUBJECT_SHA: ${{ inputs.subject-sha }}
+          CASE_ID: ${{ inputs.case-id }}
+        run: |
+          test "$GITHUB_SHA" = "$CONTROLLER_SHA"
+          test "$(git -C controller rev-parse HEAD)" = "$CONTROLLER_SHA"
+          test "$(git -C subject rev-parse HEAD)" = "$SUBJECT_SHA"
+          node -e 'const f=require("./controller/docs/demo/placebo-v0.2-corpus.json"); const e=require("./controller/docs/demo/placebo-v0.2-expanded-corpus.json"); const inOne=(m)=>m.cases.filter(x=>x.id===process.env.CASE_ID).length===1; if(!inOne(f) && !inOne(e)) process.exit(1)'
+
+      - name: Install frozen controller and subject
+        run: |
+          pnpm --dir controller install --frozen-lockfile
+          pnpm --dir subject install --frozen-lockfile
+
+      - name: Build exact controller and subject
+        run: |
+          pnpm --dir controller build
+          pnpm --dir subject build
+
+      - name: Verify candidate package identity
+        run: node subject/scripts/test-candidate-install.mjs "$SUBJECT_SHA" > "$RUNNER_TEMP/candidate-install-evidence.json"
+        env:
+          SUBJECT_SHA: ${{ inputs.subject-sha }}
+
+      - name: Run one live Placebo case
+        working-directory: controller
+        env:
+          NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          CONTREE_TOKEN: ${{ secrets.CONTREE_TOKEN }}
+          CONTREE_PROJECT: ${{ vars.CONTREE_PROJECT }}
+          CASE_ID: ${{ inputs.case-id }}
+          COUNTERFACTUAL: ${{ inputs.counterfactual }}
+        run: |
+          chmod +x "$GITHUB_WORKSPACE/subject/packages/cli/dist/bin.js"
+          if [ "$COUNTERFACTUAL" = "true" ]; then set -- --counterfactual; else set --; fi
+          node packages/placebo/bin/placebo.js run --adapter sutura --sutura-command "$GITHUB_WORKSPACE/subject/packages/cli/dist/bin.js" --case "$CASE_ID" "$@" --manifest-output "$RUNNER_TEMP/evaluation.json" > "$RUNNER_TEMP/report.json"
+
+      - name: Create bounded case evidence
+        working-directory: controller
+        env:
+          CONTROLLER_SHA: ${{ inputs.controller-sha }}
+          SUBJECT_SHA: ${{ inputs.subject-sha }}
+          CASE_ID: ${{ inputs.case-id }}
+          CONTROLLER_ID: ${{ inputs.controller-id }}
+        run: |
+          node scripts/placebo-live.mjs artifact --report "$RUNNER_TEMP/report.json" --manifest "$RUNNER_TEMP/evaluation.json" --install-evidence "$RUNNER_TEMP/candidate-install-evidence.json" --controller-sha "$CONTROLLER_SHA" --subject-sha "$SUBJECT_SHA" --run-id "$GITHUB_RUN_ID" --controller-id "$CONTROLLER_ID" --case "$CASE_ID" --output "$RUNNER_TEMP/placebo-case.json"
+
+      - name: Upload one case artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: sutura-placebo-${{ inputs.controller-id }}-${{ inputs.case-id }}
+          path: ${{ runner.temp }}/placebo-case.json
+          if-no-files-found: error
+          retention-days: 30

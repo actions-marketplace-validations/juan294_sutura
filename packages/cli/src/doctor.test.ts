@@ -116,7 +116,7 @@ describe('doctorSutura', () => {
         '          runtime: auto',
       ].join('\n'));
       const run = vi.fn(async (command: string, args: readonly string[]) => {
-        if (command === 'git') return `${ACTION_SHA}\trefs/tags/v0.2.0\n`;
+        if (command === 'git') return `${ACTION_SHA}\trefs/tags/v0.2.1\n`;
         if (args[0] === 'secret') return 'NEBIUS_API_KEY\nCONTREE_TOKEN\n';
         if (args[0] === 'variable') return 'CONTREE_PROJECT\n';
         return 'octo/example\n';

@@ -73,3 +73,26 @@ describe('createTokenFactoryClient', () => {
     }, { fetch: vi.fn() })).toThrow(/verified routing profile/u);
   });
 });
+
+
+it('selects the frozen development adaptive profile without changing defaults', async () => {
+  const fetch = vi.fn().mockResolvedValue(response());
+  const client = createTokenFactoryClient({ apiKey: 'test-key', routingProfileId: 'development-adaptive-v1' }, { fetch });
+  const messages = [{ role: 'user' as const, content: 'Fix one target' }];
+  const options = { maxTokens: 2_000, purpose: 'repair' as const, routing: {
+    failureClass: null, diagnosisConfidence: 0.95, remainingInferenceBudgetUsd: 1,
+    targetCount: 1, runScope: {},
+  } };
+  const quote = client.modelQuote('super', messages, options);
+  expect(quote.role).toBe('nano');
+  expect(client.modelQuote('super', messages, options)).toEqual(quote);
+  await client.chat('super', messages, { ...options, quotedRoute: quote });
+  expect(JSON.parse(fetch.mock.calls[0]![1].body).model).toBe(quote.modelId);
+  expect(client.ledger.entries[0]?.role).toBe('nano');
+});
+
+it('does not treat an unverified model override as an adaptive contract', () => {
+  expect(() => createTokenFactoryClient({ apiKey: 'test-key', routingProfileId: 'development-adaptive-v1', models: {
+    ...DEFAULT_MODELS, nano: 'example/unverified',
+  } }, { fetch: vi.fn() })).toThrow(/verified model/u);
+});

@@ -37,6 +37,9 @@ const SNAPSHOT_MANIFEST_PATH = '/tmp/sutura-repository-overlay.manifest';
 const DEPENDENCY_MANIFEST_PATH = '/tmp/sutura-dependency-inputs.manifest';
 const MAX_DEPENDENCY_CONTROL_BYTES = 1 * 1_024 * 1_024;
 const MAX_DEPENDENCY_INPUT_FILE_BYTES = 32 * 1_024 * 1_024;
+const LOCAL_DEPENDENCY_LIFECYCLE_SCRIPTS = new Set([
+  'preinstall', 'install', 'postinstall', 'prepare', 'prepublish', 'prepublishOnly',
+]);
 const MAX_PROCESS_STDERR_BYTES = 64 * 1_024;
 const MAX_SNAPSHOT_FILES = 10_000;
 const MAX_SNAPSHOT_SOURCE_BYTES = 256 * 1_024 * 1_024;
@@ -708,11 +711,17 @@ function isInstalledDependencyPath(path: string): boolean {
 function isDependencyInputPath(
   path: string,
   workspacePatterns: readonly string[],
+  localDependencyDirectories: readonly string[] = [],
 ): boolean {
+  if (isSensitiveRepositoryPath(path, { includeDependencies: true })) return false;
   const segments = path.split('/');
   const basename = segments.at(-1) ?? '';
   if (segments.some((segment) => ['node_modules', '.git', 'dist', 'build', '.next'].includes(segment))) {
     return false;
+  }
+  if (localDependencyDirectories.some((directory) =>
+    path === directory || path.startsWith(`${directory}/`))) {
+    return true;
   }
   if (path === 'package.json') return true;
   if (segments.length === 1 && [
@@ -818,6 +827,77 @@ async function dependencyWorkspacePatterns(dir: string): Promise<string[]> {
   return unique;
 }
 
+async function localDependencyDirectories(dir: string): Promise<string[]> {
+  let packageJson: Record<string, unknown>;
+  try {
+    const metadata = await stat(join(dir, 'package.json'));
+    if (metadata.size > MAX_DEPENDENCY_CONTROL_BYTES) {
+      throw new ContreeError('ConTree dependency snapshot package.json is too large');
+    }
+    packageJson = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as Record<string, unknown>;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    if (error instanceof SyntaxError) {
+      throw new ContreeError('ConTree dependency snapshot refuses invalid package.json');
+    }
+    throw error;
+  }
+  const directories = new Set<string>();
+  for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+    const values = packageJson[section];
+    if (typeof values !== 'object' || values === null || Array.isArray(values)) continue;
+    for (const specification of Object.values(values)) {
+      if (typeof specification !== 'string' || !specification.startsWith('file:')) continue;
+      const path = specification.slice('file:'.length);
+      if (!/^vendor\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/u.test(path)) {
+        throw new ContreeError(`ConTree dependency snapshot refuses unsafe local dependency: ${specification}`);
+      }
+      directories.add(path);
+    }
+  }
+  const root = await realpath(dir);
+  for (const directory of directories) {
+    const absolute = join(root, directory);
+    let metadata;
+    try {
+      metadata = await lstat(absolute);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new ContreeError(`ConTree local dependency does not exist: ${directory}`);
+      }
+      throw error;
+    }
+    if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+      throw new ContreeError(`ConTree local dependency must be a regular directory: ${directory}`);
+    }
+    const canonical = await realpath(absolute);
+    if (!canonical.startsWith(`${root}${sep}`)) {
+      throw new ContreeError(`ConTree local dependency escapes the repository: ${directory}`);
+    }
+    const manifestPath = join(canonical, 'package.json');
+    let manifestMetadata;
+    try {
+      manifestMetadata = await stat(manifestPath);
+    } catch {
+      throw new ContreeError(`ConTree local dependency package.json is invalid: ${directory}`);
+    }
+    if (!manifestMetadata.isFile() || manifestMetadata.size > MAX_DEPENDENCY_CONTROL_BYTES) {
+      throw new ContreeError(`ConTree local dependency package.json is invalid: ${directory}`);
+    }
+    let manifest: { scripts?: unknown };
+    try {
+      manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { scripts?: unknown };
+    } catch {
+      throw new ContreeError(`ConTree local dependency package.json is invalid: ${directory}`);
+    }
+    if (typeof manifest.scripts === 'object' && manifest.scripts !== null &&
+        Object.keys(manifest.scripts).some((name) => LOCAL_DEPENDENCY_LIFECYCLE_SCRIPTS.has(name))) {
+      throw new ContreeError(`ConTree local dependency lifecycle scripts are unsupported: ${directory}`);
+    }
+  }
+  return [...directories].sort();
+}
+
 function validateSnapshotPath(path: string): void {
   if (
     path.length === 0 ||
@@ -834,6 +914,7 @@ function includeSnapshotPath(
   path: string,
   profile: SnapshotProfile,
   workspacePatterns: readonly string[],
+  localDirectories: readonly string[] = [],
 ): boolean {
   validateSnapshotPath(path);
   if (profile === 'repository') {
@@ -844,7 +925,7 @@ function includeSnapshotPath(
     }
     return !isSensitiveRepositoryPath(path);
   }
-  return isDependencyInputPath(path, workspacePatterns);
+  return isDependencyInputPath(path, workspacePatterns, localDirectories);
 }
 
 async function listNonGitFiles(
@@ -854,6 +935,9 @@ async function listNonGitFiles(
   const root = await realpath(dir);
   const workspacePatterns = profile === 'dependency-inputs'
     ? await dependencyWorkspacePatterns(root)
+    : [];
+  const localDirectories = profile === 'dependency-inputs'
+    ? await localDependencyDirectories(root)
     : [];
   const files: string[] = [];
   const directories = [''];
@@ -929,11 +1013,11 @@ async function listNonGitFiles(
             `ConTree snapshot exceeds ${MAX_SNAPSHOT_FILES} files`,
           );
         }
-        if (includeSnapshotPath(path, profile, workspacePatterns)) files.push(path);
+        if (includeSnapshotPath(path, profile, workspacePatterns, localDirectories)) files.push(path);
       } else if (metadata.isDirectory()) {
         directories.push(path);
       } else if (metadata.isFile()) {
-        if (!includeSnapshotPath(path, profile, workspacePatterns)) continue;
+        if (!includeSnapshotPath(path, profile, workspacePatterns, localDirectories)) continue;
         if (files.length >= MAX_SNAPSHOT_FILES) {
           throw new ContreeError(
             `ConTree snapshot exceeds ${MAX_SNAPSHOT_FILES} files`,
@@ -956,13 +1040,16 @@ async function listNonGitFiles(
   return files;
 }
 
-async function listSnapshotFiles(
+export async function listSnapshotFiles(
   dir: string,
   profile: SnapshotProfile,
 ): Promise<string[]> {
   if (profile === 'dependency-inputs') await assertNoNpmrc(dir);
   const workspacePatterns = profile === 'dependency-inputs'
     ? await dependencyWorkspacePatterns(dir)
+    : [];
+  const localDirectories = profile === 'dependency-inputs'
+    ? await localDependencyDirectories(dir)
     : [];
   try {
     const listed = await runProcess('git', [
@@ -993,7 +1080,7 @@ async function listSnapshotFiles(
       );
     }
     const files = listedFiles.filter((path) =>
-      includeSnapshotPath(path, profile, workspacePatterns));
+      includeSnapshotPath(path, profile, workspacePatterns, localDirectories));
     await validateSnapshotFiles(dir, files, profile);
     return files;
   } catch (error) {

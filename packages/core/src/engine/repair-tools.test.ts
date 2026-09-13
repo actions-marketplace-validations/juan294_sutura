@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -12,6 +13,7 @@ import type { Executor, RunResult } from '../executor/types.js';
 import { createDefaultRepositoryPolicy } from '../policy/load.js';
 import { RepairBudget, DEFAULT_REPAIR_BUDGET_LIMITS } from './repair-budget.js';
 import type { RepairSourceContext } from './repair.js';
+import { createRepairAuthorizationSession, deriveRepairAuthorization } from './repair-authorization.js';
 import { RepairToolRuntime } from './repair-tools.js';
 
 const diagnosis: Diagnosis = {
@@ -62,6 +64,55 @@ function runtime(
 }
 
 describe('RepairToolRuntime', () => {
+  it('locally stops an ignored executor deadline while preserving reserved audit time', async () => {
+    vi.useFakeTimers();
+    try {
+      const budget = new RepairBudget({ elapsedTimeSec: 61 });
+      const audit = budget.reserveCapacity({ elapsedTimeSec: 60 });
+      const run = vi.fn(() => new Promise<RunResult>(() => {}));
+      const cancel = vi.fn(async (operationId: string) => ({ operationId, requested: true, terminal: 'cancelled' as const }));
+      const tools = toolsFor({ ...executorFor(run), cancel }, createDefaultRepositoryPolicy(), budget);
+      let observed: Awaited<ReturnType<typeof tools.execute>> | undefined;
+      void tools.execute('run_test', { commandId: 'diagnosed' }).then((value) => { observed = value; });
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(observed).toMatchObject({ ok: false, kind: 'budget' });
+      const operationId = (run.mock.calls[0] as unknown as [string, string, { operationId: string }])[2].operationId;
+      expect(operationId).toEqual(expect.any(String));
+      expect(cancel).toHaveBeenCalledWith(operationId);
+      expect(budget.remainingElapsedTimeSec(audit)).toBe(60);
+      expect(budget.snapshot().sandboxOperations).toBe(1);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('authorizes both the proposed and exact sandbox cumulative test repair', async () => {
+    const before = 'import { test, expect } from "vitest"; test("value", async () => { expect(load()).toBe("ok"); });\n';
+    const patch = (after: string) => [
+      'diff --git a/case.test.js b/case.test.js', '--- a/case.test.js', '+++ b/case.test.js',
+      '@@ -1 +1 @@', `-${before.trimEnd()}`, `+${after.trimEnd()}`, '',
+    ].join('\n');
+    const good = patch(before.replace('expect(load())', 'expect(await load())'));
+    const tampered = patch(before.replace('expect(load())', 'expect(await load())').replace('"ok"', '"wrong"'));
+    const policy = createDefaultRepositoryPolicy();
+    const baseline = { kind: 'local-snapshot' as const, sourceSha: null, policyBaseSha: null,
+      snapshotSha256: null, policySha256: 'a'.repeat(64), baselineImageId: 'baseline' };
+    const sourceContext = { sources: [{ path: 'case.test.js', startLine: 1, content: before, truncated: false }] };
+    const session = createRepairAuthorizationSession({ baseline, failingCommand: diagnosis.failingCmd, policy, sources: sourceContext.sources });
+    expect(await deriveRepairAuthorization(session, { kind: 'await-operation', path: 'case.test.js',
+      evidenceReferences: ['promise-mismatch'], controllerProbe: { sourceSha256: createHash('sha256').update(before).digest('hex'), failingCommand: diagnosis.failingCmd, id: 'async-completion', imageId: 'baseline', exitCode: 1, output: 'Expected Promise to equal ok' },
+    })).toEqual({ ok: true });
+    const run = vi.fn().mockResolvedValueOnce(runResult('tampered', tampered))
+      .mockResolvedValueOnce(runResult('accepted', good));
+    const tools = new RepairToolRuntime({ executor: executorFor(run), initialImageId: 'baseline',
+      diagnosis, policy, budget: new RepairBudget(), sourceContext,
+      trustedCommands: { diagnosed: 'pnpm test' }, authorization: { session, baseline },
+    });
+    await expect(tools.execute('apply_patch', { diff: good })).resolves.toMatchObject({ ok: false, kind: 'policy' });
+    expect(tools.state().editableImageId).toBe('baseline');
+    await expect(tools.execute('apply_patch', { diff: good })).resolves.toMatchObject({ ok: true, imageId: 'accepted' });
+    await expect(tools.execute('apply_patch', { diff: tampered })).resolves.toMatchObject({ ok: false, kind: 'policy' });
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects sensitive and policy-denied reads before sandbox execution', async () => {
     const { tools, run } = runtime([]);
     await expect(tools.execute('read_file', { path: '.env' })).resolves.toMatchObject({ ok: false, kind: 'policy' });

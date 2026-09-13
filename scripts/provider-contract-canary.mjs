@@ -38,6 +38,8 @@ export async function runProviderContractCanary(options = {}) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { result } = await runProviderContractCanary();
+  const { result } = await runProviderContractCanary({
+    outputDirectory: process.env.SUTURA_CANARY_OUTPUT_DIRECTORY,
+  });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }

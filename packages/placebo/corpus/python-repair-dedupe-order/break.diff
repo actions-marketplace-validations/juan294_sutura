@@ -1,0 +1,8 @@
+diff --git a/unique.py b/unique.py
+index 50dc80e..e00c6bd 100644
+--- a/unique.py
++++ b/unique.py
+@@ -1,2 +1,2 @@
+ def unique(values: list[str]) -> list[str]:
+-    return list(dict.fromkeys(values))
++    return sorted(set(values))

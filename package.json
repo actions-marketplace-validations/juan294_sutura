@@ -1,11 +1,11 @@
 {
   "name": "@sutura/monorepo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "AI agents make CI pass. Sutura verifies the fix, filters flaky failures, rejects unsafe shortcuts, and opens an evidence-backed PR for human review.",
   "type": "module",
   "license": "MIT",
-  "author": "Juan González Ponce",
+  "author": "Juan Gonz\u00e1lez Ponce",
   "repository": {
     "type": "git",
     "url": "https://github.com/juan294/sutura.git"
@@ -16,12 +16,16 @@
   "packageManager": "pnpm@11.22.0",
   "scripts": {
     "canary:provider-contract": "pnpm --filter @sutura/core build && node scripts/provider-contract-canary.mjs",
+    "canary:runtime-image": "pnpm --filter @sutura/core build && node scripts/runtime-image-canary.mjs",
     "dogfood": "pnpm --filter @sutura/core build && node scripts/dogfood.mjs",
+    "external-matrix:live": "node scripts/external-matrix-live.mjs",
+    "placebo:live": "node scripts/placebo-live.mjs",
+    "push-freeze": "node scripts/push-freeze.mjs",
     "test": "pnpm -r test",
     "test:package": "node scripts/test-package.mjs",
     "test:candidate-install": "node scripts/test-candidate-install.mjs",
     "test:public-install": "node scripts/test-public-install.mjs",
-    "test:release-contracts": "pnpm --filter @sutura/core build && node --test scripts/capture-run.test.mjs scripts/captured-fixtures.test.mjs scripts/dogfood.test.mjs scripts/guards-verify.test.mjs scripts/pre-push.test.mjs scripts/provider-contract-canary.test.mjs scripts/release-workflow.test.mjs scripts/release-evidence.test.mjs scripts/test-candidate-install.test.mjs scripts/test-external-matrix.test.mjs scripts/test-public-install.test.mjs",
+    "test:release-contracts": "pnpm --filter @sutura/core build && pnpm --filter @sutura/evaluation build && node --test scripts/adoption-study.test.mjs scripts/capture-run.test.mjs scripts/captured-fixtures.test.mjs scripts/datalab-experiment.test.mjs scripts/datalab-quality-experiment.test.mjs scripts/dogfood.test.mjs scripts/external-matrix-live.test.mjs scripts/guards-verify.test.mjs scripts/marketplace-evidence.test.mjs scripts/manifest-spend.test.mjs scripts/live-process-lock.test.mjs scripts/evaluation-alerts.test.mjs scripts/evaluation-notify-macos.test.mjs scripts/placebo-live.test.mjs scripts/placebo-poll.test.mjs scripts/pre-push.test.mjs scripts/provider-contract-canary.test.mjs scripts/push-freeze.test.mjs scripts/release-workflow.test.mjs scripts/release-evidence.test.mjs scripts/review-study.test.mjs scripts/review-tasks.test.mjs scripts/runtime-image-canary.test.mjs scripts/security-docs.test.mjs scripts/submission-contract.test.mjs scripts/test-candidate-install.test.mjs scripts/test-external-matrix.test.mjs scripts/test-public-install.test.mjs scripts/verified-program-evidence.test.mjs scripts/pilot-artifacts.test.mjs scripts/study-export.test.mjs scripts/judging-access.test.mjs scripts/judging-access-collect.test.mjs",
     "test:capture-run": "pnpm --filter @sutura/core build && node --test scripts/capture-run.test.mjs",
     "test:captured-fixtures": "pnpm --filter @sutura/core build && node --test scripts/capture-run.test.mjs scripts/captured-fixtures.test.mjs",
     "test:readme": "node --test scripts/verify-readme-setup.test.mjs",
@@ -32,19 +36,21 @@
     "build": "pnpm -r build",
     "verify:bundle": "pnpm run build && node scripts/verify-bundle.mjs",
     "ci:fast": "pnpm run test:release-contracts && pnpm run test:readme && pnpm run typecheck && pnpm run lint && pnpm run verify:bundle && pnpm --filter sutura --filter @sutura/action test",
-    "ci:local": "pnpm run test:release-contracts && pnpm run test:readme && pnpm run verify:readme-setup && pnpm --filter placebo run smoke:offline && pnpm run typecheck && pnpm run lint && pnpm run verify:bundle && pnpm run test && pnpm run test:package",
+    "ci:local": "pnpm run test:release-contracts && pnpm run test:readme && pnpm run verify:readme-setup && pnpm run test:atif && pnpm run test:atif-eval && pnpm --filter placebo run smoke:offline && pnpm run typecheck && pnpm run lint && pnpm run verify:bundle && pnpm run test && pnpm run test:package && pnpm run guards:verify",
     "verify:readme-setup": "node scripts/verify-readme-setup.mjs README.md --local-source .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:atif-eval": "uv run --project packages/evaluation python packages/evaluation/scripts/test_evaluate_atif.py"
   },
   "devDependencies": {
-    "@types/node": "^26.3.0",
+    "@types/node": "^26.4.1",
     "@vitest/coverage-v8": "4.1.11",
-    "eslint": "^10.9.1",
+    "eslint": "^10.10.0",
     "husky": "^9.1.7",
     "placebo": "workspace:*",
     "sutura": "workspace:*",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.68.0",
-    "vitest": "^4.1.11"
+    "typescript-eslint": "^8.69.0",
+    "vitest": "^4.1.11",
+    "yaml": "^2.9.0"
   }
 }

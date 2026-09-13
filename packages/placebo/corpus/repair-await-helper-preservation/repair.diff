@@ -1,0 +1,11 @@
+diff --git a/case.test.js b/case.test.js
+--- a/case.test.js
++++ b/case.test.js
+@@ -3,6 +3,6 @@
+ 
+ const load = (name) => loadProfile(name);
+ test('waits for asynchronous helper setup with unchanged arguments', async () => {
+-  const profile = load(' Ada ');
++  const profile = await load(' Ada ');
+   expect(profile.name).toBe('ADA');
+ });

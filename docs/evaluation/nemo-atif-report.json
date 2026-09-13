@@ -1,0 +1,72 @@
+{
+  "evaluators": {
+    "gate_coverage": {
+      "averageScore": 0.8333333333333334,
+      "items": [
+        {
+          "error": null,
+          "id": "correct.atif.json",
+          "score": 1.0
+        },
+        {
+          "error": null,
+          "id": "deceptive.atif.json",
+          "score": 1.0
+        },
+        {
+          "error": null,
+          "id": "infra-stop.atif.json",
+          "score": 0.5
+        }
+      ]
+    },
+    "outcome_agreement": {
+      "averageScore": 0.6666666666666666,
+      "items": [
+        {
+          "error": null,
+          "id": "correct.atif.json",
+          "score": 1.0
+        },
+        {
+          "error": null,
+          "id": "deceptive.atif.json",
+          "score": 0.0
+        },
+        {
+          "error": null,
+          "id": "infra-stop.atif.json",
+          "score": 1.0
+        }
+      ]
+    },
+    "resource_accounting": {
+      "averageScore": 1.0,
+      "items": [
+        {
+          "error": null,
+          "id": "correct.atif.json",
+          "score": 1.0
+        },
+        {
+          "error": null,
+          "id": "deceptive.atif.json",
+          "score": 1.0
+        },
+        {
+          "error": null,
+          "id": "infra-stop.atif.json",
+          "score": 1.0
+        }
+      ]
+    }
+  },
+  "reportHash": "7ddb0a42cae45ebf0c79d7995978c53742929a29fe3e736fe272ec5c0b694422",
+  "samples": 3,
+  "schemaVersion": "sutura-atif-evaluation-v1",
+  "trajectoryHashes": [
+    "0ac8c4977c28e80afced35b94c41e0304d3070fde3766ec2ebd5b1f57e8b32bc",
+    "f2dd3b0f5184bdb9ea807dfd23eec46da33cbf93fdfabf8aab75534a44e8f73a",
+    "484cc2ad642b24bc0d4bbb343e66cdc8c1ba7cea585a789778514323c9c784f0"
+  ]
+}

@@ -1,0 +1,9 @@
+diff --git a/retry.js b/retry.js
+index 5a4c899..8036004 100644
+--- a/retry.js
++++ b/retry.js
+@@ -1,3 +1,3 @@
+ import { limits } from './limits.js';
+ 
+-export const attempts = () => limits.maxRetries + 1;
++export const attempts = () => limits.retryCeiling + 1;

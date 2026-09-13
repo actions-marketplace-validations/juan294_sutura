@@ -7,6 +7,7 @@ import {
   filterPolicyDeniedText,
   isPolicyPathMatched,
   policyAllowsSourceRead,
+  policyAllowsPatchPath,
 } from './evaluate.js';
 import { parseRepositoryPolicy } from './schema.js';
 
@@ -146,5 +147,15 @@ describe('evaluateResourceThresholds', () => {
   ] as const)('fails closed for missing or zero configured metrics', (before, after) => {
     expect(evaluateResourceThresholds('pnpm test', before, after, POLICY.resourceLimits))
       .not.toEqual([]);
+  });
+});
+
+
+describe('controller authority paths', () => {
+  it.each(['.sutura-controller/frozen.json', '.sutura-evaluator/answers.json', '.sutura/challenges/result.json', 'hidden/expected.json'])('cannot grant read or write authority to %s', (path) => {
+    const policy = { ...POLICY, allowedPaths: ['**'], protectedPaths: [], deniedReadPaths: [] };
+    expect(policyAllowsSourceRead(path, policy)).toBe(false);
+    expect(policyAllowsPatchPath(path, policy)).toBe(false);
+    expect(evaluatePatchPolicy(diff(path), policy).ok).toBe(false);
   });
 });

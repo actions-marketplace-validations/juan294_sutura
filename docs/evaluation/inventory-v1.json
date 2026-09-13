@@ -1,0 +1,614 @@
+{
+  "status": "frozen",
+  "schemaVersion": "sutura-evaluation-inventory-v1",
+  "corpusRevision": "0.2",
+  "counts": {
+    "development": 60,
+    "validation": 20,
+    "held-out": 20
+  },
+  "splitHash": "49fb4609a602e609a6f31596522a4b229b3fc56ba670ce6a29d764905364a683",
+  "inventoryHash": "e743598733bbd024ee66ebe9715619ae6061ec91a22f3570c44dfcf957c35272",
+  "cases": [
+    {
+      "caseId": "flaky-filesystem-visibility",
+      "rootFamily": "flaky-filesystem-visibility",
+      "split": "development",
+      "contentHash": "b4ac05cd399142cf7cf908a2a75e95ad6ab270999a53a89da33abd3cb8d451af"
+    },
+    {
+      "caseId": "flaky-order-cache",
+      "rootFamily": "flaky-order-cache",
+      "split": "development",
+      "contentHash": "0f336085e5894c5ee593f35fa5a0ad763b5dcecd24fe3f222673ed1dc76d8fe1"
+    },
+    {
+      "caseId": "flaky-port-collision",
+      "rootFamily": "flaky-port-collision",
+      "split": "validation",
+      "contentHash": "e8ed4f7a82ba2a41a5d302f6f1d29234758373c23d654b17079d8e34799dccd3"
+    },
+    {
+      "caseId": "flaky-port-worker",
+      "rootFamily": "flaky-port-worker",
+      "split": "held-out",
+      "contentHash": "4f11ffbe1016958812d8287e84fa096e607e2518471dda30130b1d122bda33e2"
+    },
+    {
+      "caseId": "flaky-random-threshold",
+      "rootFamily": "flaky-random-threshold",
+      "split": "development",
+      "contentHash": "23810ca8c97f7759f84da862c14b8dae2693666bde557455936823cc1d81938a"
+    },
+    {
+      "caseId": "flaky-shared-counter",
+      "rootFamily": "shared-counter-state",
+      "split": "development",
+      "contentHash": "d062284d2544a04cb3f07702c6ca76ceba1b4089fe2a735016598c7aa75d2405"
+    },
+    {
+      "caseId": "flaky-simulated-network",
+      "rootFamily": "flaky-simulated-network",
+      "split": "development",
+      "contentHash": "d602aa9e296c3df4702acf9e0d83b2886876d395e6375e92b3233a38bb817cd4"
+    },
+    {
+      "caseId": "flaky-test-order",
+      "rootFamily": "flaky-test-order",
+      "split": "development",
+      "contentHash": "a9a47c27612cf53d02d433044a04a1e6a22fea16e9cbe583bbfe97b19bf24d6f"
+    },
+    {
+      "caseId": "flaky-timer-race",
+      "rootFamily": "flaky-timer-race",
+      "split": "validation",
+      "contentHash": "4e4fc17e758305317f541e77ee5c3cfd2ceb5a717923ee3d92b115e7f9215dc4"
+    },
+    {
+      "caseId": "flaky-timing-deadline",
+      "rootFamily": "flaky-timing-deadline",
+      "split": "held-out",
+      "contentHash": "db174ab91f4f95b2c0c47674882ecb7a2ec8914fd4e445aeba3f7691660aed1f"
+    },
+    {
+      "caseId": "python-flaky-clock-boundary",
+      "rootFamily": "clock-boundary",
+      "split": "held-out",
+      "contentHash": "3342b206912f7bc2c836e83bb3dad6024a401b7e616a242a8c316018c4aa4a96"
+    },
+    {
+      "caseId": "python-flaky-set-iteration",
+      "rootFamily": "set-iteration-order",
+      "split": "validation",
+      "contentHash": "6b50adace3abda0462adce2be17a892c22416e62bd43073df28baf869c6bae86"
+    },
+    {
+      "caseId": "python-flaky-timer",
+      "rootFamily": "python-flaky-timer",
+      "split": "development",
+      "contentHash": "ac20d8f6233315cc03c34aa0b55061e53f34201e2a4b7221b9d95565a310e461"
+    },
+    {
+      "caseId": "python-repair-await-result-preservation",
+      "rootFamily": "await-recovery",
+      "split": "validation",
+      "contentHash": "6146ab95971f526df94c869065704f1bf534ff55cd6e3e74ece1d5afd5390ee9"
+    },
+    {
+      "caseId": "python-repair-cache-key",
+      "rootFamily": "python-repair-cache-key",
+      "split": "validation",
+      "contentHash": "1d04a0a93f68d1e8df3497c9dad8f5eb5ffbace846f09f4897b519fc9132e628"
+    },
+    {
+      "caseId": "python-repair-context-manager",
+      "rootFamily": "resource-release",
+      "split": "development",
+      "contentHash": "2ae689f9893f126e63fdf18e6ba9bc25532065f136981ab6832031d0b67b72ca"
+    },
+    {
+      "caseId": "python-repair-decimal-rounding",
+      "rootFamily": "decimal-money-rounding",
+      "split": "development",
+      "contentHash": "105faaf84e93ff309fe1394d7a69ad7060e2c6f828c6955d8e5b341f8d5d181f"
+    },
+    {
+      "caseId": "python-repair-dedupe-order",
+      "rootFamily": "deduplication-order",
+      "split": "development",
+      "contentHash": "20bef2545919c455c35230986534d8d9111755a54ec853655e739f1a1ed0332a"
+    },
+    {
+      "caseId": "python-repair-dict-default",
+      "rootFamily": "missing-lookup-default",
+      "split": "development",
+      "contentHash": "17d27f1e93e95ef76ecc7683260268f373697c64ae7f47d2e6b17ac65a8cb713"
+    },
+    {
+      "caseId": "python-repair-gather-order",
+      "rootFamily": "gather-result-order",
+      "split": "development",
+      "contentHash": "e941bcbb66da89e8e91ebfa2242657c0e54f68a7a3c3a6f1236422149ebe8f3d"
+    },
+    {
+      "caseId": "python-repair-integer-division",
+      "rootFamily": "integer-division",
+      "split": "development",
+      "contentHash": "cbad81f35e02c0a3ff4dfcf769071fd9256fc37e5b8463cb253a3adb93f7ab02"
+    },
+    {
+      "caseId": "python-repair-list-alias",
+      "rootFamily": "internal-list-aliasing",
+      "split": "development",
+      "contentHash": "866a04f87bffb4e819b793e65711d804fe3ff982a9416179980efe96d6f5e739"
+    },
+    {
+      "caseId": "python-repair-missing-await",
+      "rootFamily": "python-repair-missing-await",
+      "split": "held-out",
+      "contentHash": "dadb5e259908aa34ed58ed82889a7e19ef3850cac22315f15a16b4de40d4fce7"
+    },
+    {
+      "caseId": "python-repair-mutable-default",
+      "rootFamily": "mutable-default-argument",
+      "split": "development",
+      "contentHash": "67dece082ff65d36546c785a894ce828c093f7c99a1de6dd021e21e3fe2975be"
+    },
+    {
+      "caseId": "python-repair-range-bound",
+      "rootFamily": "range-exclusive-bound",
+      "split": "development",
+      "contentHash": "48dac3176d017d1f8f8853ddb18aecf585d14cefc3c17d43851958a6cc6e1677"
+    },
+    {
+      "caseId": "python-repair-regex-anchor",
+      "rootFamily": "regex-anchoring",
+      "split": "development",
+      "contentHash": "0ffbe685058a2cf6e65d0ee008bac5e0807e0987ac9733d42124b9c0a3bacdc8"
+    },
+    {
+      "caseId": "python-repair-sort-key",
+      "rootFamily": "sort-key-selection",
+      "split": "development",
+      "contentHash": "f0bbab9c45558432072aa9030f8b5dca76e914f41952cd6233af230894132730"
+    },
+    {
+      "caseId": "python-repair-strip-suffix",
+      "rootFamily": "strip-character-set",
+      "split": "development",
+      "contentHash": "9d7c8e70de6f3812ada161a5c81c17bff15564afc3df0915bf0d01ebdc2d6173"
+    },
+    {
+      "caseId": "python-repair-timezone-aware",
+      "rootFamily": "timezone-aware-comparison",
+      "split": "development",
+      "contentHash": "b63f315dd58b520957cbb8c722ca9ee5f751876b858c56c4b2294106632999de"
+    },
+    {
+      "caseId": "python-repair-two-file-call-contract",
+      "rootFamily": "two-file-transaction",
+      "split": "development",
+      "contentHash": "b6a9e305542249e031877d77f078d692bf47309e2893e5ae497b9352d6258325"
+    },
+    {
+      "caseId": "python-repair-type-mismatch",
+      "rootFamily": "python-repair-type-mismatch",
+      "split": "development",
+      "contentHash": "59bd6ce070664326e2f3862ef063971c83ba440eb94a9a0bb132f989f4e2b74d"
+    },
+    {
+      "caseId": "python-repair-wrong-import",
+      "rootFamily": "python-repair-wrong-import",
+      "split": "development",
+      "contentHash": "ec237d67ccf5a893308a512ad1aa5bee200edb6e1df24761b04cb90a1e8ee34d"
+    },
+    {
+      "caseId": "python-trap-assert-true",
+      "rootFamily": "tautological-python-assertion",
+      "split": "development",
+      "contentHash": "87f8960bc5232ea31219b32f8742aa63e8032fd5c56be3af210463c9e974a8f3"
+    },
+    {
+      "caseId": "python-trap-broad-type-ignore",
+      "rootFamily": "python-trap-broad-type-ignore",
+      "split": "development",
+      "contentHash": "7b847d3a5565f0e076c4355d82406a10e6511f0d1337fc09992ea5bcd0704260"
+    },
+    {
+      "caseId": "python-trap-expected-failure",
+      "rootFamily": "expected-failure-marker",
+      "split": "development",
+      "contentHash": "8af9d3242458e0df300d7d1ed2c4ea1837fe6637339f6930ace29b5f575511b4"
+    },
+    {
+      "caseId": "python-trap-patched-subject",
+      "rootFamily": "patched-subject-under-test",
+      "split": "development",
+      "contentHash": "a4c50e1e2dc93e0860e5f637739ec9fb8fd37426e0e29a0acd214b192a90a36e"
+    },
+    {
+      "caseId": "python-trap-skipped-test",
+      "rootFamily": "python-trap-skipped-test",
+      "split": "validation",
+      "contentHash": "bb6b50d424615a679cea882b0217bcc38cc8be7c96b3e1ca584cb3411a2d564f"
+    },
+    {
+      "caseId": "python-trap-swallowed-exception",
+      "rootFamily": "python-trap-swallowed-exception",
+      "split": "held-out",
+      "contentHash": "ae04a1b52206f9a26b365d0ab597bb59d4413a30dfafdf4a72dcda93be814fd5"
+    },
+    {
+      "caseId": "python-trap-widened-tolerance",
+      "rootFamily": "numeric-tolerance-widening",
+      "split": "development",
+      "contentHash": "1025a74504c51e6f2c7237b711f1d93170906ecd81d81039d7adc38ed82adb03"
+    },
+    {
+      "caseId": "repair-await-helper-preservation",
+      "rootFamily": "await-recovery",
+      "split": "validation",
+      "contentHash": "9c4b018d52d2d76df457bd43ffcf127f6036304657dea350fbbae92077701db6"
+    },
+    {
+      "caseId": "repair-bad-import",
+      "rootFamily": "repair-bad-import",
+      "split": "validation",
+      "contentHash": "35e66785b64a33bb94254161fe23a0d6298a769a5e735bb5a0fc637ac274e12a"
+    },
+    {
+      "caseId": "repair-cache-invalidation-target",
+      "rootFamily": "repair-cache-invalidation-target",
+      "split": "held-out",
+      "contentHash": "5b1ecf592a188135d882dffddf2f0ada20a99b4cc3cb108832107c4c464a0119"
+    },
+    {
+      "caseId": "repair-discriminated-union",
+      "rootFamily": "discriminated-union-narrowing",
+      "split": "validation",
+      "contentHash": "f530a2a674f6c4292f35cbce80d0e93ef438898db2bfa1e83cf629d96fa5bc30"
+    },
+    {
+      "caseId": "repair-esm-extension",
+      "rootFamily": "repair-esm-extension",
+      "split": "development",
+      "contentHash": "ae268f049385dcc47a05302d8e309e7198e479f4b579ae87a2adedfebd18afd5"
+    },
+    {
+      "caseId": "repair-esm-extension-nested",
+      "rootFamily": "repair-esm-extension-nested",
+      "split": "development",
+      "contentHash": "fc210acf46c08b94e9dde7fa5f98c9c82e96dee4fcca98e9fef96c7a0a745463"
+    },
+    {
+      "caseId": "repair-hard-async-retry",
+      "rootFamily": "repair-hard-async-retry",
+      "split": "development",
+      "contentHash": "3ea92fd4037041c22682f01df072f1f13b72dd3fdd047a4c0e1c3629fffda443"
+    },
+    {
+      "caseId": "repair-hard-cache-invalidation",
+      "rootFamily": "repair-hard-cache-invalidation",
+      "split": "validation",
+      "contentHash": "59762799dad66f80bbde896a30859bf3e629f7e2dd22537b05ade3f313816b2f"
+    },
+    {
+      "caseId": "repair-json-clone-dates",
+      "rootFamily": "json-clone-loses-types",
+      "split": "validation",
+      "contentHash": "42c5e7d4c82f3351a3b12efdf97e81aebd680accdd0a90a6ba1aa7aa045e7fc5"
+    },
+    {
+      "caseId": "repair-lint-autofix",
+      "rootFamily": "repair-lint-autofix",
+      "split": "held-out",
+      "contentHash": "a679832fea9e01375a8ec7104914db1c8eed354afc9746203069a79ba888832f"
+    },
+    {
+      "caseId": "repair-map-key-identity",
+      "rootFamily": "map-key-identity",
+      "split": "development",
+      "contentHash": "61c0a35636d6ba469eff5aee96e4a7e571fcbf0504f2e6c41825e73f1b66265d"
+    },
+    {
+      "caseId": "repair-missing-await",
+      "rootFamily": "repair-missing-await",
+      "split": "development",
+      "contentHash": "600b5e154edfb71df50c1d8e0785dd7dad511a1aea02b4d3a7a8fea5d15a6a53"
+    },
+    {
+      "caseId": "repair-missing-await-setup",
+      "rootFamily": "repair-missing-await-setup",
+      "split": "development",
+      "contentHash": "3b743c3abe22457594742a6edc31b6ef130a32db05973b3e13a3c0fdf87746df"
+    },
+    {
+      "caseId": "repair-month-index",
+      "rootFamily": "zero-based-month",
+      "split": "held-out",
+      "contentHash": "2a68a742e1be00f5302344310df330bda921cfc2f59ccf9500a7de72738553b8"
+    },
+    {
+      "caseId": "repair-null-guard",
+      "rootFamily": "repair-null-guard",
+      "split": "development",
+      "contentHash": "da0e535c17d8bb13846e885b33d6febb1da99e62ce6c906c8470f922e9be8b03"
+    },
+    {
+      "caseId": "repair-off-by-one",
+      "rootFamily": "repair-off-by-one",
+      "split": "validation",
+      "contentHash": "f82c2dc032fac7ee086f18b0a2af9106db94035556a7304cec00d5378c1e6365"
+    },
+    {
+      "caseId": "repair-off-by-one-preservation",
+      "rootFamily": "pagination-ceiling-division",
+      "split": "validation",
+      "contentHash": "55ab8ff8ff3be8169685b95c503c57dacbeacbb2d80cf2deac7d16292a42291d"
+    },
+    {
+      "caseId": "repair-optional-index-access",
+      "rootFamily": "optional-index-access",
+      "split": "development",
+      "contentHash": "d2cf681fe468cb1e625012bf2359a2551c96c870212e21989bb7d6af4cf7378d"
+    },
+    {
+      "caseId": "repair-parse-radix",
+      "rootFamily": "parse-radix",
+      "split": "held-out",
+      "contentHash": "9dc9c515883d6439bd93bc74f06f07f0a8c17d439e21f924e39bd3958a753951"
+    },
+    {
+      "caseId": "repair-percent-rounding-preservation",
+      "rootFamily": "percentage-half-up-rounding",
+      "split": "development",
+      "contentHash": "7eeee0f29ce085e4d09f591d32c8fc65b78441991619e86bcef42377f8a48e77"
+    },
+    {
+      "caseId": "repair-regex-last-index",
+      "rootFamily": "regex-last-index",
+      "split": "development",
+      "contentHash": "925a926c76fe2f83ab67ff1d11c9b69d0ff3e4380ffea6d67a0ec9abf7fdade1"
+    },
+    {
+      "caseId": "repair-settled-results",
+      "rootFamily": "settled-result-handling",
+      "split": "held-out",
+      "contentHash": "54b2d8743145b1b8b371f36014dd5a2caec014d9ca9ac02deeff8f3db62f4338"
+    },
+    {
+      "caseId": "repair-shallow-copy-mutation",
+      "rootFamily": "shallow-copy-mutation",
+      "split": "development",
+      "contentHash": "e022ac6def7b585f8656bb1ce0e6e4e88f9296d2123206cf237c2ab27bae2864"
+    },
+    {
+      "caseId": "repair-sort-comparator",
+      "rootFamily": "numeric-sort-comparator",
+      "split": "development",
+      "contentHash": "118a095af218d05e5ca4ee0300da251cf2d33dbc3ac73546104da1398e2120be"
+    },
+    {
+      "caseId": "repair-strict-equality",
+      "rootFamily": "strict-equality",
+      "split": "held-out",
+      "contentHash": "086df15c27bcde8499dab8fc23313b0003458e1b600244dabc6cb4a3c61c810d"
+    },
+    {
+      "caseId": "repair-tsconfig-drift",
+      "rootFamily": "repair-tsconfig-drift",
+      "split": "held-out",
+      "contentHash": "35fc3ed732362d652c45a3aed2e6d904230a44f4a46b9e48570ff9462202ce61"
+    },
+    {
+      "caseId": "repair-tsconfig-drift-indexed-access",
+      "rootFamily": "repair-tsconfig-drift-indexed-access",
+      "split": "development",
+      "contentHash": "deb4472d00239967460725898a597005bb07efca5f167da279f1773605af2907"
+    },
+    {
+      "caseId": "repair-two-file-config-contract",
+      "rootFamily": "config-consumer-transaction",
+      "split": "development",
+      "contentHash": "de76251fd27e07e0b6b3b57aaeec355fecdab1217f22938f1f322007a6cb6a55"
+    },
+    {
+      "caseId": "repair-two-file-export-contract",
+      "rootFamily": "two-file-transaction",
+      "split": "development",
+      "contentHash": "5f1fc17eb0109ccf1ecf710601c4a93ee070cdb8c1d1fe793f62df8b1e0ed7ac"
+    },
+    {
+      "caseId": "repair-type-mismatch",
+      "rootFamily": "repair-type-mismatch",
+      "split": "development",
+      "contentHash": "8393bb219a2038fd5c2f0566a45896c738c0f2a7ad4653d7937a5691a952f8f1"
+    },
+    {
+      "caseId": "trap-as-any",
+      "rootFamily": "trap-as-any",
+      "split": "validation",
+      "contentHash": "f564967f58c38bef4b6e027beae47f1fe333b1526883699ec0fa5272e7410340"
+    },
+    {
+      "caseId": "trap-assertion-tautology",
+      "rootFamily": "trap-assertion-tautology",
+      "split": "held-out",
+      "contentHash": "d707972274ed4429132bff46410f394bd1eb26645c9c8b70e9fb2677792653d3"
+    },
+    {
+      "caseId": "trap-conditional-assertion-deletion",
+      "rootFamily": "trap-conditional-assertion-deletion",
+      "split": "development",
+      "contentHash": "540a4525cda3709ffe6f1973c8acf0b7ff7d60e559ad26b501ce03d5bd483eb6"
+    },
+    {
+      "caseId": "trap-deleted-test",
+      "rootFamily": "trap-deleted-test",
+      "split": "development",
+      "contentHash": "4f760a29b3ad1bb6a4b02e9fdd0ac867ccd2fe0d4f82508060b571b487f81502"
+    },
+    {
+      "caseId": "trap-empty-catch",
+      "rootFamily": "empty-catch-block",
+      "split": "held-out",
+      "contentHash": "a4cfa22067517d31e3d86bd726ec4a1ab94ff5fb8b4c4ce47150f847a8b6e530"
+    },
+    {
+      "caseId": "trap-error-propagation-removal",
+      "rootFamily": "trap-error-propagation-removal",
+      "split": "development",
+      "contentHash": "c56c98da6022c6bdb1b7b9e6ded452d290aefdeddaeda7b4e3b67585573d6e8f"
+    },
+    {
+      "caseId": "trap-eslint-off",
+      "rootFamily": "trap-eslint-off",
+      "split": "validation",
+      "contentHash": "3bc9e75cced2c970720697195b4dab3a97612992713ece8ed9b40da5eeb8d94d"
+    },
+    {
+      "caseId": "trap-loosened-precision",
+      "rootFamily": "loosened-precision",
+      "split": "held-out",
+      "contentHash": "68ce30ee5ca7dd194bc4de8ea7b79d2cc89bfdf20a9afa60f97742add64eeac8"
+    },
+    {
+      "caseId": "trap-mocked-dependency-replacement",
+      "rootFamily": "trap-mocked-dependency-replacement",
+      "split": "held-out",
+      "contentHash": "8005fb4bb2abe5bdecd079f4f3b88e18bcee507702f40a1122bd067d050e0128"
+    },
+    {
+      "caseId": "trap-narrowed-test-input",
+      "rootFamily": "narrowed-test-input",
+      "split": "validation",
+      "contentHash": "177d7efb271f526e4b226a8f70ac632972cf3783f1771928085a1dba9655d427"
+    },
+    {
+      "caseId": "trap-non-null-assertion",
+      "rootFamily": "non-null-assertion",
+      "split": "held-out",
+      "contentHash": "4ea320e77f33a1e309d3d0846f14c67a3cd25faa9b9716fc0757f0406bd407b7"
+    },
+    {
+      "caseId": "trap-pass-with-no-tests",
+      "rootFamily": "trap-pass-with-no-tests",
+      "split": "development",
+      "contentHash": "bedce350413c206e193b29fba341dbc525c50738cd09b80cb4bc58eaf0537be8"
+    },
+    {
+      "caseId": "trap-policy-file-modification",
+      "rootFamily": "trap-policy-file-modification",
+      "split": "development",
+      "contentHash": "cd7ef73a1ff433dac30dbe44b519ee6c757e156f910bd60194be8bf0722bb693"
+    },
+    {
+      "caseId": "trap-recovery-assertion-rewrite",
+      "rootFamily": "assertion-recovery",
+      "split": "held-out",
+      "contentHash": "ade8915bd70f9f9f2c0b769631bbd263c00c9a6bafed04eb171c2223a2c25a4f"
+    },
+    {
+      "caseId": "trap-recovery-config-relaxation",
+      "rootFamily": "strict-config-recovery",
+      "split": "validation",
+      "contentHash": "841be54c6683485099b7b963b01a5052d941ea6493bf3347df3947cb41e1b7ea"
+    },
+    {
+      "caseId": "trap-skipped-test",
+      "rootFamily": "trap-skipped-test",
+      "split": "development",
+      "contentHash": "cc2d8197ad54dd912385191d3c5eb41710b63ee2c9c47d8b0aab6547d1528924"
+    },
+    {
+      "caseId": "trap-snapshot-acceptance",
+      "rootFamily": "trap-snapshot-acceptance",
+      "split": "validation",
+      "contentHash": "dd459b9f55920ce3225a02dc3e092e58405884ed9b34d9f9f54599b6710f5606"
+    },
+    {
+      "caseId": "trap-swallowed-error",
+      "rootFamily": "trap-swallowed-error",
+      "split": "held-out",
+      "contentHash": "15c23b18e9b94d021f19c2da6d5af2ecb6e9575d11b04ddc90a4f3397e9112ef"
+    },
+    {
+      "caseId": "trap-test-glob-exclusion",
+      "rootFamily": "trap-test-glob-exclusion",
+      "split": "development",
+      "contentHash": "dab903082d160e54a1b02146c6688c06cb2957887884db7bec249e1b5b2b345f"
+    },
+    {
+      "caseId": "trap-timeout-inflation",
+      "rootFamily": "trap-timeout-inflation",
+      "split": "development",
+      "contentHash": "8a247406b5b86966a0760aba127c6ce7a93b610703b3972bcb0fc019abb81c2a"
+    },
+    {
+      "caseId": "trap-two-file-test-shortcut",
+      "rootFamily": "two-file-transaction",
+      "split": "development",
+      "contentHash": "679b4f73b5c5338583f28728ae5f439e14fb8cff89c46069495be5517c8ab69c"
+    },
+    {
+      "caseId": "trap-two-file-third-path",
+      "rootFamily": "two-file-transaction",
+      "split": "development",
+      "contentHash": "ad390ad790dcdb6338337921ab275ea11dcafff80e765f2076e18fa5dca2c8f5"
+    },
+    {
+      "caseId": "trap-weakened-expect",
+      "rootFamily": "trap-weakened-expect",
+      "split": "development",
+      "contentHash": "89c20f1b891716a82e6e8f3166a91d12cf39fbfb2a865298db63ed78517d70a2"
+    },
+    {
+      "caseId": "trap-workflow-check-removal",
+      "rootFamily": "trap-workflow-check-removal",
+      "split": "validation",
+      "contentHash": "36e355b99b0a9ff97528969c2636cd98c60ca7ca4660b27896c57f3f58967080"
+    },
+    {
+      "caseId": "upstream-client-release",
+      "rootFamily": "upstream-client-release",
+      "split": "held-out",
+      "contentHash": "2cb488112fe21c14ad25a4bf32252ec2f6e5f181bf10138d052083970fb5fc74"
+    },
+    {
+      "caseId": "upstream-formatter-release",
+      "rootFamily": "upstream-formatter-release",
+      "split": "development",
+      "contentHash": "7550c565ce0e959a1a750024118e8e6ad9e9cedf45ed359471f802e4f3a28768"
+    },
+    {
+      "caseId": "upstream-manifest-lockfile-pair",
+      "rootFamily": "two-file-transaction",
+      "split": "development",
+      "contentHash": "5d61516e0fc9ce8e4c2f8034398c437e4ec60fa6807baeb1c3e4b06f900bacab"
+    },
+    {
+      "caseId": "upstream-parser-release",
+      "rootFamily": "upstream-parser-release",
+      "split": "development",
+      "contentHash": "64864a7a1478635bf9530485c7d4fc73394b5e1ab2fc0135463c19e8998580a8"
+    },
+    {
+      "caseId": "upstream-retry-release",
+      "rootFamily": "upstream-retry-release",
+      "split": "development",
+      "contentHash": "e4237368c6784966f7a849e80aa5fb8de269bb0c2a4da173a39457a8893078bb"
+    },
+    {
+      "caseId": "upstream-slug-separator-release",
+      "rootFamily": "upstream-slug-separator",
+      "split": "validation",
+      "contentHash": "dfee5336c9e436ceb6a4ec49105bd8ef697e93a7609434fb5bdc2da2d6867400"
+    },
+    {
+      "caseId": "upstream-two-file-api-migration",
+      "rootFamily": "two-file-transaction",
+      "split": "development",
+      "contentHash": "e1a83afc9687ed1bb954ca3f2d6cff7af520ac1f0051537731a7d87725d5df7c"
+    }
+  ]
+}

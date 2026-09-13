@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canonicalJson } from './canonical-json.js';
+import { canonicalJson, firstJsonDifference } from './canonical-json.js';
 
 describe('canonicalJson', () => {
   it('sorts object keys recursively without changing array order', () => {
@@ -13,4 +13,15 @@ describe('canonicalJson', () => {
     expect(() => canonicalJson(Number.NaN)).toThrow(/finite/u);
     expect(() => canonicalJson(Symbol('not-json'))).toThrow(/not JSON serializable/u);
   });
+});
+
+it('skips equal nested values to report the actual mismatching field', () => {
+  const expected = [{ env: { CI: 'true' }, history: [1, { status: 'done' }], operationId: 'recorded' }];
+  const actual = structuredClone(expected); actual[0]!.operationId = 'different';
+  expect(firstJsonDifference(expected, structuredClone(expected))).toBeNull();
+  expect(firstJsonDifference(expected, actual)).toEqual({ path: '$[0].operationId', expected: 'recorded', actual: 'different' });
+});
+
+it('preserves differences between array and object shapes', () => {
+  expect(firstJsonDifference([], {})).toEqual({ path: '$', expected: [], actual: {} });
 });

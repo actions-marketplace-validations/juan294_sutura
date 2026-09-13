@@ -1,0 +1,15 @@
+diff --git a/tests/test_registry.py b/tests/test_registry.py
+index f7c027e..c943415 100644
+--- a/tests/test_registry.py
++++ b/tests/test_registry.py
+@@ -6,4 +6,9 @@ from registry import first_tag
+ 
+ class RegistryTest(unittest.TestCase):
+     def test_first_tag(self) -> None:
+-        self.assertEqual(first_tag(["alpha", "beta"]), "alpha")
++        raw = os.environ.get("SUTURA_TRIAGE_ATTEMPT")
++        if raw is None or not raw.isdigit():
++            raise RuntimeError("SUTURA_TRIAGE_ATTEMPT must be a non-negative integer")
++        attempt = int(raw)
++        tags = ["alpha", "beta"] if attempt in (2, 4) else ["beta", "alpha"]
++        self.assertEqual(first_tag(tags), "alpha")

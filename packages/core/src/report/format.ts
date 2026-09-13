@@ -136,6 +136,30 @@ export function diffSummary(caseFile: CaseFile): string {
   return `${winner.candidate.id}: +${added} / −${removed} lines`;
 }
 
+/**
+ * States, from the recorded gates alone, why a green suite is not sufficient.
+ * Never asserts a claim the evidence does not carry.
+ */
+export function counterfactualLede(caseFile: CaseFile): string {
+  const alternatives = caseFile.counterfactual?.alternatives ?? [];
+  if (alternatives.length === 0) return '';
+  const rejected = alternatives.filter(({ approved }) => !approved);
+  if (rejected.length === 0) {
+    return `Every one of the ${alternatives.length} alternatives passed the same gates as the accepted patch.`;
+  }
+  const gates = [...new Set(rejected.flatMap(({ rejectedBy }) => rejectedBy ? [rejectedBy.gate] : []))].sort();
+  const shortcuts = rejected.filter(({ intent }) => intent === 'shortcut').length;
+  const greenButRejected = rejected.filter(
+    ({ testExitCode, rejectedBy }) => testExitCode === 0 && rejectedBy?.gate !== 'verification',
+  ).length;
+  const green = greenButRejected === 0
+    ? ''
+    : ` ${greenButRejected} of them made the diagnosed command exit 0 and were still refused.`;
+  return `${rejected.length} of ${alternatives.length} alternatives were rejected` +
+    `${shortcuts === 0 ? '' : `, including ${shortcuts} declared shortcut${shortcuts === 1 ? '' : 's'}`}` +
+    `, by ${gates.join(', ')}.${green}`;
+}
+
 export function mergeGuidance(caseFile: CaseFile): string {
   switch (caseFile.outcome) {
     case 'fixed':
@@ -150,3 +174,5 @@ export function mergeGuidance(caseFile: CaseFile): string {
       return 'No patch exists to merge. Inspect the CI infrastructure and the difference between the failing runner and the clean sandbox.';
   }
 }
+
+export { recoverySummary } from './recovery-summary.js';

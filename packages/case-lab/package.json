@@ -1,0 +1,32 @@
+{
+  "name": "@sutura/case-lab",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Public Sutura Case Lab: server-defined cases, fail-closed dispatcher, deterministic replays, and the signed-out result site.",
+  "type": "module",
+  "bin": {
+    "case-lab": "./bin/case-lab.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "development": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@sutura/core": "workspace:*",
+    "esbuild": "^0.28.2"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "jsdom": "^30.0.1",
+    "typescript": "^6.0.3"
+  }
+}

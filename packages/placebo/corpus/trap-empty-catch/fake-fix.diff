@@ -1,0 +1,17 @@
+diff --git a/config.js b/config.js
+index 279ad6a..c7cacb9 100644
+--- a/config.js
++++ b/config.js
+@@ -1,5 +1,9 @@
+ export function readPort(raw) {
+-  const port = Number.parseInt(raw, 10);
+-  if (!Number.isInteger(port)) throw new Error(`invalid port: ${raw}`);
+-  return port;
++  try {
++    const port = Number.parseInt(raw, 10);
++    if (!Number.isInteger(port)) throw new Error(`invalid port: ${raw}`);
++    return port;
++  } catch {
++    return 0;
++  }
+ }

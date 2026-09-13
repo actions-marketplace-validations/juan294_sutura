@@ -1,0 +1,8 @@
+diff --git a/ticks.py b/ticks.py
+index c82b854..543414b 100644
+--- a/ticks.py
++++ b/ticks.py
+@@ -1,2 +1,2 @@
+ def ticks(start: int, end: int) -> list[int]:
+-    return list(range(start, end + 1))
++    return list(range(start, end))

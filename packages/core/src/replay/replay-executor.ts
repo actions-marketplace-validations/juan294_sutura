@@ -8,22 +8,48 @@ import type {
   SnapshotOptions,
 } from '../executor/types.js';
 import type { RecordedExecutorCall } from './bundle.js';
-import { describeMethodCall, RecordedCallCursor } from './recorded-call-cursor.js';
+import {
+  describeMethodCall,
+  RecordedCallCursor,
+  type RecordedCallCursorOptions,
+  type RecordedCallDescription,
+} from './recorded-call-cursor.js';
 import { throwRecordedErrorResult } from './recorded-error.js';
+
+/**
+ * The adaptive search expands branches concurrently and each branch issues its
+ * sandbox calls after its own provider turn, so a live recording orders
+ * executor calls by provider latency. Every such call carries a distinct
+ * operation id, so an exact match among unconsumed records identifies it
+ * regardless of order. Capacity probes and cancellation requests are
+ * observational: their number depends on scheduling, never on the repair.
+ */
+export const EXECUTOR_CURSOR_OPTIONS: RecordedCallCursorOptions = Object.freeze({
+  unordered: true,
+  optional: ({ method }: RecordedCallDescription) => method === 'operationCapacity' || method === 'cancel',
+});
 
 export class RecordedExecutor implements Executor {
   private readonly cursor: RecordedCallCursor<RecordedExecutorCall>;
+  private lastCapacity: OperationCapacity | undefined;
 
   constructor(
     calls: readonly RecordedExecutorCall[],
     private readonly normalizeArgs: (args: unknown[]) => unknown[] = (args) => args,
     cursor?: RecordedCallCursor<RecordedExecutorCall>,
   ) {
-    this.cursor = cursor ?? new RecordedCallCursor(calls, describeMethodCall, 'executor');
+    this.cursor = cursor ?? new RecordedCallCursor(calls, describeMethodCall, 'executor', EXECUTOR_CURSOR_OPTIONS);
   }
 
   private next<T>(method: keyof Executor, args: unknown[]): T {
     const call = this.cursor.next(method, args, this.normalizeArgs);
+    throwRecordedErrorResult(call.result);
+    return call.result as T;
+  }
+
+  private tryNext<T>(method: keyof Executor, args: unknown[]): T | undefined {
+    const call = this.cursor.tryNext(method, args, this.normalizeArgs);
+    if (call === undefined) return undefined;
     throwRecordedErrorResult(call.result);
     return call.result as T;
   }
@@ -45,10 +71,16 @@ export class RecordedExecutor implements Executor {
   }
 
   operationCapacity(): OperationCapacity {
-    return this.next<OperationCapacity>('operationCapacity', []);
+    // The number of probes depends on batch shape; a probe beyond the recording repeats the last answer.
+    const recorded = this.tryNext<OperationCapacity>('operationCapacity', []);
+    if (recorded !== undefined) this.lastCapacity = recorded;
+    return this.lastCapacity ?? this.next<OperationCapacity>('operationCapacity', []);
   }
 
   cancel(operationId: string): Promise<CancellationResult> {
-    return Promise.resolve(this.next<CancellationResult>('cancel', [operationId]));
+    // A cancellation the live run never issued reports that nothing was requested.
+    return Promise.resolve(
+      this.tryNext<CancellationResult>('cancel', [operationId]) ?? { operationId, requested: false },
+    );
   }
 }

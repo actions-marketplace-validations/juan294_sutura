@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import { describe, expect, it } from 'vitest';
 
+import { RecordedCallCursor } from './recorded-call-cursor.js';
 import { ReplayMismatchError, replayFetch } from './replay-fetch.js';
 import type { ReplayBundle } from './bundle.js';
 
@@ -50,6 +51,18 @@ describe('replayFetch', () => {
     await expect(fetch('https://example.test/chat', {
       method: 'POST', headers: {}, body: '{"a":9,"b":2}',
     })).rejects.toThrowError(new ReplayMismatchError(1, '$.a', 1, 9));
+  });
+
+  it('keeps a request mismatch on a shared cursor so a swallowing caller cannot hide it', async () => {
+    const cursor = new RecordedCallCursor(
+      bundle().http.filter((exchange) => exchange.boundary === 'nebius'),
+      (exchange) => ({ method: exchange.boundary, args: [] }),
+      'HTTP',
+    );
+    const fetch = replayFetch(bundle(), 'nebius', cursor);
+    await fetch('https://example.test/chat', { method: 'POST', headers: {}, body: '{"a":9,"b":2}' }).catch(() => undefined);
+
+    expect(() => cursor.rethrowMismatch()).toThrowError(new ReplayMismatchError(1, '$.a', 1, 9));
   });
 
   it('fails closed after the recorded sequence is exhausted', async () => {

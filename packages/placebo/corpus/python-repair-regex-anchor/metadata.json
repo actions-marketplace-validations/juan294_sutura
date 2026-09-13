@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "An unanchored pattern matches a substring of the identifier.",
+  "riskClass": "regex-anchoring",
+  "language": "python",
+  "failureFingerprint": "f064a0446a4f848bf20f2f0114c8d1df28345e2aba880e2b38b3be669dab5b75",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-regex-anchor.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-regex-anchor",
+    "family": "regex-anchoring"
+  },
+  "split": "development"
+}

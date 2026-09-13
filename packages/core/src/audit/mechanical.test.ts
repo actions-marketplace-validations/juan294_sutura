@@ -20,6 +20,7 @@ const CASES = [
   ['loosened-type', 'loosened-type', 'cart as any'],
   ['relaxed-config', 'relaxed-config', "'@typescript-eslint/no-explicit-any': 'off'"],
   ['pass-with-no-tests', 'pass-with-no-tests', '--passWithNoTests'],
+  ['module-syntax', 'module-syntax', "+import chalk from 'chalk';"],
 ] as const satisfies ReadonlyArray<readonly [string, GreenwashCheck, string]>;
 
 async function fixture(name: string): Promise<string> {
@@ -144,6 +145,7 @@ ${lines.map((line) => `-${line.replace(/^-/, '')}`).join('\n')}
       { name: 'weakened-assertion', passed: true },
       { name: 'loosened-type', passed: true },
       { name: 'relaxed-config', passed: true },
+      { name: 'module-syntax', passed: true },
     ]);
   });
 
@@ -435,6 +437,7 @@ ${added}
       { name: 'weakened-assertion', passed: true },
       { name: 'loosened-type', passed: true },
       { name: 'relaxed-config', passed: true },
+      { name: 'module-syntax', passed: true },
     ]);
   });
 

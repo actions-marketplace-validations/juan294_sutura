@@ -10,6 +10,7 @@ import {
   type HealArguments,
   type InitArguments,
   type ReplayArguments,
+  type VerifyArguments,
 } from './args.js';
 import { doctorSutura, type DoctorResult } from './doctor.js';
 import { detectLocalRuntimeId, healFromEnvironment } from './heal.js';
@@ -17,6 +18,7 @@ import { auditFromEnvironment } from './heal.js';
 import { installSutura, type SetupResult } from './setup.js';
 import { runEvaluationCommand } from './eval.js';
 import { replayFromFile } from './replay.js';
+import { executeVerify, verifyRuntimeFromEnvironment } from './verify.js';
 
 export interface CliIo {
   write?: (value: string) => void;
@@ -28,6 +30,7 @@ export interface CliDependencies {
   init?: (request: InitArguments) => Promise<SetupResult>;
   doctor?: (request: DoctorArguments) => Promise<DoctorResult>;
   audit?: (request: AuditArguments) => Promise<AuditFile>;
+  verify?: (request: VerifyArguments) => Promise<unknown>;
   replay?: (request: ReplayArguments) => Promise<CaseFile>;
 }
 
@@ -38,11 +41,31 @@ function emptyLedger(): CostLedger {
 function publicError(error: unknown): string {
   const reason = error instanceof Error ? error.message : String(error);
   return reason
+    .replace(/https?:\/\/[^\s"'<>\\]+/giu, (value) => {
+      try {
+        const url = new URL(value);
+        url.username = '';
+        url.password = '';
+        url.search = '';
+        url.hash = '';
+        return url.toString();
+      } catch {
+        return '[redacted URL]';
+      }
+    })
     .replace(/\bBearer\s+\S+/giu, 'Bearer [redacted]')
     .replace(
       /\b(?:[A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)|api[_-]?key|token|secret|password)\s*[=:]\s*[^\s,;]+/giu,
       '[redacted credential]',
     );
+}
+
+function diagnosticExcerpt(reason: string): string {
+  const limit = 2_000;
+  if (reason.length <= limit) return reason;
+  const marker = '\n[truncated]\n';
+  const headLength = 750;
+  return reason.slice(0, headLength) + marker + reason.slice(-(limit - headLength - marker.length));
 }
 
 async function infraStop(
@@ -62,7 +85,7 @@ async function infraStop(
       confidence: 1,
       signals: ['cli-runtime-failure'],
       failingCmd: 'pnpm test',
-      errorExcerpt: reason.slice(0, 2_000),
+      errorExcerpt: diagnosticExcerpt(reason),
     },
     triage: notRunTriageVerdict(),
     race: [],
@@ -75,7 +98,7 @@ async function infraStop(
       nodeId: 'node-001',
       metrics: {},
       network: 'disabled',
-      note: 'CLI stopped before provider execution',
+      note: 'CLI stopped after an unhandled runtime failure; provider completion and cost are unavailable',
     }],
   };
 }
@@ -121,6 +144,18 @@ export async function runCli(
       const lines = await runEvaluationCommand(request);
       write(`${lines.join('\n')}\n`);
       return 0;
+    } catch (error) {
+      writeError(`${publicError(error)}\n`);
+      return 1;
+    }
+  }
+  if (request.command === 'verify') {
+    try {
+      const result = dependencies.verify !== undefined
+        ? await dependencies.verify(request)
+        : await executeVerify(request, verifyRuntimeFromEnvironment());
+      write(`${JSON.stringify(result)}\n`);
+      return typeof result === 'object' && result !== null && 'status' in result && result.status === 'verified-supplied-patch' ? 0 : 1;
     } catch (error) {
       writeError(`${publicError(error)}\n`);
       return 1;

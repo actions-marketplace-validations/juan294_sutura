@@ -1,0 +1,308 @@
+import { createHash } from 'node:crypto';
+
+import type { FailureClass } from '@sutura/core';
+import { canonicalJson } from '@sutura/evaluation';
+
+import { discoverBenchmarkCases } from './corpus.js';
+import type { CorpusCase, FixtureLanguage } from './types.js';
+
+export const ARENA_CATALOG_SCHEMA_VERSION = 'sutura-arena-catalog-v1' as const;
+export const ARENA_SELECTION_SCHEMA_VERSION = 'sutura-arena-selection-v1' as const;
+
+export const ARENA_SOURCES = ['swe-bench-verified', 'swe-rebench', 'placebo'] as const;
+export type ArenaSource = typeof ARENA_SOURCES[number];
+
+const LANGUAGES = new Set<FixtureLanguage>(['javascript', 'typescript', 'python']);
+const FAILURE_CLASSES = new Set<FailureClass>([
+  'typecheck', 'lint', 'build', 'test-assertion', 'test-bug',
+  'flaky-timing', 'dep-upstream-breaking', 'env-config', 'infra',
+]);
+const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u;
+const ENTRY_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
+const SHA256 = /^[a-f0-9]{64}$/u;
+
+export interface ArenaCatalogEntry {
+  id: string;
+  source: ArenaSource;
+  repository: string;
+  language: FixtureLanguage;
+  failureClass: FailureClass;
+  difficulty: 'standard' | 'hard';
+  environmentRef?: string;
+}
+
+export interface ArenaCatalog {
+  schemaVersion: typeof ARENA_CATALOG_SCHEMA_VERSION;
+  capturedAt: string;
+  entries: ArenaCatalogEntry[];
+  catalogHash: string;
+}
+
+export interface ArenaSelectionTargets {
+  size: number;
+  strata: ReadonlyArray<{ key: string; minimum: number }>;
+  seed: string;
+}
+
+export interface ArenaSelectionCase extends ArenaCatalogEntry {
+  stratum: string;
+  inclusionReason: string;
+}
+
+export interface ArenaSelectionManifest {
+  schemaVersion: typeof ARENA_SELECTION_SCHEMA_VERSION;
+  selectionId: string;
+  catalogHash: string;
+  capturedAt: string;
+  targets: ArenaSelectionTargets;
+  cases: ArenaSelectionCase[];
+  strata: Array<{ key: string; selected: number; available: number; minimum: number }>;
+  resultHash: string;
+}
+
+export class ArenaSelectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ArenaSelectionError';
+  }
+}
+
+function refuse(message: string): never {
+  throw new ArenaSelectionError(message);
+}
+
+function catalogHash(entries: readonly ArenaCatalogEntry[], capturedAt: string): string {
+  return createHash('sha256')
+    .update(canonicalJson({ schemaVersion: ARENA_CATALOG_SCHEMA_VERSION, capturedAt, entries }))
+    .digest('hex');
+}
+
+export function stratumKey(entry: Pick<ArenaCatalogEntry, 'language' | 'failureClass'>): string {
+  return `${entry.language}:${entry.failureClass}`;
+}
+
+function sortedEntries(entries: readonly ArenaCatalogEntry[]): ArenaCatalogEntry[] {
+  return [...entries]
+    .map((entry) => ({
+      id: entry.id,
+      source: entry.source,
+      repository: entry.repository,
+      language: entry.language,
+      failureClass: entry.failureClass,
+      difficulty: entry.difficulty,
+      ...(entry.environmentRef === undefined ? {} : { environmentRef: entry.environmentRef }),
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+export function createArenaCatalog(
+  entries: readonly ArenaCatalogEntry[],
+  capturedAt: string,
+): ArenaCatalog {
+  if (entries.length === 0) refuse('An Arena catalog must hold at least one entry');
+  if (!Number.isFinite(Date.parse(capturedAt))) {
+    refuse('An Arena catalog capturedAt must be an ISO timestamp');
+  }
+  const normalized = sortedEntries(entries);
+  const catalog: ArenaCatalog = {
+    schemaVersion: ARENA_CATALOG_SCHEMA_VERSION,
+    capturedAt: new Date(capturedAt).toISOString(),
+    entries: normalized,
+    catalogHash: '',
+  };
+  catalog.catalogHash = catalogHash(normalized, catalog.capturedAt);
+  return validateArenaCatalog(catalog);
+}
+
+export function validateArenaCatalog(catalog: ArenaCatalog): ArenaCatalog {
+  if (catalog.schemaVersion !== ARENA_CATALOG_SCHEMA_VERSION) {
+    refuse('Unsupported Arena catalog schema version');
+  }
+  if (!Array.isArray(catalog.entries) || catalog.entries.length === 0) {
+    refuse('An Arena catalog must hold at least one entry');
+  }
+  const ids = new Set<string>();
+  for (const entry of catalog.entries) {
+    if (!ENTRY_ID.test(entry.id)) refuse(`Arena catalog entry id is malformed: ${entry.id}`);
+    if (ids.has(entry.id)) refuse(`Arena catalog repeats entry ${entry.id}`);
+    ids.add(entry.id);
+    if (!ARENA_SOURCES.includes(entry.source)) {
+      refuse(`Arena catalog entry ${entry.id} has an unsupported source`);
+    }
+    if (!REPOSITORY.test(entry.repository)) {
+      refuse(`Arena catalog entry ${entry.id} repository must use owner/name format`);
+    }
+    if (!LANGUAGES.has(entry.language)) {
+      refuse(`Arena catalog entry ${entry.id} has an unsupported language`);
+    }
+    if (!FAILURE_CLASSES.has(entry.failureClass)) {
+      refuse(`Arena catalog entry ${entry.id} has an unsupported failure class`);
+    }
+    if (entry.difficulty !== 'standard' && entry.difficulty !== 'hard') {
+      refuse(`Arena catalog entry ${entry.id} difficulty must be standard or hard`);
+    }
+  }
+  if (!SHA256.test(catalog.catalogHash) ||
+      catalogHash(catalog.entries, catalog.capturedAt) !== catalog.catalogHash) {
+    refuse('Arena catalog hash does not match its content');
+  }
+  return catalog;
+}
+
+/** Projects the committed Placebo corpus into a catalog, for offline validation. */
+export async function catalogFromCorpus(
+  capturedAt: string,
+  cases?: readonly CorpusCase[],
+): Promise<ArenaCatalog> {
+  const benchmarkCases = cases ?? await discoverBenchmarkCases();
+  return createArenaCatalog(benchmarkCases.map((benchmarkCase) => ({
+    id: benchmarkCase.id,
+    source: 'placebo' as const,
+    repository: `placebo/${benchmarkCase.id}`,
+    language: benchmarkCase.metadata.language,
+    failureClass: benchmarkCase.metadata.class,
+    difficulty: benchmarkCase.metadata.difficulty ?? 'standard',
+  })), capturedAt);
+}
+
+function selectionOrder(seed: string, id: string): string {
+  return createHash('sha256').update(`${seed}\n${id}`).digest('hex');
+}
+
+function bySelectionOrder(seed: string) {
+  return (left: ArenaCatalogEntry, right: ArenaCatalogEntry): number => {
+    const order = selectionOrder(seed, left.id).localeCompare(selectionOrder(seed, right.id));
+    return order !== 0 ? order : left.id.localeCompare(right.id);
+  };
+}
+
+function selectionResultHash(value: Omit<ArenaSelectionManifest, 'resultHash'>): string {
+  return createHash('sha256').update(canonicalJson(value)).digest('hex');
+}
+
+/**
+ * Deterministic stratified selection. Declared stratum floors are filled
+ * first, then the remainder is filled proportionally to bucket size. The order
+ * inside a bucket is `sha256(seed + id)`, so the choice is reproducible and
+ * independent of catalog order. A stratum the catalog cannot satisfy is
+ * refused by name rather than silently under-filled.
+ */
+export function selectStratified(
+  catalog: ArenaCatalog,
+  targets: ArenaSelectionTargets,
+  selectionId: string,
+): ArenaSelectionManifest {
+  validateArenaCatalog(catalog);
+  if (!Number.isSafeInteger(targets.size) || targets.size <= 0) {
+    refuse('An Arena selection size must be a positive integer');
+  }
+  if (!targets.seed.trim()) refuse('An Arena selection needs a recorded seed');
+  if (targets.size > catalog.entries.length) {
+    refuse(`The catalog holds ${catalog.entries.length} entries; the selection asks for ${targets.size}`);
+  }
+  const declaredKeys = targets.strata.map(({ key }) => key);
+  if (new Set(declaredKeys).size !== declaredKeys.length) {
+    refuse('An Arena selection must not declare a stratum twice');
+  }
+
+  const buckets = new Map<string, ArenaCatalogEntry[]>();
+  for (const entry of catalog.entries) {
+    const key = stratumKey(entry);
+    const bucket = buckets.get(key);
+    if (bucket === undefined) buckets.set(key, [entry]);
+    else bucket.push(entry);
+  }
+  for (const bucket of buckets.values()) bucket.sort(bySelectionOrder(targets.seed));
+
+  const minimums = new Map(targets.strata.map(({ key, minimum }) => [key, minimum] as const));
+  for (const [key, minimum] of minimums) {
+    if (!Number.isSafeInteger(minimum) || minimum < 0) {
+      refuse(`Stratum ${key} minimum must be a non-negative integer`);
+    }
+    const available = buckets.get(key)?.length ?? 0;
+    if (available < minimum) {
+      refuse(`Stratum ${key} needs ${minimum} cases but the catalog holds ${available}`);
+    }
+  }
+  const totalMinimum = [...minimums.values()].reduce((total, minimum) => total + minimum, 0);
+  if (totalMinimum > targets.size) {
+    refuse(`Declared stratum floors total ${totalMinimum}, above the selection size ${targets.size}`);
+  }
+
+  const chosen = new Map<string, ArenaSelectionCase>();
+  const take = (entry: ArenaCatalogEntry, reason: string): void => {
+    if (chosen.has(entry.id)) return;
+    chosen.set(entry.id, { ...entry, stratum: stratumKey(entry), inclusionReason: reason });
+  };
+
+  for (const key of [...minimums.keys()].sort()) {
+    const minimum = minimums.get(key)!;
+    for (const entry of (buckets.get(key) ?? []).slice(0, minimum)) {
+      take(entry, `stratum floor: ${key}`);
+    }
+  }
+
+  const remaining = catalog.entries
+    .filter((entry) => !chosen.has(entry.id))
+    .sort((left, right) => {
+      const leftBucket = buckets.get(stratumKey(left))?.length ?? 0;
+      const rightBucket = buckets.get(stratumKey(right))?.length ?? 0;
+      if (leftBucket !== rightBucket) return rightBucket - leftBucket;
+      return bySelectionOrder(targets.seed)(left, right);
+    });
+  for (const entry of remaining) {
+    if (chosen.size >= targets.size) break;
+    take(entry, `proportional fill: ${stratumKey(entry)}`);
+  }
+  if (chosen.size !== targets.size) {
+    refuse(`The catalog satisfied only ${chosen.size} of ${targets.size} requested cases`);
+  }
+
+  const cases = [...chosen.values()].sort((left, right) => left.id.localeCompare(right.id));
+  const strata = [...buckets.keys()].sort().map((key) => ({
+    key,
+    selected: cases.filter((item) => item.stratum === key).length,
+    available: buckets.get(key)!.length,
+    minimum: minimums.get(key) ?? 0,
+  }));
+  const base = {
+    schemaVersion: ARENA_SELECTION_SCHEMA_VERSION,
+    selectionId,
+    catalogHash: catalog.catalogHash,
+    capturedAt: catalog.capturedAt,
+    targets: {
+      size: targets.size,
+      strata: [...targets.strata]
+        .map(({ key, minimum }) => ({ key, minimum }))
+        .sort((left, right) => left.key.localeCompare(right.key)),
+      seed: targets.seed,
+    },
+    cases,
+    strata,
+  };
+  return { ...base, resultHash: selectionResultHash(base) };
+}
+
+/**
+ * Refuses a selection manifest whose cases are not exactly what a re-selection
+ * from the same catalog, seed, and targets produces. This is the
+ * reproducibility property the benchmark exit gate requires.
+ */
+export function validateArenaSelection(
+  manifest: ArenaSelectionManifest,
+  catalog: ArenaCatalog,
+): ArenaSelectionManifest {
+  if (manifest.schemaVersion !== ARENA_SELECTION_SCHEMA_VERSION) {
+    refuse('Unsupported Arena selection schema version');
+  }
+  if (manifest.catalogHash !== catalog.catalogHash) {
+    refuse('Arena selection catalog hash does not match the supplied catalog');
+  }
+  const { resultHash, ...base } = manifest;
+  if (selectionResultHash(base) !== resultHash) refuse('Arena selection result hash mismatch');
+  const reselected = selectStratified(catalog, manifest.targets, manifest.selectionId);
+  if (reselected.resultHash !== manifest.resultHash) {
+    refuse('Arena selection is not reproducible from its catalog, seed, and targets');
+  }
+  return manifest;
+}

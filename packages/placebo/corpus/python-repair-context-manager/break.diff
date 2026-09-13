@@ -1,0 +1,15 @@
+diff --git a/reader.py b/reader.py
+index 65bae4f..5a236c8 100644
+--- a/reader.py
++++ b/reader.py
+@@ -7,7 +7,6 @@ class Tracker:
+ 
+     def read(self, path: Path) -> str:
+         self.open_handles += 1
+-        try:
+-            return path.read_text(encoding="utf8")
+-        finally:
+-            self.open_handles -= 1
++        text = path.read_text(encoding="utf8")
++        self.open_handles -= 1
++        return text

@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "A shared global regular expression keeps its lastIndex between calls.",
+  "riskClass": "regex-last-index",
+  "language": "javascript",
+  "failureFingerprint": "191fff9caafdad98aea9778168c8dc2f360616e1a1e12979e5acf6df8ca23a32",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-regex-last-index.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-regex-last-index",
+    "family": "regex-last-index"
+  },
+  "split": "development"
+}

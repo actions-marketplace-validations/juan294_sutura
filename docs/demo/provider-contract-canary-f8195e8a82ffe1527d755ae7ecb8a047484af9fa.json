@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "sutura-provider-contract-canary-v1",
+  "contractVersion": "sutura-super-repair-v5",
+  "headSha": "f8195e8a82ffe1527d755ae7ecb8a047484af9fa",
+  "capturedAt": "2026-09-04T14:32:25.894Z",
+  "result": {
+    "contractVersion": "sutura-super-repair-v5",
+    "endpoint": "https://api.tokenfactory.nebius.com/v1/chat/completions",
+    "model": "nvidia/nemotron-3-super-120b-a12b",
+    "finishReason": "stop",
+    "usage": {
+      "inTok": 393,
+      "outTok": 28,
+      "reasoningTok": 0
+    },
+    "replacementCodePoints": 84,
+    "replacementSha256": "a968c8f2bbfa307017a7a4af8f5fe13762891e3fa754fc495b9c1d80a460f073",
+    "latencyMs": 1282,
+    "requestId": "82cc5abeb19b9f8133063e9a11fb4376"
+  }
+}

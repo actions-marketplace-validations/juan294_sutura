@@ -1,0 +1,9 @@
+diff --git a/profile.js b/profile.js
+--- a/profile.js
++++ b/profile.js
+@@ -1,4 +1,1 @@
+-export async function loadProfile(fetchProfile) {
+-  try { return await fetchProfile(); }
+-  catch { throw new Error('profile unavailable'); }
+-}
++export async function loadProfile(fetchProfile) { return fetchProfile(); }

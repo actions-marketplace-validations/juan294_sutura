@@ -1,0 +1,10 @@
+diff --git a/batch.js b/batch.js
+index 80b65c4..11ce57a 100644
+--- a/batch.js
++++ b/batch.js
+@@ -1,4 +1,3 @@
+ export async function runAll(tasks) {
+-  const settled = await Promise.allSettled(tasks.map((task) => task()));
+-  return settled.filter(({ status }) => status === "fulfilled").map(({ value }) => value);
++  return Promise.all(tasks.map((task) => task()));
+ }

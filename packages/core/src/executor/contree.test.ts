@@ -827,12 +827,32 @@ describe('ContreeExecutor', () => {
   it('uploads only dependency manifests before network-enabled preparation', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'sutura-contree-placebo-'));
     try {
-      await writeFile(join(dir, 'package.json'), '{"scripts":{"test":"vitest run"}}\n');
+      await writeFile(join(dir, 'package.json'), JSON.stringify({
+        scripts: { test: 'vitest run' },
+        dependencies: {
+          chalk: 'file:vendor/chalk-v5',
+          execa: 'file:vendor/execa-v6',
+          got: 'file:vendor/got-v12',
+          'node-fetch': 'file:vendor/node-fetch-v3',
+        },
+      }));
       await writeFile(join(dir, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
       await mkdir(join(dir, 'packages', 'core'), { recursive: true });
       await writeFile(join(dir, 'packages', 'core', 'package.json'), '{"name":"core"}\n');
       await mkdir(join(dir, 'fixtures', 'untrusted'), { recursive: true });
       await writeFile(join(dir, 'fixtures', 'untrusted', 'package.json'), '{"name":"fixture"}\n');
+      for (const dependency of ['chalk-v5', 'execa-v6', 'got-v12', 'node-fetch-v3']) {
+        await mkdir(join(dir, 'vendor', dependency), { recursive: true });
+        await writeFile(
+          join(dir, 'vendor', dependency, 'package.json'),
+          `${JSON.stringify({
+            name: dependency,
+            version: '1.0.0',
+            ...(dependency === 'chalk-v5' ? { scripts: { test: 'node --test' } } : {}),
+          })}\n`,
+        );
+        await writeFile(join(dir, 'vendor', dependency, 'index.js'), 'export const fixture = true;\n');
+      }
       await writeFile(join(dir, '.env'), 'TOKEN=never-upload\n');
       await mkdir(join(dir, 'node_modules', 'vitest'), { recursive: true });
       await writeFile(join(dir, 'node_modules', 'vitest', 'index.js'), 'export const test = true;\n');
@@ -873,6 +893,10 @@ describe('ContreeExecutor', () => {
       expect(entries).toContain('package.json');
       expect(entries).toContain('pnpm-workspace.yaml');
       expect(entries).toContain('packages/core/package.json');
+      for (const dependency of ['chalk-v5', 'execa-v6', 'got-v12', 'node-fetch-v3']) {
+        expect(entries).toContain(`vendor/${dependency}/package.json`);
+        expect(entries).toContain(`vendor/${dependency}/index.js`);
+      }
       expect(entries).not.toContain('fixtures/untrusted/package.json');
       expect(entries).not.toContain('node_modules/vitest/index.js');
       expect(entries).not.toContain('.env');
@@ -1168,6 +1192,32 @@ describe('ContreeExecutor', () => {
       await rm(invalid, { recursive: true, force: true });
       await rm(oversized, { recursive: true, force: true });
       await rm(unsafe, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects unsafe or executable vendored local dependencies before upload', async () => {
+    const unsafe = await mkdtemp(join(tmpdir(), 'sutura-contree-unsafe-local-'));
+    const scripted = await mkdtemp(join(tmpdir(), 'sutura-contree-scripted-local-'));
+    const executor = new ContreeExecutor(config(vi.fn<typeof globalThis.fetch>()));
+    try {
+      await writeFile(join(unsafe, 'package.json'), JSON.stringify({
+        dependencies: { fixture: 'file:../outside' },
+      }));
+      await expect(executor.snapshot(unsafe, 'base', DEPENDENCY_REPLACE))
+        .rejects.toThrow(/unsafe local dependency/u);
+
+      await mkdir(join(scripted, 'vendor', 'fixture'), { recursive: true });
+      await writeFile(join(scripted, 'package.json'), JSON.stringify({
+        dependencies: { fixture: 'file:vendor/fixture' },
+      }));
+      await writeFile(join(scripted, 'vendor', 'fixture', 'package.json'), JSON.stringify({
+        name: 'fixture', version: '1.0.0', scripts: { install: 'node install.js' },
+      }));
+      await expect(executor.snapshot(scripted, 'base', DEPENDENCY_REPLACE))
+        .rejects.toThrow(/lifecycle scripts are unsupported/u);
+    } finally {
+      await rm(unsafe, { recursive: true, force: true });
+      await rm(scripted, { recursive: true, force: true });
     }
   });
 

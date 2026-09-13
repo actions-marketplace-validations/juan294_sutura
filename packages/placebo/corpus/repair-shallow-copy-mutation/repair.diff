@@ -1,0 +1,14 @@
+diff --git a/settings.js b/settings.js
+index c894dbb..96a3df8 100644
+--- a/settings.js
++++ b/settings.js
+@@ -1,5 +1,4 @@
+-export const withRetries = (config, retries) => {
+-  const copy = { ...config };
+-  copy.limits.retries = retries;
+-  return copy;
+-};
++export const withRetries = (config, retries) => ({
++  ...config,
++  limits: { ...config.limits, retries },
++});

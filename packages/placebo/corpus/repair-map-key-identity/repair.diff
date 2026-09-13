@@ -1,0 +1,14 @@
+diff --git a/index.js b/index.js
+index 799e2b0..09e46b3 100644
+--- a/index.js
++++ b/index.js
+@@ -1,7 +1,8 @@
+ export function countByKey(entries) {
+   const counts = new Map();
+   for (const entry of entries) {
+-    counts.set(entry, (counts.get(entry) ?? 0) + 1);
++    const key = `${entry.kind}:${entry.name}`;
++    counts.set(key, (counts.get(key) ?? 0) + 1);
+   }
+   return counts;
+ }

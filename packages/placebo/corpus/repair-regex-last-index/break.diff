@@ -1,0 +1,8 @@
+diff --git a/match.js b/match.js
+index a7a6986..0493da3 100644
+--- a/match.js
++++ b/match.js
+@@ -1 +1,2 @@
+-export const hasTag = (value) => /#[a-z]+/u.test(value);
++const TAG = /#[a-z]+/gu;
++export const hasTag = (value) => TAG.test(value);

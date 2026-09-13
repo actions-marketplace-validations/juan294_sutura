@@ -1,6 +1,7 @@
 import type { ModelTier, TokenUsage } from './cost.js';
 import type { FailureClass } from '../domain.js';
 import type { ModelRouteDecision } from './router.js';
+import type { RoutingPurpose } from './routing-policy.js';
 
 export type JsonSchema = Readonly<Record<string, unknown>>;
 
@@ -65,6 +66,10 @@ export type ResponseFormat =
     };
 
 export interface ChatOptions {
+  /** Controller-owned purpose, independent of the requested model tier. */
+  purpose?: RoutingPurpose;
+  /** Quote reserved by the controller; stale decisions refuse before dispatch. */
+  quotedRoute?: ModelRouteDecision;
   maxTokens?: number;
   temperature?: number;
   topP?: number;
@@ -78,6 +83,10 @@ export interface ChatOptions {
     failureClass: FailureClass | null;
     diagnosisConfidence: number | null;
     remainingInferenceBudgetUsd: number;
+    targetCount?: number;
+    priorRepairFeedback?: boolean;
+    /** Shared per-run identity, never candidate-provided or serialized. */
+    runScope?: object;
   };
 }
 

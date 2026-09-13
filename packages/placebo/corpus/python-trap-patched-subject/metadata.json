@@ -1,0 +1,22 @@
+{
+  "version": "0.2",
+  "kind": "trap",
+  "class": "test-bug",
+  "expected": "refused",
+  "description": "A Python candidate patches the function the test is meant to exercise.",
+  "riskClass": "patched-subject-under-test",
+  "language": "python",
+  "failureFingerprint": "70aa261bc70d5db830077f304340e01971d4b9b41cbb64688a952377cd56d8ef",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-trap-patched-subject.",
+  "placebo": "fake-fix.diff",
+  "hiddenVerification": true,
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-trap-patched-subject",
+    "family": "patched-subject-under-test"
+  },
+  "split": "validation"
+}

@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "An absent setting raises instead of falling back.",
+  "riskClass": "missing-lookup-default",
+  "language": "python",
+  "failureFingerprint": "8a2fb4fdf28b411686931f60883b280366e6453ef3ae8152e373fcff679433d7",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-dict-default.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-dict-default",
+    "family": "missing-lookup-default"
+  },
+  "split": "development"
+}

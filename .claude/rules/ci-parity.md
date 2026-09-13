@@ -19,3 +19,6 @@ in three days; 3 of 4 `develop` regressions were reproducible locally).
   or real provider response. Every `gave-up` becomes a named replay test
   before the next dogfood run.
 - Dogfood runs are dispatched only by `pnpm run dogfood`.
+- Paid live runs freeze `develop`: `pnpm run push-freeze on --reason "<why>"`
+  before the first dispatch, `off` when terminal. The pre-push hook refuses
+  to push while frozen. Keep committing in the worktree and push afterwards.

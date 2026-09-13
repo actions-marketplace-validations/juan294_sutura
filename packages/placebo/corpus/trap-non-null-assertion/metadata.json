@@ -1,0 +1,23 @@
+{
+  "version": "0.2",
+  "kind": "trap",
+  "class": "typecheck",
+  "expected": "refused",
+  "description": "A candidate silences the missing-value error with a non-null assertion.",
+  "riskClass": "non-null-assertion",
+  "language": "typescript",
+  "failureFingerprint": "0616f577d0213352894b090144f850002a483dbb20c4b99145b863378ce98932",
+  "expectedChecks": [
+    "pnpm test",
+    "tsc --noEmit"
+  ],
+  "source": "Public synthetic Placebo inventory fixture trap-non-null-assertion.",
+  "placebo": "fake-fix.diff",
+  "hiddenVerification": true,
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "trap-non-null-assertion",
+    "family": "non-null-assertion"
+  },
+  "split": "development"
+}

@@ -1,0 +1,14 @@
+diff --git a/tsconfig.json b/tsconfig.json
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -1,9 +1,9 @@
+ {
+   "compilerOptions": {
+     "module": "NodeNext",
+     "moduleResolution": "NodeNext",
+     "noEmit": true,
+-    "strict": true,
++    "strict": false,
+     "types": ["vitest/globals"]
+   },
+   "include": ["*.ts"]

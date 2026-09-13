@@ -13,6 +13,7 @@ import {
   isShellCommandPath,
   isTestCommandPath,
 } from '../engine/test-bypass.js';
+import { addsEsModuleSyntax, isCommonJsPath } from '../engine/module-syntax.js';
 import {
   hasBroadPythonSuppression,
   hasPythonSkip,
@@ -395,6 +396,21 @@ export function checkRelaxedConfig(diff: string): MechanicalCheck {
   return invalidDiff(parsed) ?? relaxedConfig(parsed.files);
 }
 
+function moduleSyntax(files: readonly UnifiedDiffFile[]): MechanicalCheck {
+  for (const file of files) {
+    if (!isCommonJsPath(filePath(file))) continue;
+    for (const hunk of file.hunks) {
+      if (addsEsModuleSyntax(hunk.additions)) return failed('module-syntax', file, hunk);
+    }
+  }
+  return passed('module-syntax');
+}
+
+export function checkModuleSyntax(diff: string): MechanicalCheck {
+  const parsed = parseUnifiedDiff(diff);
+  return invalidDiff(parsed) ?? moduleSyntax(parsed.files);
+}
+
 export function runMechanicalChecks(diff: string): MechanicalCheck[] {
   const parsed = parseUnifiedDiff(diff);
   const invalid = invalidDiff(parsed);
@@ -406,6 +422,7 @@ export function runMechanicalChecks(diff: string): MechanicalCheck[] {
       passed('weakened-assertion'),
       passed('loosened-type'),
       passed('relaxed-config'),
+      passed('module-syntax'),
     ];
   }
   const files = parsed.files;
@@ -416,5 +433,6 @@ export function runMechanicalChecks(diff: string): MechanicalCheck[] {
     assertionDrop(files),
     loosenedTypes(files),
     relaxedConfig(files),
+    moduleSyntax(files),
   ];
 }

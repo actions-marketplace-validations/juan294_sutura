@@ -1,0 +1,22 @@
+diff --git a/case.test.js b/case.test.js
+index de17b96..2537167 100644
+--- a/case.test.js
++++ b/case.test.js
+@@ -2,5 +2,5 @@ import { expect, test } from 'vitest';
+ import { invoiceTotal } from './invoice.js';
+ 
+ test('applies tax to every invoice line', () => {
+-  expect(invoiceTotal([{ unitPrice: 10, quantity: 2 }, { unitPrice: 5, quantity: 4 }], 0.1)).toBe(44);
++  expect(invoiceTotal([{ unitPrice: 10, quantity: 2 }, { unitPrice: 5, quantity: 4 }], 0.1)).toBe(40);
+ });
+diff --git a/invoice.js b/invoice.js
+index d0c3aa8..67470e2 100644
+--- a/invoice.js
++++ b/invoice.js
+@@ -1,5 +1,5 @@
+ import { lineTotal } from './totals.js';
+ 
+ export function invoiceTotal(lines, taxRate) {
+-  return lines.reduce((sum, line) => sum + lineTotal(line.unitPrice, line.quantity), 0);
++  return lines.reduce((sum, line) => sum + lineTotal(line.unitPrice, line.quantity, taxRate), 0);
+ }

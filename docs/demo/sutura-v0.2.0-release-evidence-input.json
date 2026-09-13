@@ -1,0 +1,138 @@
+{
+  "releaseCommit": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+  "checks": [
+    {
+      "id": "benchmark",
+      "required": true,
+      "status": "failed",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [
+        {
+          "reference": "docs/demo/placebo-v0.2-live-2026-09.json",
+          "contentHash": "4171ce5648370ba1e8b6c61a1850de85b42991bddfffd6a8b5cb96ed4dc708f0",
+          "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2"
+        }
+      ]
+    },
+    {
+      "id": "candidate-matrix",
+      "required": true,
+      "status": "failed",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [
+        {
+          "reference": "docs/demo/sutura-v0.2.0-candidate-matrix.json",
+          "contentHash": "417976c22d847ba7b17cb95042f6d7356b93c4cec5f5f5f2eb94608a351075a4",
+          "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2"
+        }
+      ]
+    },
+    {
+      "id": "demo",
+      "required": true,
+      "status": "pending",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [],
+      "authorizationGate": "public-demo-enable"
+    },
+    {
+      "id": "dogfood",
+      "required": true,
+      "status": "passed",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [
+        {
+          "reference": "docs/demo/dogfood-ledger.json",
+          "contentHash": "acb60acdd4f4e34731bb325c0c2bf325ae03a6e4a21738c6210c5c750ad8ba00",
+          "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2"
+        }
+      ],
+      "equivalence": {
+        "streakActionSha": "a99e23199a80ae6ee51fe1680afb74188416160c",
+        "releaseCommit": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+        "executableFingerprint": "226ec0ab9050e1776ed869841ab5f673b364a4bf92cbfdd1866d0b37351e0ee4",
+        "paths": [
+          "action.yml",
+          "packages/action/action.yml",
+          "packages/action/dist/index.cjs"
+        ]
+      }
+    },
+    {
+      "id": "devpost",
+      "required": true,
+      "status": "pending",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [],
+      "authorizationGate": "devpost-update"
+    },
+    {
+      "id": "feedback",
+      "required": true,
+      "status": "pending",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [],
+      "authorizationGate": "phase-5-feedback"
+    },
+    {
+      "id": "github-release",
+      "required": true,
+      "status": "passed",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [
+        {
+          "reference": "docs/demo/sutura-v0.2.0-phase-0-evidence.md",
+          "contentHash": "954b15941c78f1d99a7c5350eb01533f6ec44dcbb38b8c237db47d629ddd88ac",
+          "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2"
+        }
+      ]
+    },
+    {
+      "id": "local-gate",
+      "required": true,
+      "status": "passed",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [
+        {
+          "reference": "docs/demo/sutura-v0.2.0-phase-0-evidence.md",
+          "contentHash": "954b15941c78f1d99a7c5350eb01533f6ec44dcbb38b8c237db47d629ddd88ac",
+          "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2"
+        }
+      ]
+    },
+    {
+      "id": "marketplace",
+      "required": true,
+      "status": "pending",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [],
+      "authorizationGate": "release-publication"
+    },
+    {
+      "id": "npm",
+      "required": true,
+      "status": "passed",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [
+        {
+          "reference": "docs/demo/sutura-v0.2.0-phase-0-evidence.md",
+          "contentHash": "954b15941c78f1d99a7c5350eb01533f6ec44dcbb38b8c237db47d629ddd88ac",
+          "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2"
+        }
+      ]
+    },
+    {
+      "id": "public-matrix",
+      "required": true,
+      "status": "failed",
+      "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2",
+      "evidence": [
+        {
+          "reference": "docs/demo/sutura-v0.2.0-public-matrix.json",
+          "contentHash": "67605e042d4b1221a83a50afd454dc18ee4559da8fa115de55e3b9af359d7a95",
+          "candidate": "a943ded4c734aed75c5c63f2b2dd63a2f44556c2"
+        }
+      ]
+    }
+  ]
+}

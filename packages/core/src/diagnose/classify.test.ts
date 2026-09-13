@@ -194,6 +194,19 @@ describe('failure classification', () => {
     ]));
   });
 
+  it('uses exactly one bounded schema retry and then fails closed', async () => {
+    const chat = vi.fn()
+      .mockResolvedValueOnce({ text: '{"class":"test-assertion","confidence":"high"}' })
+      .mockResolvedValueOnce({ text: 'still not a valid diagnosis' });
+
+    await expect(classify(
+      { chat },
+      'Run pnpm run test\nAssertionError: expected 3 to be 2',
+    )).rejects.toThrow('Diagnosis model returned an invalid response');
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(chat.mock.calls[0]?.[2]).toEqual(chat.mock.calls[1]?.[2]);
+  });
+
   it('fails closed when the CI log has no observed command', async () => {
     const llm = scriptedLlm({
       class: 'infra',

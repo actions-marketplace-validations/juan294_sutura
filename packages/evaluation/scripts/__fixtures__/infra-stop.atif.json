@@ -1,0 +1,94 @@
+{
+ "agent": {
+  "model_name": "nvidia/Llama-3.3-Nemotron-Super-49B-v1.5",
+  "name": "Sutura",
+  "version": "0.1.1"
+ },
+ "extra": {
+  "case_id": "demo-fixed",
+  "evaluation_id": "demo-evaluation-001",
+  "outcome": "fixed"
+ },
+ "notes": "Sanitized Sutura evaluation trajectory. Hidden reasoning and full source are excluded.",
+ "schema_version": "ATIF-v1.7",
+ "session_id": "demo-repair-001",
+ "steps": [
+  {
+   "extra": {
+    "sutura": {
+     "event_type": "run-start",
+     "sequence": 1
+    }
+   },
+   "message": "Sutura repair run started",
+   "source": "system",
+   "step_id": 1,
+   "timestamp": "1970-01-01T00:00:00.000Z"
+  },
+  {
+   "llm_call_count": 1,
+   "message": "Selected a bounded repair operation",
+   "metrics": {
+    "completion_tokens": 18,
+    "cost_usd": 0.0001,
+    "extra": {
+     "latency_ms": 12,
+     "reasoning_tokens": 0,
+     "request_id": "[request-id]"
+    },
+    "prompt_tokens": 120
+   },
+   "model_name": "nvidia/Llama-3.3-Nemotron-Super-49B-v1.5",
+   "source": "agent",
+   "step_id": 2,
+   "timestamp": "1970-01-01T00:00:00.012Z"
+  },
+  {
+   "llm_call_count": 0,
+   "message": "",
+   "observation": {
+    "results": [
+     {
+      "content": "trusted test exited 0",
+      "extra": {
+       "sutura": {
+        "child_node_id": "search-001"
+       }
+      },
+      "source_call_id": "call-demo-1"
+     }
+    ]
+   },
+   "source": "agent",
+   "step_id": 3,
+   "timestamp": "1970-01-01T00:00:00.013Z",
+   "tool_calls": [
+    {
+     "arguments": {
+      "commandId": "diagnosed"
+     },
+     "extra": {
+      "sutura": {
+       "child_node_id": "search-001"
+      }
+     },
+     "function_name": "run_test",
+     "tool_call_id": "call-demo-1"
+    }
+   ]
+  },
+  {
+   "extra": {
+    "sutura": {
+     "event_type": "candidate-submitted",
+     "sequence": 5
+    }
+   },
+   "message": "infrastructure stop before a verdict",
+   "source": "system",
+   "step_id": 4,
+   "timestamp": "1970-01-01T00:00:00.026Z"
+  }
+ ],
+ "trajectory_id": "smoke-infra-stop"
+}

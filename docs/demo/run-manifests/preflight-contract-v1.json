@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "sutura-verified-program-manifest-v1",
+  "manifestId": "preflight-contract-v1",
+  "purpose": "Provider, image and typed-probe contract preflight. Not a quality benchmark.",
+  "mode": "live",
+  "identity": {
+    "candidateCommit": "303a571dee985c6c25b5b44364490a1feb92e9e0",
+    "imageDigest": "sha256:8a34c4ab3ea2c5cd194f07e317b2a8f09461d3c8b05c4e34c8ccd56d56024c4d",
+    "corpusHash": "ed58d316397157fca580e1a74ba9fcde8af1bd6c580137b3a09af47c48b768f6",
+    "splitHash": "49fb4609a602e609a6f31596522a4b229b3fc56ba670ce6a29d764905364a683",
+    "configHash": "eadefeea0455a6a88202a6f1c5e978bafd9d1326222c4a15306b53baa5f6bf0b"
+  },
+  "models": [
+    {
+      "modelId": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+      "inputPerMillionUsd": 0.06,
+      "outputPerMillionUsd": 0.24,
+      "priceAsOf": "2026-09-06"
+    },
+    {
+      "modelId": "nvidia/nemotron-3-super-120b-a12b",
+      "inputPerMillionUsd": 0.3,
+      "outputPerMillionUsd": 0.9,
+      "priceAsOf": "2026-09-06"
+    }
+  ],
+  "caps": {
+    "subjects": 6,
+    "repetitions": 1,
+    "modelTurnsPerSubject": 4,
+    "maxOutputTokens": 4096,
+    "sandboxOperations": 192,
+    "elapsedTimeSec": 3600,
+    "inferenceUsd": 1,
+    "rawSandboxUnits": 300,
+    "concurrency": 1
+  },
+  "stopPolicy": "Stop on the first provider, image or probe-protocol failure and dispatch nothing further.",
+  "subjects": [
+    "repair-off-by-one",
+    "repair-null-guard",
+    "python-repair-integer-division",
+    "repair-optional-index-access",
+    "greenwash-trap",
+    "flaky-timer-race"
+  ],
+  "manifestHash": "71fb2bd94f347d122ebf4bf93a69f7cdba7a32f446db93ab55edf289c4a9de45",
+  "pricedMaximumUsd": 0.1179648
+}

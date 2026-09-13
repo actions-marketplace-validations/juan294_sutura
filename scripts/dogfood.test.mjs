@@ -13,6 +13,7 @@ import {
   inferenceCostFromEvidence,
   outcomeFromLog,
   renderDogfoodLedger,
+  renderDogfoodExecutableEquivalence,
   runDogfoodAttempt,
   runDogfoodStreak,
   validateFailedCiJobs,
@@ -89,6 +90,25 @@ async function gateDependencies(overrides = {}) {
         requestId: null,
       },
     }),
+    runtimeImageEvidence: async () => ({
+      schemaVersion: 'sutura-runtime-image-canary-v2',
+      headSha: SHA,
+      capturedAt: new Date(NOW - 60_000).toISOString(),
+      registryResolution: {
+        imageRef: core.PYTHON_IMAGE_REF,
+        indexDigest: core.PYTHON_IMAGE_INDEX_DIGEST,
+        linuxAmd64Digest: core.PYTHON_IMAGE_LINUX_AMD64_DIGEST,
+      },
+      proof: {
+        schemaVersion: core.PYTHON_IMAGE_PROOF_SCHEMA_VERSION,
+        imageRef: core.PYTHON_IMAGE_REF,
+        expectedIndexDigest: core.PYTHON_IMAGE_INDEX_DIGEST,
+        expectedLinuxAmd64Digest: core.PYTHON_IMAGE_LINUX_AMD64_DIGEST,
+        importedImageId: 'image-1',
+        requiredTools: core.PYTHON_REQUIRED_TOOLS,
+        operationId: 'sutura-python-runtime-image-proof',
+      },
+    }),
     readLedger: async () => dogfoodLedger([]),
     findRegressionTest: async () => 'replays live run 2001',
     runRegressionTest: async () => '',
@@ -100,13 +120,14 @@ async function gateDependencies(overrides = {}) {
 test('dogfood gate fails each precondition independently and passes only when all hold', async () => {
   const valid = await gateDependencies();
   await assert.doesNotReject(() => gateDogfood(SHA, valid.dependencies));
-  assert.equal(valid.output.filter((line) => line.startsWith('PASS')).length, 6);
+  assert.equal(valid.output.filter((line) => line.startsWith('PASS')).length, 7);
 
   const failures = [
     { git: async (args) => args[0] === 'status' ? ' M packages/core/src/x.ts' : args[1] === `${SHA}:packages` ? TREE : SHA },
     { git: async (args) => args[0] === 'status' || args[0] === 'fetch' ? '' : args[1] === `${SHA}:packages` ? TREE : 'c'.repeat(40) },
     { ghApi: async () => JSON.stringify({ workflow_runs: [] }) },
     { canaryEvidence: async () => ({ headSha: 'c'.repeat(40), contractVersion: await contractVersion(), capturedAt: new Date(NOW).toISOString() }) },
+    { runtimeImageEvidence: async () => ({ headSha: SHA, capturedAt: new Date(NOW).toISOString(), proof: {} }) },
     {
       readLedger: async () => dogfoodLedger([entry(1, { outcome: 'gave-up' })]),
       findRegressionTest: async () => undefined,
@@ -309,6 +330,22 @@ test('canonical fixture, ledger, and ignored scratch paths stay exact', async ()
   assert.equal(markdown, renderDogfoodLedger(ledger));
   assert.match(ignore, /^\.sutura\/dogfood-ledger-scratch\.json$/mu);
   assert.match(ignore, /^\.sutura\/dogfood-artifacts\/$/mu);
+});
+
+test('dogfood executable equivalence note states both identities without overstating execution', () => {
+  const markdown = renderDogfoodExecutableEquivalence({
+    streakActionSha: SHA,
+    releaseCommit: 'e'.repeat(40),
+    executableFingerprint: 'f'.repeat(64),
+    paths: ['action.yml', 'packages/action/action.yml', 'packages/action/dist/index.cjs'],
+    fixedAttempts: 10,
+    totalUsd: 12.345678,
+    widerDifferences: ['packages/cli/src/setup.ts', 'packages/cli/src/setup.test.ts'],
+  });
+  assert.match(markdown, /Ten consecutive live repairs ran at `a{40}`/u);
+  assert.match(markdown, /No dogfood run executed at `e{40}`/u);
+  assert.match(markdown, /USD 12\.345678/u);
+  assert.doesNotMatch(markdown, /ran at the v0\.2\.0 release/u);
 });
 
 test('dogfood validates the one intentional CI failure and SHA-bound Sutura check', () => {

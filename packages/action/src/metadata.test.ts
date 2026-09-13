@@ -42,4 +42,13 @@ describe('GitHub Action metadata', () => {
     expect(metadata).toContain('outputs:\n  outcome:\n');
     expect(metadata).toContain('  require-fixed:\n');
   });
+
+  it('declares complete GitHub Marketplace identity and supported branding', async () => {
+    const metadata = await readFile(metadataUrl, 'utf8');
+
+    expect(metadata).toMatch(/^name: Sutura Verified Self-Healing CI$/mu);
+    expect(metadata).toMatch(/^description: .{40,125}$/mu);
+    expect(metadata).toMatch(/^author: Sutura$/mu);
+    expect(metadata).toMatch(/^branding:\n  icon: activity\n  color: red$/mu);
+  });
 });

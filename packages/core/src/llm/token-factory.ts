@@ -7,7 +7,7 @@ import {
   NebiusClient,
   type NebiusClientDependencies,
 } from './nebius.js';
-import { DEFAULT_ROUTING_PROFILE_ID } from './router.js';
+import { DEFAULT_ROUTING_PROFILE_ID, DEVELOPMENT_ROUTING_PROFILE_ID } from './router.js';
 
 export interface TokenFactoryClientOptions {
   apiKey: string;
@@ -37,10 +37,15 @@ export function createTokenFactoryClient(
     );
   }
   const routingProfileId = options.routingProfileId ?? DEFAULT_ROUTING_PROFILE_ID;
-  if (routingProfileId !== DEFAULT_ROUTING_PROFILE_ID) {
+  if (routingProfileId !== DEFAULT_ROUTING_PROFILE_ID && routingProfileId !== DEVELOPMENT_ROUTING_PROFILE_ID) {
     throw new TokenFactoryContractError(
       `Token Factory requires the verified routing profile ${DEFAULT_ROUTING_PROFILE_ID}`,
     );
+  }
+
+  if (routingProfileId === DEVELOPMENT_ROUTING_PROFILE_ID
+    && (models.nano !== DEFAULT_MODELS.nano || models.ultra !== DEFAULT_MODELS.ultra)) {
+    throw new TokenFactoryContractError('Development routing requires the verified model contracts for every tier');
   }
 
   return new NebiusClient({

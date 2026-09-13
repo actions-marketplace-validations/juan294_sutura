@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "verification": {
+    "mode": "optional",
+    "contracts": [
+      {
+        "id": "profile",
+        "kind": "exact",
+        "target": {
+          "adapter": "python",
+          "path": "profile.py",
+          "export": "fetch_profile"
+        },
+        "examples": [
+          {
+            "args": [
+              " Ada "
+            ],
+            "expected": {
+              "name": "ADA"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

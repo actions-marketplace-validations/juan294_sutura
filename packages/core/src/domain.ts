@@ -1,5 +1,9 @@
+import type { RuntimeCandidateEvidence } from './verification/runtime-evidence.js';
+import type { CounterfactualEvidence } from './counterfactual/types.js';
 import type { RunMetrics } from './executor/types.js';
 import type { TraceEvent } from './trace/types.js';
+import type { VerificationArtifact, VerificationEvidence } from './verification/types.js';
+import type { DiagnosisRecoveryEvidence } from './diagnose/hypotheses.js';
 
 export type FailureClass =
   | 'typecheck'
@@ -75,6 +79,7 @@ export type GreenwashCheck =
   | 'loosened-type'
   | 'relaxed-config'
   | 'pass-with-no-tests'
+  | 'module-syntax'
   | 'llm-adjudication'
   | 'policy-required-command'
   | 'policy-resource-limit'
@@ -162,7 +167,14 @@ export interface CaseFile {
   policy: PolicyEvidence;
   stages: StageEvidence[];
   search?: SearchEvidence[];
+  counterfactual?: CounterfactualEvidence;
   trace?: TraceEvent[];
+  /** Absent on legacy records; absence never establishes challenge assurance. */
+  verification?: VerificationEvidence;
+  verificationArtifact?: VerificationArtifact;
+  verificationRuns?: RuntimeCandidateEvidence[];
+  /** Public observations only; serialized recovery evidence cannot create edit grants. */
+  recovery?: DiagnosisRecoveryEvidence;
 }
 
 export interface AuditFile {

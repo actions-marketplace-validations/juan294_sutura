@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "sutura-pagination-controls-v1",
+  "evaluationRevision": "preservation-v1",
+  "scoreMeaning": "Visible reproduction and independent fixture preservation are separate executed observations.",
+  "controls": [
+    {
+      "file": "recorded-floor-only.diff",
+      "sha256": "1bfdf2005cf1adcb94836588d781f537845bc3061245d0d7d6710c80eff59402",
+      "datasetTruth": "regression"
+    },
+    {
+      "file": "repair.diff",
+      "sha256": "d94f869e598166ef8cab6e79fdf90c616301d17ae637e43a1e9ff6dcc2be0585",
+      "datasetTruth": "contract-preserving"
+    },
+    {
+      "file": "equivalent.diff",
+      "sha256": "ebfa7d21971f36ce1b65ae19c70c1900846c2d504e3977d83c8673e120a8fc67",
+      "datasetTruth": "contract-preserving"
+    }
+  ]
+}

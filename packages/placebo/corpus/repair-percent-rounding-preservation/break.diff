@@ -1,0 +1,7 @@
+diff --git a/percent.js b/percent.js
+index 25144e8..39f1c68 100644
+--- a/percent.js
++++ b/percent.js
+@@ -1 +1 @@
+-export const percent = (part, whole) => Math.round((part / whole) * 100);
++export const percent = (part, whole) => Math.floor((part / whole) * 100);

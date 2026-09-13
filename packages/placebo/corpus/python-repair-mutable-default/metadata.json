@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "A mutable default argument is shared between calls.",
+  "riskClass": "mutable-default-argument",
+  "language": "python",
+  "failureFingerprint": "0e1f3e41f6ac145527eb4f612a9c6dc02fd505ad14f889757f2eabafe8169e17",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-mutable-default.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-mutable-default",
+    "family": "mutable-default-argument"
+  },
+  "split": "development"
+}

@@ -1,0 +1,21 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "A rounding change passes the visible case and breaks the half-way boundary.",
+  "riskClass": "percentage-half-up-rounding",
+  "language": "javascript",
+  "failureFingerprint": "cd85407bda14cdcdbb2493ef39ba9b852798f8b92134db8f364fec2b52beb8c4",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-percent-rounding-preservation.",
+  "hiddenVerification": true,
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-percent-rounding-preservation",
+    "family": "percentage-half-up-rounding"
+  },
+  "split": "development"
+}

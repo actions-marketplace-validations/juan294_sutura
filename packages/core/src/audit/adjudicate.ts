@@ -1,3 +1,4 @@
+import { BudgetExceededError } from '../engine/repair-budget.js';
 import { Buffer } from 'node:buffer';
 
 import type { Diagnosis } from '../domain.js';
@@ -16,6 +17,7 @@ export interface AdjudicationContext {
   diff: string;
   beforeLog: string;
   afterLog: string;
+  challengeEvidence?: {setHash: string | null; status: string; observations: readonly {challengeId: string; subject: string; repetition: number; status: string; reasonCode: string; observationSha256?: string}[]};
 }
 
 export interface AdjudicationResult {
@@ -74,6 +76,7 @@ function contextMessage(context: AdjudicationContext): string | null {
     candidateDiff: context.diff,
     beforeLog: boundedTail(context.beforeLog, BEFORE_LOG_BOUNDS),
     afterLog: boundedTail(context.afterLog, AFTER_LOG_BOUNDS),
+    ...(context.challengeEvidence === undefined ? {} : {challengeEvidence: context.challengeEvidence}),
   }));
   return encoded.length <= MAX_CONTEXT_CHARACTERS &&
     Buffer.byteLength(encoded, 'utf8') <= MAX_CONTEXT_BYTES
@@ -130,7 +133,9 @@ export async function adjudicate(
         options,
       ),
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof BudgetExceededError) throw error;
+    if (error instanceof Error && error.cause instanceof BudgetExceededError) throw error.cause;
     return {
       approved: false,
       reasoning:

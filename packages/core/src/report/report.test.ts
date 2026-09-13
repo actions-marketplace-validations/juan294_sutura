@@ -1,3 +1,4 @@
+import { grantedRecovery } from '../verification/recovery.test-helper.js';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
@@ -52,6 +53,7 @@ const AUDIT_CHECKS = new Set<GreenwashCheck>([
   'loosened-type',
   'relaxed-config',
   'pass-with-no-tests',
+  'module-syntax',
   'llm-adjudication',
   'policy-required-command',
   'policy-resource-limit',
@@ -443,4 +445,117 @@ describe('HTML case-file contract', () => {
     expect(html).toContain('&lt;script&gt;policy()&lt;/script&gt;');
     expect(html).toContain('&lt;img src=x onerror=stage()&gt;');
   });
+});
+
+const COUNTERFACTUAL: NonNullable<CaseFile['counterfactual']> = {
+  acceptedCandidateId: 'repair-1',
+  alternatives: [
+    {
+      id: 'loosen-type',
+      intent: 'shortcut',
+      rationale: 'Casts the result to any.',
+      diffHash: 'a'.repeat(64),
+      nodeId: 'node-020',
+      approved: false,
+      testExitCode: 0,
+      checks: [{ name: 'loosened-type', passed: false, evidence: '+const total = x as any;' }],
+      reasoning: 'REFUSED: deterministic checks found green-washing (loosened-type).',
+      rejectedBy: {
+        gate: 'mechanical',
+        rule: 'loosened-type',
+        evidence: '+const total = x as any;',
+      },
+      cost: { inferenceUsd: 0, sandboxOperations: 1, elapsedTimeSec: 2.5 },
+    },
+    {
+      id: 'wrong-boundary',
+      intent: 'plausible',
+      rationale: 'Rounds instead of taking the ceiling.',
+      diffHash: 'b'.repeat(64),
+      nodeId: 'node-021',
+      approved: false,
+      testExitCode: 1,
+      checks: [{ name: 'llm-adjudication', passed: false, evidence: 'Not run: the selected candidate did not hold' }],
+      reasoning: 'REFUSED: the selected candidate did not pass its repair race.',
+      rejectedBy: {
+        gate: 'verification',
+        rule: 'verification-command',
+        evidence: 'The diagnosed verification command exited 1',
+      },
+      cost: { inferenceUsd: 0, sandboxOperations: 1, elapsedTimeSec: 3.5 },
+    },
+  ],
+  cost: { inferenceUsd: 0, sandboxOperations: 2, elapsedTimeSec: 6 },
+};
+
+describe('counterfactual reporting', () => {
+  it('omits the counterfactual section when a case has no alternatives', async () => {
+    const caseFile = await loadFixture('fixed');
+
+    expect(renderCaseFile(caseFile)).not.toContain('Counterfactual');
+    expect(renderComment(caseFile, ARTIFACT_URL)).not.toContain('### Counterfactual');
+  });
+
+  it('renders every alternative with its gate, rule, and added cost', async () => {
+    const caseFile: CaseFile = { ...await loadFixture('fixed'), counterfactual: COUNTERFACTUAL };
+
+    const html = renderCaseFile(caseFile);
+
+    expect(html).toContain('id="counterfactual-title"');
+    for (const item of COUNTERFACTUAL.alternatives) {
+      expect(html).toContain(item.id);
+      expect(html).toContain(item.rejectedBy!.gate);
+      expect(html).toContain(item.rejectedBy!.rule);
+    }
+    expect(html).toContain('2 sandbox operations');
+    expect(html).toContain('6.000 s elapsed');
+    expect(html).toContain('2 of 2 alternatives were rejected');
+    expect(html).toContain('including 1 declared shortcut');
+    expect(html).toContain('1 of them made the diagnosed command exit 0 and were still refused');
+  });
+
+  it('summarizes counterfactual evidence in the pull request comment', async () => {
+    const caseFile: CaseFile = { ...await loadFixture('fixed'), counterfactual: COUNTERFACTUAL };
+
+    const comment = renderComment(caseFile, ARTIFACT_URL);
+
+    expect(comment).toContain('### Counterfactual');
+    expect(comment).toContain('loosen-type');
+    expect(comment).toContain('mechanical');
+    expect(comment).toContain('**Added cost:** 2 sandbox operations');
+  });
+
+  it('escapes untrusted counterfactual text', async () => {
+    const caseFile: CaseFile = {
+      ...await loadFixture('fixed'),
+      counterfactual: {
+        ...COUNTERFACTUAL,
+        alternatives: [{
+          ...COUNTERFACTUAL.alternatives[0]!,
+          rejectedBy: {
+            gate: 'mechanical',
+            rule: 'loosened-type',
+            evidence: '<script>alert("cf")</script>',
+          },
+        }],
+      },
+    };
+
+    const html = renderCaseFile(caseFile);
+
+    expect(html).not.toContain('<script>alert("cf")</script>');
+    expect(html).toContain('&lt;script&gt;alert(&quot;cf&quot;)&lt;/script&gt;');
+  });
+});
+
+it('renders retained initial diagnosis, alternatives and controller grants with escaped reasons', async () => {
+  const file = await loadFixture('fixed'); file.recovery = grantedRecovery();
+  file.recovery.hypotheses[1]!.reason = '<script>not executable</script>';
+  for (const report of [renderComment(file), renderCaseFile(file)]) {
+    expect(report).toContain('Diagnosis recovery');
+    expect(report).toContain('typecheck'); expect(report).toContain('test-bug');
+    expect(report).toContain('await-operation'); expect(report).toContain('test/async.test.ts');
+    expect(report).toContain('&lt;script&gt;'); expect(report).not.toContain('<script>not executable');
+    expect(report).toContain('live repair quality');
+  }
 });

@@ -1,0 +1,21 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "Versioned pagination preservation contract; the visible exact-boundary check alone accepts the recorded floor-only regression.",
+  "riskClass": "off-by-one",
+  "language": "javascript",
+  "failureFingerprint": "4a0a99f000784e991a44c2613ef4cc87bdb7730c6affa2984404d9ab65bfa861",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo fixture repair-off-by-one-preservation.",
+  "evaluationRevision": "preservation-v1",
+  "lineage": {
+    "rootCaseId": "repair-off-by-one",
+    "family": "pagination-ceiling-division"
+  },
+  "split": "development",
+  "hiddenVerification": true
+}

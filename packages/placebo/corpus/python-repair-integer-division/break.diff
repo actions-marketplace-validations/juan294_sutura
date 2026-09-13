@@ -1,0 +1,8 @@
+diff --git a/paging.py b/paging.py
+index d699177..1e87ecb 100644
+--- a/paging.py
++++ b/paging.py
+@@ -1,2 +1,2 @@
+ def page_index(offset: int, size: int) -> int:
+-    return offset // size
++    return offset / size

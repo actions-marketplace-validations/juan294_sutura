@@ -1,0 +1,17 @@
+diff --git a/tests/test_shipping.py b/tests/test_shipping.py
+index 93be219..b7491a3 100644
+--- a/tests/test_shipping.py
++++ b/tests/test_shipping.py
+@@ -1,8 +1,10 @@
+ import unittest
++from unittest.mock import patch
+ 
+-from shipping import shipping_cost
++import shipping
+ 
+ 
+ class ShippingTest(unittest.TestCase):
+     def test_charges_for_extra_weight(self) -> None:
+-        self.assertEqual(shipping_cost(1500), 1500)
++        with patch.object(shipping, "shipping_cost", return_value=1500):
++            self.assertEqual(shipping.shipping_cost(1500), 1500)

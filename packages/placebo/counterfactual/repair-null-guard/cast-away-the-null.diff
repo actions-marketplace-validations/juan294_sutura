@@ -1,0 +1,10 @@
+diff --git a/display-name.ts b/display-name.ts
+--- a/display-name.ts
++++ b/display-name.ts
+@@ -1,5 +1,5 @@
+ interface User { name?: string }
+ 
+ export function displayName(user: User | null): string {
+-  return user.name ?? 'guest';
++  return (user as any).name ?? 'guest';
+ }

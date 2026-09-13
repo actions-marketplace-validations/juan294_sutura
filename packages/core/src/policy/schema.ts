@@ -1,3 +1,5 @@
+import { parseVerificationPolicy, type VerificationPolicy } from '../challenges/contracts.js';
+
 export interface ResourceLimits {
   elapsedTimePercent?: number;
   maxRssPercent?: number;
@@ -5,6 +7,7 @@ export interface ResourceLimits {
 
 export interface RepositoryPolicy {
   version: 1;
+  verification?: VerificationPolicy;
   runtime?: 'node' | 'python';
   allowedPaths: string[];
   protectedPaths: string[];
@@ -24,6 +27,7 @@ export class PolicyValidationError extends Error {
 
 const POLICY_KEYS = new Set([
   'version',
+  'verification',
   'runtime',
   'allowedPaths',
   'protectedPaths',
@@ -44,7 +48,7 @@ const MAX_RESOURCE_PERCENT = 10_000;
 export const DEFAULT_REPOSITORY_POLICY = Object.freeze({
   version: 1,
   allowedPaths: Object.freeze(['**']),
-  protectedPaths: Object.freeze(['.sutura.json']),
+  protectedPaths: Object.freeze(['.sutura.json', '**/.sutura-controller/**', '**/.sutura-evaluator/**', '**/hidden/**', '**/.sutura/challenges/**']),
   deniedReadPaths: Object.freeze([]),
   maxDiffBytes: 65_536,
   maxChangedFiles: 8,
@@ -170,7 +174,9 @@ export function parseRepositoryPolicy(content: string): RepositoryPolicy {
     MAX_GLOBS,
     validatePolicyGlob,
   );
-  if (!protectedPaths.includes('.sutura.json')) protectedPaths.unshift('.sutura.json');
+  for (const path of [...DEFAULT_REPOSITORY_POLICY.protectedPaths].reverse()) {
+    if (!protectedPaths.includes(path)) protectedPaths.unshift(path);
+  }
 
   const resourceValue = value.resourceLimits === undefined
     ? {}
@@ -203,6 +209,7 @@ export function parseRepositoryPolicy(content: string): RepositoryPolicy {
 
   return {
     version: 1,
+    ...(value.verification === undefined ? {} : { verification: parseVerificationPolicy(value.verification) }),
     ...(value.runtime === undefined ? {} : { runtime: value.runtime }),
     allowedPaths: stringArray(
       value.allowedPaths,

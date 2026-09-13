@@ -1,0 +1,6 @@
+diff --git a/positive.js b/positive.js
+--- a/positive.js
++++ b/positive.js
+@@ -1 +1 @@
+-export function positive(value) { return value >= 0; }
++export function positive(value) { return value > 0; }

@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "Binary floating point replaces exact decimal money arithmetic.",
+  "riskClass": "decimal-money-rounding",
+  "language": "python",
+  "failureFingerprint": "5601468e6e2ef4973b467bb9351f296cec655dadd09bd38d17aee5aed972e98d",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-decimal-rounding.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-decimal-rounding",
+    "family": "decimal-money-rounding"
+  },
+  "split": "held-out"
+}

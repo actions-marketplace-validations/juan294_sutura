@@ -5,6 +5,7 @@ import { parseUnifiedDiff } from '../diff/unified.js';
 import { evaluatePatchPolicy } from '../policy/evaluate.js';
 import type { RepositoryPolicy } from '../policy/schema.js';
 import { vetPatch } from './patch-rules.js';
+import type { RepairAuthorizationContext } from './repair-authorization.js';
 
 export interface CandidateValidation {
   ok: boolean;
@@ -18,13 +19,14 @@ export function validateCandidateDiff(
   diagnosis: Diagnosis,
   policy: RepositoryPolicy,
   runMaxDiffBytes = policy.maxDiffBytes,
+  authorization?: RepairAuthorizationContext,
 ): CandidateValidation {
   const bytes = Buffer.byteLength(diff, 'utf8');
   const parsed = parseUnifiedDiff(diff);
   const paths = [...new Set(parsed.files.flatMap(({ oldPath, newPath }) =>
     [oldPath, newPath].filter((path): path is string => path !== null),
   ))];
-  const builtIn = vetPatch(diff, diagnosis);
+  const builtIn = vetPatch(diff, diagnosis, authorization);
   const policyVerdict = builtIn.ok ? evaluatePatchPolicy(diff, policy) : { ok: true, violations: [] };
   const runViolations = bytes > runMaxDiffBytes
     ? [`diff is ${bytes} bytes; run permits at most ${runMaxDiffBytes}`]

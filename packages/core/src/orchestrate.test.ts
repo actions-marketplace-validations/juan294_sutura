@@ -1587,6 +1587,22 @@ describe('repair source context', () => {
     ]);
   });
 
+  it('unions competing fallback classes inside the existing eight-file source limit', async () => {
+    const repository = new FakeRepository();
+    await readRepairSourceContext(
+      repository, '/tmp/exact-pr-head', 'Run pnpm test\nAssertion failed',
+      { class: 'test-assertion' }, undefined, 'node', 'first', ['env-config', 'env-config'],
+    );
+    expect(repository.sourceReads[0]?.paths).toContain('tsconfig.json');
+    expect(repository.sourceReads[0]?.paths).toEqual([...new Set(repository.sourceReads[0]?.paths)]);
+    const capped = new FakeRepository();
+    const log = Array.from({ length: 8 }, (_, index) => `src/file${index}.ts:1:1`).join('\n');
+    await readRepairSourceContext(capped, '/tmp/exact-pr-head', log,
+      { class: 'test-assertion' }, undefined, 'node', 'first', ['env-config']);
+    expect(capped.sourceReads[0]?.paths).toHaveLength(8);
+    expect(capped.sourceReads[0]?.paths).not.toContain('tsconfig.json');
+  });
+
   it('uses only Python fallback manifests for Python dependency failures', async () => {
     const repository = new FakeRepository();
 

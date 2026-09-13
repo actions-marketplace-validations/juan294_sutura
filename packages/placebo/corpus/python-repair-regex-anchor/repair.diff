@@ -1,0 +1,12 @@
+diff --git a/slug.py b/slug.py
+index df025bd..a3e57cd 100644
+--- a/slug.py
++++ b/slug.py
+@@ -1,6 +1,6 @@
+ import re
+ 
+-PATTERN = re.compile(r"[a-z][a-z0-9-]*")
++PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
+ 
+ 
+ def is_slug(value: str) -> bool:

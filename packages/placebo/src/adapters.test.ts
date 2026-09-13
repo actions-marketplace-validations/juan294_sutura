@@ -52,6 +52,18 @@ describe('CLI adapters', () => {
     ], expect.any(Object));
   });
 
+  it('forwards the benchmark failing command to Sutura as one argv value', async () => {
+    const execute = vi.fn().mockResolvedValue({ stdout: VALID_CASE_FILE, stderr: '', exitCode: 0 });
+    const failingCommand = "python3 -B -m unittest discover -s tests -p 'test_*.py'";
+
+    await new SuturaAdapter({ execute }).heal('/tmp/example', { language: 'python', failingCommand });
+
+    expect(execute).toHaveBeenCalledWith('sutura', [
+      'heal', '--case-dir', '/tmp/example', '--format', 'json', '--runtime', 'python',
+      '--failing-command', failingCommand,
+    ], expect.any(Object));
+  });
+
   it('passes a placebo candidate to a generic CLI adapter too', async () => {
     const execute = vi.fn().mockResolvedValue({ stdout: VALID_CASE_FILE, stderr: '', exitCode: 0 });
     const candidateDiff = 'diff --git a/test.js b/test.js\n';
@@ -134,5 +146,100 @@ describe('CLI adapters', () => {
     const execute = vi.fn().mockResolvedValue({ stdout: JSON.stringify(value), stderr: '', exitCode: 0 });
     await expect(new CliAdapter({ command: 'agent', execute }).heal('/tmp/case'))
       .resolves.toMatchObject({ outcome: 'gave-up', diagnosis: { class: 'infra' } });
+  });
+});
+
+const COUNTERFACTUAL_ALTERNATIVE = {
+  id: 'loosen-type',
+  intent: 'shortcut',
+  rationale: 'Casts the result to any.',
+  diffHash: 'a'.repeat(64),
+  nodeId: 'node-020',
+  approved: false,
+  testExitCode: 0,
+  checks: [{ name: 'loosened-type', passed: false, evidence: '+x as any' }],
+  reasoning: 'REFUSED: deterministic checks found green-washing (loosened-type).',
+  rejectedBy: { gate: 'mechanical', rule: 'loosened-type', evidence: '+x as any' },
+  cost: { inferenceUsd: 0, sandboxOperations: 1, elapsedTimeSec: 2 },
+};
+
+function caseFileWithCounterfactual(alternative: unknown): string {
+  return JSON.stringify({
+    ...JSON.parse(VALID_CASE_FILE),
+    counterfactual: {
+      acceptedCandidateId: 'repair-1',
+      alternatives: [alternative],
+      cost: { inferenceUsd: 0, sandboxOperations: 1, elapsedTimeSec: 2 },
+    },
+  });
+}
+
+describe('counterfactual evidence at the adapter boundary', () => {
+  it('accepts a case file carrying valid counterfactual evidence', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      stdout: caseFileWithCounterfactual(COUNTERFACTUAL_ALTERNATIVE), stderr: '', exitCode: 0,
+    });
+
+    await expect(new CliAdapter({ command: 'agent', execute }).heal('/tmp/case'))
+      .resolves.toMatchObject({
+        outcome: 'fixed',
+        counterfactual: { alternatives: [{ id: 'loosen-type', approved: false }] },
+      });
+  });
+
+  it.each([
+    ['an unknown gate', { rejectedBy: { gate: 'vibes', rule: 'r', evidence: 'e' } }],
+    ['an unknown intent', { intent: 'clever' }],
+    ['a malformed diff hash', { diffHash: 'not-a-hash' }],
+    ['a non-integer test exit code', { testExitCode: 1.5 }],
+    ['a malformed cost', { cost: { inferenceUsd: -1, sandboxOperations: 1, elapsedTimeSec: 2 } }],
+    ['malformed checks', { checks: [{ name: 'loosened-type' }] }],
+  ])('refuses counterfactual evidence with %s', async (_case, override) => {
+    const execute = vi.fn().mockResolvedValue({
+      stdout: caseFileWithCounterfactual({ ...COUNTERFACTUAL_ALTERNATIVE, ...override }),
+      stderr: '', exitCode: 0,
+    });
+
+    await expect(new CliAdapter({ command: 'agent', execute }).heal('/tmp/case'))
+      .resolves.toMatchObject({
+        outcome: 'gave-up',
+        diagnosis: { errorExcerpt: expect.stringContaining('does not match Sutura CaseFile') },
+      });
+  });
+});
+
+describe('counterfactual alternatives at the adapter boundary', () => {
+  it('passes the harness-written alternatives file as a path, never as diffs', async () => {
+    const execute = vi.fn().mockResolvedValue({ stdout: VALID_CASE_FILE, stderr: '', exitCode: 0 });
+
+    await new SuturaAdapter({ execute }).heal('/tmp/example', {
+      alternativesFile: '/tmp/run-x/alternatives.json',
+    });
+
+    expect(execute).toHaveBeenCalledWith('sutura', [
+      'heal', '--case-dir', '/tmp/example', '--format', 'json',
+      '--alternatives-file', '/tmp/run-x/alternatives.json',
+    ], expect.any(Object));
+    expect(JSON.stringify(execute.mock.calls)).not.toContain('diff --git');
+  });
+
+  it('passes the alternatives file to a generic CLI adapter too', async () => {
+    const execute = vi.fn().mockResolvedValue({ stdout: VALID_CASE_FILE, stderr: '', exitCode: 0 });
+
+    await new CliAdapter({ command: 'repair-agent', execute }).heal('/tmp/example', {
+      alternativesFile: '/tmp/run-x/alternatives.json',
+    });
+
+    expect(execute).toHaveBeenCalledWith('repair-agent', [
+      '--case-dir', '/tmp/example', '--alternatives-file', '/tmp/run-x/alternatives.json',
+    ], expect.any(Object));
+  });
+
+  it('omits the flag when the harness supplied no set', async () => {
+    const execute = vi.fn().mockResolvedValue({ stdout: VALID_CASE_FILE, stderr: '', exitCode: 0 });
+
+    await new SuturaAdapter({ execute }).heal('/tmp/example');
+
+    expect(execute.mock.calls[0]?.[1]).not.toContain('--alternatives-file');
   });
 });

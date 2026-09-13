@@ -116,7 +116,7 @@ describe('installSutura', () => {
   it('resolves the release tag before writing or configuring GitHub', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'sutura-init-release-'));
     const run = vi.fn(async (command: string) => {
-      if (command === 'git') return `${ACTION_SHA}\trefs/tags/v0.2.0\n`;
+      if (command === 'git') return `${ACTION_SHA}\trefs/tags/v0.2.1\n`;
       throw new Error('GitHub mutation must not run');
     });
     try {

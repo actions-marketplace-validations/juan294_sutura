@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "sutura-captured-diagnosis-excerpts-v1",
+  "sourceFile": "docs/demo/placebo-v0.2.1-live-2026-09-05.json",
+  "sourceSha256": "b5d6fcf7b1fd19f8b89d77164d0788da19dbf35f3b5aad08435ac1ced58329c5",
+  "subjectSha": "f5c3056acc96597f1ae11f411a3b9cfe03ba990f",
+  "records": [
+    {
+      "caseId": "python-repair-missing-await",
+      "outcome": "gave-up",
+      "diagnosis": {
+        "class": "test-assertion",
+        "confidence": 0.96,
+        "errorExcerpt": "AssertionError: <coroutine object fetch_name at 0x7ffff6f97950> != 'Ada'",
+        "failingCmd": "python3 -B -m unittest discover -s tests -p 'test_*.py'",
+        "grounding": {
+          "citations": [],
+          "query": "",
+          "reason": "not-applicable",
+          "skipped": true
+        },
+        "signals": [
+          "AssertionError",
+          "coroutine 'fetch_name' was never awaited",
+          "mechanical:test-assertion",
+          "signature:\\bAssertionError\\b"
+        ]
+      }
+    },
+    {
+      "caseId": "repair-missing-await",
+      "outcome": "gave-up",
+      "diagnosis": {
+        "class": "test-assertion",
+        "confidence": 0.49,
+        "errorExcerpt": "AssertionError: expected Promise{\u2026} to be 'ADA' // Object.is equality",
+        "failingCmd": "vitest run",
+        "grounding": {
+          "citations": [],
+          "query": "",
+          "reason": "not-applicable",
+          "skipped": true
+        },
+        "signals": [
+          "AssertionError: expected Promise{\u2026} to be 'ADA' // Object.is equality",
+          "mechanical:test-assertion",
+          "signature:\\bexpected\\b[^\\n]*\\b(?:to|but)\\b[^\\n]*\\b(?:received|be|equal|match)\\b",
+          "llm-command-mismatch"
+        ]
+      }
+    },
+    {
+      "caseId": "repair-missing-await-setup",
+      "outcome": "gave-up",
+      "diagnosis": {
+        "class": "test-assertion",
+        "confidence": 0.49,
+        "errorExcerpt": "AssertionError: expected undefined to be 'ready' // Object.is equality",
+        "failingCmd": "vitest run",
+        "grounding": {
+          "citations": [],
+          "query": "",
+          "reason": "not-applicable",
+          "skipped": true
+        },
+        "signals": [
+          "AssertionError: expected undefined to be 'ready'",
+          "expected: \"ready\"",
+          "Received: undefined",
+          "mechanical:test-assertion",
+          "signature:\\bexpected\\b[^\\n]*\\b(?:to|but)\\b[^\\n]*\\b(?:received|be|equal|match)\\b",
+          "llm-command-mismatch"
+        ]
+      }
+    },
+    {
+      "caseId": "repair-tsconfig-drift",
+      "outcome": "gave-up",
+      "diagnosis": {
+        "class": "test-assertion",
+        "confidence": 0.49,
+        "errorExcerpt": "AssertionError: expected false to be true // Object.is equality\n\n- Expected\n+ true\n- Received\n+ false",
+        "failingCmd": "vitest run",
+        "grounding": {
+          "citations": [],
+          "query": "",
+          "reason": "not-applicable",
+          "skipped": true
+        },
+        "signals": [
+          "AssertionError: expected false to be true // Object.is equality",
+          "keeps strict TypeScript enabled",
+          "mechanical:test-assertion",
+          "signature:\\bexpected\\b[^\\n]*\\b(?:to|but)\\b[^\\n]*\\b(?:received|be|equal|match)\\b",
+          "llm-command-mismatch"
+        ]
+      }
+    },
+    {
+      "caseId": "repair-tsconfig-drift-indexed-access",
+      "outcome": "fixed",
+      "diagnosis": {
+        "class": "typecheck",
+        "confidence": 0.49,
+        "errorExcerpt": "first.ts(1,51): error TS2322: Type 'string | undefined' is not assignable to type 'string'.\n  Type 'undefined' is not assignable to type 'string'.",
+        "failingCmd": "tsc --noEmit && vitest run",
+        "grounding": {
+          "citations": [],
+          "query": "",
+          "reason": "not-applicable",
+          "skipped": true
+        },
+        "signals": [
+          "error TS2322: Type 'string | undefined' is not assignable to type 'string'",
+          "mechanical:typecheck",
+          "signature:\\bTS\\d{4}\\b",
+          "llm-command-mismatch"
+        ]
+      }
+    }
+  ]
+}

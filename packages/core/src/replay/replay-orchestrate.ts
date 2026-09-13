@@ -8,7 +8,7 @@ import { orchestrate } from '../orchestrate.js';
 import type { RuntimeId } from '../runtime/types.js';
 import type { RecordedHttpExchange, ReplayBundle } from './bundle.js';
 import { describeMethodCall, RecordedCallCursor } from './recorded-call-cursor.js';
-import { RecordedExecutor } from './replay-executor.js';
+import { EXECUTOR_CURSOR_OPTIONS, RecordedExecutor } from './replay-executor.js';
 import { replayFetch } from './replay-fetch.js';
 import {
   replayingGitHubApi,
@@ -88,7 +88,7 @@ export async function replayBundle(
     'HTTP',
   );
   const executorCursor = options.executor === undefined
-    ? new RecordedCallCursor(validated.executor, describeMethodCall, 'executor')
+    ? new RecordedCallCursor(validated.executor, describeMethodCall, 'executor', EXECUTOR_CURSOR_OPTIONS)
     : undefined;
   const githubReplay = replayingGitHubApi(validated, portCursor);
   const repository = new RecordedRepository(validated.repository, portCursor);
@@ -117,6 +117,7 @@ export async function replayBundle(
     try {
       const caseFile = await orchestrate({
         runId: validated.runId,
+        evidenceMode: 'replay',
         github,
         repository,
         executor,

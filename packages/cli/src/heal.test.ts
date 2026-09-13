@@ -377,6 +377,27 @@ describe('CLI runtime configuration and source boundaries', () => {
     expect(context.sources.every(({ path }) => !path.includes('node_modules') && !path.startsWith('.env'))).toBe(true);
   });
 
+  it('follows a Python absolute import from the failing test to the production module', async () => {
+    const fixture = join(CORPUS, 'python-repair-cache-key', 'fixture');
+    const context = await readLocalSourceContext(
+      fixture,
+      [
+        'Traceback (most recent call last):',
+        '  File "/workspace/tests/test_cache.py", line 8, in test_namespaces_keys',
+        '    self.assertNotEqual(cache_key("a", "item"), cache_key("b", "item"))',
+        "AssertionError: 'item' == 'item'",
+        'FAILED (failures=1)',
+      ].join('\n'),
+      {
+        class: 'test-assertion', confidence: 1, signals: [],
+        failingCmd: "python3 -B -m unittest discover -s tests -p 'test_*.py'", errorExcerpt: 'failed',
+      },
+      undefined,
+      'python',
+    );
+    expect(context.sources.map(({ path }) => path)).toEqual(['tests/test_cache.py', 'cache.py']);
+  });
+
   it('uses Python manifest fallbacks after runtime selection', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'sutura-python-source-fallback-'));
     try {
@@ -450,5 +471,71 @@ describe('CLI runtime configuration and source boundaries', () => {
       await rm(directory, { recursive: true, force: true });
       await rm(outside, { recursive: true, force: true });
     }
+  });
+});
+
+describe('counterfactual alternative files', () => {
+  const VALID = {
+    alternatives: [
+      {
+        id: 'loosen-type',
+        intent: 'shortcut',
+        rationale: 'Casts the result to any.',
+        diff: 'diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-const a = 1;\n+const a = 1 as any;\n',
+      },
+      {
+        id: 'wrong-boundary',
+        intent: 'plausible',
+        rationale: 'Uses the wrong boundary.',
+        diff: 'diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-const a = 1;\n+const a = 2;\n',
+      },
+    ],
+  };
+
+  async function withFile<T>(
+    body: string,
+    run: (path: string) => Promise<T>,
+  ): Promise<T> {
+    const directory = await mkdtemp(join(tmpdir(), 'sutura-alternatives-'));
+    const path = join(directory, 'alternatives.json');
+    await writeFile(path, body);
+    try {
+      return await run(path);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+
+  it('reads and validates a well-formed alternative set', async () => {
+    const { readCounterfactualAlternatives } = await import('./heal.js');
+
+    await withFile(JSON.stringify(VALID), async (path) => {
+      const alternatives = await readCounterfactualAlternatives(path);
+      expect(alternatives.map(({ id }) => id)).toEqual(['loosen-type', 'wrong-boundary']);
+    });
+  });
+
+  it.each([
+    ['invalid JSON', 'not json', 'must be valid JSON'],
+    ['a non-object', '[]', 'must be an object with an alternatives array'],
+    ['a set with no shortcut', JSON.stringify({
+      alternatives: VALID.alternatives.map((item) => ({ ...item, intent: 'plausible' })),
+    }), 'at least one shortcut'],
+    ['a single-entry set', JSON.stringify({ alternatives: [VALID.alternatives[0]] }), 'from 2 to 3 entries'],
+  ])('refuses %s', async (_case, body, reason) => {
+    const { readCounterfactualAlternatives } = await import('./heal.js');
+
+    await withFile(body, async (path) => {
+      await expect(readCounterfactualAlternatives(path)).rejects.toThrow(reason as string);
+    });
+  });
+
+  it('refuses a file over the bounded size', async () => {
+    const { readCounterfactualAlternatives, MAX_ALTERNATIVES_FILE_BYTES } = await import('./heal.js');
+
+    await withFile('x'.repeat(MAX_ALTERNATIVES_FILE_BYTES + 1), async (path) => {
+      await expect(readCounterfactualAlternatives(path))
+        .rejects.toThrow(`exceeds ${MAX_ALTERNATIVES_FILE_BYTES} bytes`);
+    });
   });
 });

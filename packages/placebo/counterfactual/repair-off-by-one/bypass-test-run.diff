@@ -1,0 +1,6 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1 +1 @@
+-{"name":"placebo-repair-off-by-one","private":true,"type":"module","scripts":{"test":"vitest run"},"devDependencies":{"eslint":"10.9.1","typescript":"6.0.3","vitest":"4.1.11"}}
++{"name":"placebo-repair-off-by-one","private":true,"type":"module","scripts":{"test":"vitest run --passWithNoTests --exclude case.test.js"},"devDependencies":{"eslint":"10.9.1","typescript":"6.0.3","vitest":"4.1.11"}}

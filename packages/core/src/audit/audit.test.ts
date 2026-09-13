@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -7,6 +8,8 @@ import type { Diagnosis, RaceResult } from '../domain.js';
 import { InMemoryExecutor } from '../executor/memory.js';
 import { audit, type AuditLlm } from './audit.js';
 import { ADVERSARIAL_AUDIT_PROMPT, adjudicate } from './adjudicate.js';
+import { createDefaultRepositoryPolicy } from '../policy/load.js';
+import { authorizeRepairCandidate, createRepairAuthorizationSession, deriveRepairAuthorization } from '../engine/repair-authorization.js';
 
 const DIAGNOSIS: Diagnosis = {
   class: 'build',
@@ -66,6 +69,22 @@ describe('adversarial prompt', () => {
 });
 
 describe('audit', () => {
+  it('rechecks the exact controller authorization before a fresh audit rerun', async () => {
+    const before = 'import { test, expect } from "vitest"; test("name", async () => { expect(load()).toBe("ok"); });\n';
+    const after = before.replace('expect(load())', 'expect(await load())');
+    const diff = `diff --git a/case.test.js b/case.test.js\n--- a/case.test.js\n+++ b/case.test.js\n@@ -1 +1 @@\n-${before.trimEnd()}\n+${after.trimEnd()}\n`;
+    const baseline = { kind: 'local-snapshot' as const, sourceSha: null, policyBaseSha: null, policySha256: 'a'.repeat(64), baselineImageId: 'baseline', snapshotSha256: null };
+    const session = createRepairAuthorizationSession({ baseline, failingCommand: 'pnpm test', policy: createDefaultRepositoryPolicy(), sources: [{ path: 'case.test.js', startLine: 1, content: before, truncated: false }] });
+    expect((await deriveRepairAuthorization(session, { kind: 'await-operation', path: 'case.test.js', evidenceReferences: ['recorded-promise-failure'], controllerProbe: { id: 'async-completion', imageId: 'baseline', exitCode: 1, output: 'Promise mismatch', sourceSha256: createHash('sha256').update(before).digest('hex'), failingCommand: 'pnpm test' } })).ok).toBe(true);
+    const context = { ...CONTEXT, authorization: { session, baseline } };
+    const unavailable = llmReplies();
+    expect((await audit(executor(), unavailable.llm, winner(diff), context)).approved).toBe(false);
+    expect(unavailable.chat).not.toHaveBeenCalled();
+    expect((await authorizeRepairCandidate(session, baseline, diff)).ok).toBe(true);
+    const available = llmReplies('{"approved":true,"reasoning":"unchanged assertion and awaited existing operation"}');
+    expect((await audit(executor(), available.llm, winner(diff), context)).approved).toBe(true);
+    expect((await audit(executor(), llmReplies().llm, winner(diff.replace('toBe("ok")', 'toBe("other")')), context)).approved).toBe(false);
+  });
   it.each([
     'deleted-test',
     'skipped-test',
@@ -73,6 +92,7 @@ describe('audit', () => {
     'loosened-type',
     'relaxed-config',
     'pass-with-no-tests',
+    'module-syntax',
   ])('refuses %s mechanically before spending a sandbox or LLM call', async (name) => {
     const sandbox = executor();
     const { llm, chat } = llmReplies(JSON.stringify({ approved: true, reasoning: 'ok' }));
@@ -80,7 +100,7 @@ describe('audit', () => {
     const verdict = await audit(sandbox, llm, winner(await fixture(name)), CONTEXT);
 
     expect(verdict.approved).toBe(false);
-    expect(verdict.checks).toHaveLength(7);
+    expect(verdict.checks).toHaveLength(8);
     expect(verdict.checks.some((check) => !check.passed)).toBe(true);
     expect(verdict.checks.find((check) => !check.passed)?.evidence).toContain('@@');
     expect(sandbox.calls).toEqual([]);
@@ -102,7 +122,7 @@ describe('audit', () => {
 
     expect(verdict.approved).toBe(true);
     expect(verdict.reasoning).toBe('The patch fixes the diagnosed export.');
-    expect(verdict.checks).toHaveLength(7);
+    expect(verdict.checks).toHaveLength(8);
     expect(verdict.checks.every(({ passed }) => passed)).toBe(true);
     expect(sandbox.calls).toEqual([
       expect.objectContaining({
@@ -204,7 +224,7 @@ describe('audit', () => {
     );
 
     expect(verdict.approved).toBe(false);
-    expect(verdict.checks).toHaveLength(7);
+    expect(verdict.checks).toHaveLength(8);
     expect(verdict.reasoning).toContain('suite rerun exited 1');
     expect(verdict.reasoning).toContain('Assertion failed');
     expect(chat).not.toHaveBeenCalled();

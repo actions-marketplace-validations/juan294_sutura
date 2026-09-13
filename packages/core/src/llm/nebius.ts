@@ -13,10 +13,13 @@ import type {
 } from './types.js';
 import {
   DEFAULT_ROUTING_PROFILE_ID,
+  DEVELOPMENT_ROUTING_PROFILE_ID,
+  DEVELOPMENT_ROUTING_PROFILE,
   ModelRouter,
   type ModelRouteDecision,
   type ModelSelectionProfile,
 } from './router.js';
+import { trimTrailing } from '../text/trim-edge.js';
 
 export interface NebiusClientConfig {
   apiKey: string;
@@ -106,7 +109,7 @@ function nonNegativeInteger(value: unknown, field: string): number {
 }
 
 function endpoint(baseUrl: string): string {
-  return `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
+  return `${trimTrailing(baseUrl, '/')}/chat/completions`;
 }
 
 function wireMessages(messages: readonly ChatMessage[]): readonly unknown[] {
@@ -338,6 +341,7 @@ export class NebiusClient {
   private readonly random: () => number;
   private readonly now: () => number;
   private readonly router: ModelRouter;
+  private readonly repairEscalations = new WeakMap<object, number>();
 
   constructor(
     private readonly config: NebiusClientConfig,
@@ -368,10 +372,33 @@ export class NebiusClient {
     messages: readonly ChatMessage[],
     options: ChatOptions = {},
   ): ModelRouteDecision {
-    const boundedContextBytes = Math.min(
-      64_000,
-      Buffer.byteLength(JSON.stringify(wireMessages(messages)), 'utf8'),
-    );
+    const boundedContextBytes = Buffer.byteLength(JSON.stringify({
+      messages: wireMessages(messages),
+      ...(options.tools === undefined ? {} : { tools: options.tools }),
+      ...(options.responseFormat === undefined ? {} : { response_format: wireResponseFormat(options.responseFormat) }),
+    }), 'utf8');
+    const purpose = options.purpose ?? (tier === 'nano' ? 'classification' : tier === 'ultra' ? 'adjudication' : 'repair');
+    const availableUsd = options.routing?.remainingInferenceBudgetUsd ?? Number.MAX_SAFE_INTEGER;
+    const runScope = options.routing?.runScope;
+    const adaptive = this.config.routingProfileId !== DEVELOPMENT_ROUTING_PROFILE_ID ? undefined : {
+      profile: DEVELOPMENT_ROUTING_PROFILE,
+      signals: {
+        purpose,
+        ...(options.routing?.diagnosisConfidence == null ? {} : { confidence: options.routing.diagnosisConfidence }),
+        targetCount: options.routing?.targetCount ?? 1,
+        requestBytes: boundedContextBytes,
+        priorRepairFeedback: options.routing?.priorRepairFeedback ?? false,
+        // Missing run identity never grants an unbounded escalation allowance.
+        ultraEscalationsUsed: runScope === undefined ? 1 : this.repairEscalations.get(runScope) ?? 0,
+      },
+      budget: {
+        availableUsd,
+        worstCaseUsd: Object.fromEntries((['nano', 'super', 'ultra'] as const).map((role) => [role,
+          Math.ceil((boundedContextBytes * this.config.prices[role].input
+            + (options.maxTokens ?? 4_096) * this.config.prices[role].output)) / 1_000_000,
+        ])) as Record<ModelTier, number>,
+      },
+    };
     return this.router.select({
       requestedRole: tier,
       failureClass: options.routing?.failureClass ?? null,
@@ -380,6 +407,7 @@ export class NebiusClient {
       remainingInferenceBudgetUsd:
         options.routing?.remainingInferenceBudgetUsd ?? Number.MAX_SAFE_INTEGER,
       profileId: this.config.routingProfileId ?? DEFAULT_ROUTING_PROFILE_ID,
+      ...(adaptive === undefined ? {} : { adaptive }),
     });
   }
 
@@ -404,10 +432,13 @@ export class NebiusClient {
     }
 
     const decision = this.modelQuote(tier, messages, options);
+    if (options.quotedRoute !== undefined && JSON.stringify(options.quotedRoute) !== JSON.stringify(decision)) {
+      throw new Error('Reserved model quote is stale; refusing to change its route or price');
+    }
     const chatTemplateKwargs = options.thinkingMode === undefined
       ? undefined
       : options.thinkingMode === 'disabled'
-        ? { enable_thinking: false }
+        ? { enable_thinking: false, force_nonempty_content: true }
         : options.thinkingMode === 'low-effort'
           ? { enable_thinking: true, low_effort: true }
           : { enable_thinking: true };
@@ -440,6 +471,12 @@ export class NebiusClient {
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     };
 
+    if (decision.adaptiveReason !== undefined && options.signal?.aborted) {
+      throw options.signal.reason ?? new Error('Model request aborted');
+    }
+    if (decision.adaptiveReason === 'ultra-escalation' && options.routing?.runScope !== undefined) {
+      this.repairEscalations.set(options.routing.runScope, (this.repairEscalations.get(options.routing.runScope) ?? 0) + 1);
+    }
     const retryDeadline = this.now() + RETRY_DEADLINE_MS;
     for (let attempt = 0; ; attempt += 1) {
       let response: HttpResponse;

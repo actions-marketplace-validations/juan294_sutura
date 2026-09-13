@@ -1,4 +1,8 @@
-import type { CaseFile as CoreCaseFile, FailureClass } from '@sutura/core';
+import type {
+  CaseFile as CoreCaseFile,
+  CounterfactualEvidence,
+  FailureClass,
+} from '@sutura/core';
 import type { EvaluationManifest } from '@sutura/evaluation';
 
 export const CORPUS_VERSION = '0.2' as const;
@@ -9,6 +13,12 @@ export type ExpectedOutcome = 'refused' | 'fixed' | 'flaky-no-patch' | 'fixed-wi
 export type FixtureLanguage = 'javascript' | 'typescript' | 'python';
 export type FlakePattern = 'timing' | 'port' | 'order' | 'filesystem' | 'simulated-network' | 'randomness';
 export type RepairDifficulty = 'standard' | 'hard';
+export type EvaluationSplit = 'development' | 'validation' | 'held-out';
+
+export interface CaseLineage {
+  rootCaseId: string;
+  family: string;
+}
 
 export interface ReleaseFact {
   title: string;
@@ -35,6 +45,10 @@ export interface CaseMetadata {
   hiddenVerification?: true;
   releaseFact?: ReleaseFact;
   expectedWithoutTavily?: 'fixed' | 'gave-up';
+  /** Opt-in revision: never silently changes the frozen v0.2 benchmark slice. */
+  evaluationRevision?: string;
+  lineage?: CaseLineage;
+  split?: EvaluationSplit;
 }
 
 export interface CorpusCase {
@@ -69,6 +83,20 @@ export interface Adapter {
 export interface AdapterContext {
   candidateDiff?: string;
   language?: FixtureLanguage;
+  /**
+   * Path to a JSON alternative set the harness wrote into the per-case
+   * temporary directory. A path, never inline diffs, so patch bodies never
+   * cross the process boundary as argv values.
+   */
+  alternativesFile?: string;
+  /**
+   * The command that fails on the broken fixture and passes on the repaired
+   * one, exactly as the harness runs it for hidden verification. The corpus
+   * `expectedChecks` label is not runnable on its own: Python fixtures keep
+   * their tests in `tests/` without a package marker, so bare `python -m
+   * unittest` discovers nothing.
+   */
+  failingCommand?: string;
 }
 
 export interface BenchmarkResult {
@@ -84,6 +112,7 @@ export interface BenchmarkResult {
   failureClass?: FailureClass;
   flakePattern?: FlakePattern;
   hiddenVerification?: HiddenVerificationResult;
+  counterfactual?: CounterfactualEvidence;
 }
 
 export interface HiddenVerificationResult {
@@ -95,7 +124,15 @@ export interface Rate { fixed: number; of: number }
 export interface GroupedRate extends Rate { key: string }
 export interface GroupedAccuracy { key: string; correct: number; of: number }
 
+/**
+ * v3: `deceptivePatchRejection` also counts a supplied trap candidate that
+ * raced, failed its own verification, and was never audited. v2 counted only
+ * the refused form, so a trap Sutura defeated in the sandbox scored as a miss.
+ */
+export const SCORE_CONTRACT_VERSION = 'sutura-placebo-score-v3' as const;
+
 export interface Score {
+  scoreContractVersion: typeof SCORE_CONTRACT_VERSION;
   corpusVersion: typeof CORPUS_VERSION;
   catchRate: { refused: number; of: number };
   falseApprovalCount: number;
@@ -111,6 +148,8 @@ export interface Score {
   flakyAccuracy: { correct: number; of: number };
   flakeAccuracyByPattern: GroupedAccuracy[];
   hiddenTestPreservation: { preserved: number; of: number };
+  hiddenRepairPreservation: { passed: number; of: number; notRun: number };
+  deceptivePatchRejection: { rejected: number; of: number; notRun: number };
   medianInferenceCostUsd: number;
   medianSandboxOperations: number;
   medianElapsedTimeSec: number;

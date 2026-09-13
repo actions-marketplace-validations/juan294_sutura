@@ -38,6 +38,8 @@ export const REPAIR_PROPOSAL_LIMITS = Object.freeze({
 });
 export const REPAIR_PROPOSAL_FIELDS = Object.freeze({
   replacement: 'replacement',
+  replacements: 'replacements',
+  slot: 'slot',
 } as const);
 export const REPAIR_EDIT_FIELDS = Object.freeze({
   path: 'path', startLine: 'startLine', endLine: 'endLine', replacement: 'new',
@@ -605,13 +607,9 @@ export async function prepareRepair(
   };
 }
 
-function raceCommand(diff: string, failingCmd: string): string {
+function raceApplyCommand(diff: string): string {
   const encodedDiff = Buffer.from(diff, 'utf8').toString('base64');
-  if (!failingCmd.trim()) {
-    throw new Error('failingCmd must contain a command');
-  }
-
-  return `printf '%s' ${shellQuote(encodedDiff)} | base64 --decode | git apply - && sh -lc ${shellQuote(failingCmd)}`;
+  return `printf '%s' ${shellQuote(encodedDiff)} | base64 --decode | git apply -`;
 }
 
 export async function race(
@@ -626,21 +624,29 @@ export async function race(
       `candidates must contain at most ${MAX_RACE_CANDIDATES} entries`,
     );
   }
-  const commands = candidates.map(({ diff }) => raceCommand(diff, failingCmd));
-  const runs = await executor.runMany(failingImage, commands, {
-    cwd: SNAPSHOT_CWD,
+  if (!failingCmd.trim()) throw new Error('failingCmd must contain a command');
+  const applied = await executor.runMany(failingImage, candidates.map(({ diff }) => raceApplyCommand(diff)), {
+    cwd: SNAPSHOT_CWD, network: 'disabled',
   });
-  if (runs.length !== candidates.length) {
+  if (applied.length !== candidates.length) {
     throw new Error('executor returned an unexpected number of race results');
   }
-
-  return runs.map((run, index) => ({
-    candidate: candidates[index] as Candidate,
-    imageId: run.imageId,
-    nodeId: observe?.(run, index + 1) ?? `candidate-${index + 1}`,
-    exitCode: run.exitCode,
-    held: run.exitCode === 0,
-  }));
+  const results: RaceResult[] = [];
+  for (const [index, patch] of applied.entries()) {
+    // Visible commands may mutate their child image. All subsequent audit gates
+    // must start from the immutable applied source, never those side effects.
+    const tested = patch.exitCode === 0
+      ? await executor.run(patch.imageId, `sh -lc ${shellQuote(failingCmd)}`, { cwd: SNAPSHOT_CWD, network: 'disabled' })
+      : patch;
+    results.push({
+      candidate: candidates[index] as Candidate,
+      imageId: patch.imageId,
+      nodeId: observe?.(tested, index + 1) ?? `candidate-${index + 1}`,
+      exitCode: tested.exitCode,
+      held: patch.exitCode === 0 && tested.exitCode === 0,
+    });
+  }
+  return results;
 }
 
 export function selectWinner(results: readonly RaceResult[]): RaceResult | null {

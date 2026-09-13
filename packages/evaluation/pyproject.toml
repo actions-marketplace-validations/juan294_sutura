@@ -2,11 +2,12 @@
 name = "sutura-evaluation-validator"
 version = "0.0.0"
 requires-python = ">=3.11,<3.14"
-dependencies = ["nvidia-nat-atif"]
+dependencies = ["nvidia-nat-atif", "nvidia-nat-eval"]
 
 [tool.uv]
 package = false
-required-version = "==0.12.7"
+required-version = ">=0.12.7,<0.13"
 
 [tool.uv.sources]
 nvidia-nat-atif = { git = "https://github.com/NVIDIA/NeMo-Agent-Toolkit", rev = "23cd127dfba56994cd272f2771350d0ec13f3dd1", subdirectory = "packages/nvidia_nat_atif" }
+nvidia-nat-eval = { git = "https://github.com/NVIDIA/NeMo-Agent-Toolkit", rev = "23cd127dfba56994cd272f2771350d0ec13f3dd1", subdirectory = "packages/nvidia_nat_eval" }

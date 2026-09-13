@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRepositoryPolicy } from './schema.js';
+import { DEFAULT_REPOSITORY_POLICY, parseRepositoryPolicy } from './schema.js';
 
 const COMPLETE_POLICY = {
   version: 1,
@@ -20,7 +20,7 @@ describe('parseRepositoryPolicy', () => {
   it('parses the documented policy shape and protects the policy file', () => {
     expect(parseRepositoryPolicy(JSON.stringify(COMPLETE_POLICY))).toEqual({
       ...COMPLETE_POLICY,
-      protectedPaths: ['.sutura.json', '.github/**', 'migrations/**'],
+      protectedPaths: [...DEFAULT_REPOSITORY_POLICY.protectedPaths, '.github/**', 'migrations/**'],
     });
   });
 

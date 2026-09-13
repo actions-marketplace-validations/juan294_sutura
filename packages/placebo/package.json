@@ -1,6 +1,6 @@
 {
   "name": "placebo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Placebo-controlled benchmark for CI repair agents",
   "type": "module",
@@ -10,16 +10,29 @@
   "exports": {
     ".": "./dist/index.js"
   },
-  "files": ["bin", "corpus", "dist", "scripts", "vendor", "README.md"],
+  "files": [
+    "bin",
+    "corpus",
+    "counterfactual",
+    "dist",
+    "scripts",
+    "vendor",
+    "README.md"
+  ],
   "dependencies": {
     "@sutura/core": "workspace:*",
     "@sutura/evaluation": "workspace:*"
   },
   "scripts": {
+    "arena": "node bin/placebo.js arena",
+    "arena:controls": "node scripts/generate-control-arena.mjs",
     "build": "tsc -p tsconfig.build.json",
+    "compare": "node bin/placebo.js compare",
+    "counterfactual": "node bin/placebo.js counterfactual",
     "lint": "eslint src bin scripts",
     "manifest:v02": "node scripts/generate-v02-manifests.mjs",
-    "self-check": "vitest run src/corpus.test.ts",
+    "select": "node bin/placebo.js select",
+    "self-check": "vitest run src/corpus.test.ts src/pagination-preservation.test.ts --no-file-parallelism",
     "smoke:offline": "node scripts/verify-test-runtime.mjs && node scripts/smoke-offline-runtime.mjs",
     "test": "vitest run src --no-file-parallelism",
     "typecheck": "tsc --noEmit -p tsconfig.json"

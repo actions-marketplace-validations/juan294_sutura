@@ -1,0 +1,42 @@
+diff --git a/package.json b/package.json
+index 946028f..9bbd4e2 100644
+--- a/package.json
++++ b/package.json
+@@ -1 +1 @@
+-{"name":"placebo-upstream-manifest-lockfile-pair","private":true,"type":"module","scripts":{"test":"vitest run"},"dependencies":{"pricer":"file:vendor/pricer-v2"},"devDependencies":{"eslint":"10.9.1","typescript":"6.0.3","vitest":"4.1.11"}}
++{"name":"placebo-upstream-manifest-lockfile-pair","private":true,"type":"module","scripts":{"test":"vitest run"},"dependencies":{"pricer":"file:vendor/pricer-v1"},"devDependencies":{"eslint":"10.9.1","typescript":"6.0.3","vitest":"4.1.11"}}
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 582e9f5..2d535a5 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -9,8 +9,8 @@ importers:
+   .:
+     dependencies:
+       pricer:
+-        specifier: file:vendor/pricer-v2
+-        version: file:vendor/pricer-v2
++        specifier: file:vendor/pricer-v1
++        version: file:vendor/pricer-v1
+     devDependencies:
+       eslint:
+         specifier: 10.9.1
+@@ -376,8 +376,8 @@ packages:
+     resolution: {integrity: sha512-XxwI8EOhVQgWp6iDL+3b0r86f4d6AX6zSU55HfB4ydCEuXLXc5FcYeOu+nnGftS4TEju/11rt4KJPTMgbfmv4A==}
+     engines: {node: '>=10.13.0'}
+ 
+-  pricer@file:vendor/pricer-v2:
+-    resolution: {directory: vendor/pricer-v2, type: directory}
++  pricer@file:vendor/pricer-v1:
++    resolution: {directory: vendor/pricer-v1, type: directory}
+ 
+   ignore@5.3.2:
+     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
+@@ -1012,7 +1012,7 @@ snapshots:
+     dependencies:
+       is-glob: 4.0.3
+ 
+-  pricer@file:vendor/pricer-v2: {}
++  pricer@file:vendor/pricer-v1: {}
+ 
+   ignore@5.3.2: {}
+ 

@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { withinRecoveryDeadline } from '../diagnose/hypotheses-budget.js';
 import { Buffer } from 'node:buffer';
 
 import type { Candidate, Diagnosis } from '../domain.js';
@@ -8,6 +10,8 @@ import type { RepositoryPolicy } from '../policy/schema.js';
 import { redactExternalText } from '../security/external-text.js';
 import { isSensitiveRepositoryPath } from '../security/repository-path.js';
 import { boundedTail } from '../text/bounded-tail.js';
+import { authorizeRepairCandidate, type RepairAuthorizationContext } from './repair-authorization.js';
+import { repairTargetFileCap } from './repair-targets.js';
 import { validateCandidateDiff } from './candidate-validation.js';
 import { BudgetExceededError, type RepairBudget } from './repair-budget.js';
 import {
@@ -99,6 +103,8 @@ export interface RepairToolRuntimeOptions {
   budget: RepairBudget;
   trustedCommands: Readonly<Record<string, string>>;
   sourceContext: RepairSourceContext;
+  authorization?: RepairAuthorizationContext;
+  signal?: AbortSignal;
   operationIdPrefix?: string;
   onOperationStart?: (operationId: string) => void;
   observe?: (input: { result?: RunResult; imageId?: ImageId; parentImageId: ImageId; note: string }) => string;
@@ -161,17 +167,14 @@ export class RepairToolRuntime {
     this.options.budget.reserveSandboxOperation();
     const timeoutSec = Math.min(
       maximumTimeoutSec,
-      Math.max(0.001, this.options.budget.remainingElapsedTimeSec()),
+      this.options.budget.remainingElapsedTimeSec(),
     );
     this.operationIndex += 1;
-    const operationId = this.options.operationIdPrefix === undefined
-      ? undefined
-      : `${this.options.operationIdPrefix}-op-${String(this.operationIndex).padStart(3, '0')}`;
-    if (operationId !== undefined) this.options.onOperationStart?.(operationId);
-    return this.options.executor.run(parent, command, {
-      cwd: '/workspace', timeoutSec,
-      ...(operationId === undefined ? {} : { operationId }),
-    });
+    const operationId = `${this.options.operationIdPrefix ?? `repair-${randomUUID()}`}-op-${String(this.operationIndex).padStart(3, '0')}`;
+    this.options.onOperationStart?.(operationId);
+    return withinRecoveryDeadline(timeoutSec, this.options.signal, () => this.options.executor.run(parent, command, {
+      cwd: '/workspace', timeoutSec, operationId, network: 'disabled',
+    }), async () => this.options.executor.cancel(operationId));
   }
 
   private observe(result: RunResult | undefined, parentImageId: ImageId, note: string, imageId?: ImageId): string | undefined {
@@ -379,6 +382,33 @@ export class RepairToolRuntime {
     return { ok: true, message: output || `Test exited ${result.exitCode}`, imageId: result.imageId, exitCode: result.exitCode };
   }
 
+  /**
+   * Every diff this branch proposes or accumulates stays inside the repair
+   * transaction's file cap, which is the stricter of the two-file bound and the
+   * repository policy. A controller-generated artifact counts against it like
+   * any other changed file.
+   */
+  private async validateDiff(diff: string): Promise<ReturnType<typeof validateCandidateDiff>> {
+    const authorization = this.options.authorization;
+    if (authorization !== undefined) {
+      await authorizeRepairCandidate(authorization.session, authorization.baseline, diff);
+    }
+    const validation = validateCandidateDiff(
+      diff, this.options.diagnosis, this.options.policy,
+      this.options.budget.limits.diffBytes, authorization,
+    );
+    const cap = repairTargetFileCap(this.options.policy);
+    if (validation.changedFiles.length <= cap) return validation;
+    return {
+      ...validation,
+      ok: false,
+      violations: [
+        ...validation.violations,
+        `changes ${validation.changedFiles.length} files; the repair transaction permits at most ${cap}`,
+      ],
+    };
+  }
+
   private async applyPatch(value: unknown): Promise<RepairToolResult> {
     const args = exactObject(value, ['diff', 'edits']);
     if (!args || (typeof args.diff !== 'string' && args.edits === undefined) || (args.diff !== undefined && args.edits !== undefined)) {
@@ -394,7 +424,7 @@ export class RepairToolRuntime {
     } catch (error) {
       return failure('invalid', error instanceof Error ? error.message : String(error));
     }
-    const proposed = validateCandidateDiff(diff, this.options.diagnosis, this.options.policy, this.options.budget.limits.diffBytes);
+    const proposed = await this.validateDiff(diff);
     if (!proposed.ok) return failure('policy', proposed.violations.join('; '));
     const encoded = Buffer.from(diff, 'utf8').toString('base64');
     const command = `printf '%s' ${shellQuote(encoded)} | base64 --decode | git apply - && git diff --no-ext-diff --no-renames --binary HEAD --`;
@@ -403,7 +433,7 @@ export class RepairToolRuntime {
     if (result.exitCode !== 0) return failure('sandbox', bounded(result.stderr || 'Patch did not apply'));
     if (result.truncated) return failure('sandbox', 'Cumulative diff output was truncated');
     const cumulative = result.stdout;
-    const validation = validateCandidateDiff(cumulative, this.options.diagnosis, this.options.policy, this.options.budget.limits.diffBytes);
+    const validation = await this.validateDiff(cumulative);
     if (!validation.ok) return failure('policy', validation.violations.join('; '));
     this.options.budget.assertDiffBytes(validation.diffBytes);
     this.invalidateSourceExcerpts(proposed.changedFiles);
@@ -428,7 +458,7 @@ export class RepairToolRuntime {
     if (result.truncated || Buffer.byteLength(result.stdout, 'utf8') > MAX_TOOL_OUTPUT_BYTES) {
       return failure('sandbox', 'Diff inspection output exceeded the bounded tool limit');
     }
-    const validation = validateCandidateDiff(result.stdout, this.options.diagnosis, this.options.policy, this.options.budget.limits.diffBytes);
+    const validation = await this.validateDiff(result.stdout);
     this.observe(result, this.current.editableImageId, 'inspect_diff');
     return {
       ok: result.exitCode === 0,

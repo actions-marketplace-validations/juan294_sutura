@@ -1,6 +1,7 @@
-# Sutura feedback for Nebius
+# Sutura feedback for Nebius and NVIDIA
 
-Status: local draft. Live-provider verification remains pending authorization.
+Status: draft based on verified repository contracts and retained live-run
+evidence. Final provider and submission verification remain separately gated.
 
 ## Verified local integration behavior
 
@@ -16,16 +17,38 @@ Status: local draft. Live-provider verification remains pending authorization.
 These statements describe repository contracts and local tests. They are not
 claims about current service behavior.
 
-## Observed integration problems
+## Observed live integration problems
 
-- Verify whether the current public API schema provides every client safety
-  bound needed by a repair agent. This remains an untested hypothesis.
-- Reliable cost comparison requires a single, versioned catalog snapshot. An
-  incomplete or internally inconsistent snapshot cannot select production models.
-- Provider request, capacity, cancellation, and sandbox resource evidence need
-  normalization before it can be compared across a multi-branch repair run.
-- GitHub workloads need short-lived credentials, but Sutura has not verified a
-  Token Factory GitHub OIDC exchange and does not claim that it exists.
+- ConTree import of a pinned `ghcr.io/astral-sh/uv` image digest returned HTTP
+  404. The affected Python cases stopped as infrastructure outcomes
+  before source execution. Follow-up probes showed that ConTree accepted a
+  versioned Docker Hub tag while OCI digest imports through the tested paths
+  failed. The repository therefore verifies the tag's resolved platform digest
+  before use. The retained account is in the
+  [v0.2.1 remediation record](../plans/2026-09-01-sutura-v0.2.1-evidence-remediation.md).
+- Tavily returned HTTP 403 on the `upstream-retry-release` search after the
+  preceding upstream cases returned citations with the same candidate and
+  credential. Sutura surfaced `infra-stop` and did not treat an ungrounded
+  repair as success. The run identity and paired no-Tavily outcome are recorded
+  in the [WS-4 research](../research/2026-09-04-sutura-ws4-evidence-submission.md).
+- Live Nemotron Super calls returned invalid JSON and schema-incompatible
+  repair proposals. Some responses were truncated at the provider completion
+  boundary; others contained fields outside the controller-owned replacement
+  contract. Sutura rejected those responses before sandbox mutation and added
+  deterministic replay coverage from the retained runs.
+- The coding-agent request initially omitted the model-card-recommended
+  `force_nonempty_content` chat-template argument. Sutura now sends
+  `force_nonempty_content: true` with thinking disabled and verifies the exact
+  request through replay and provider-canary contracts. The change and its
+  fallback boundary are recorded in the
+  [search-recovery plan](../plans/2026-09-03-sutura-search-recovery.md).
+- A small number of Super calls entered degenerate completion-limit loops and
+  consumed the configured completion envelope without producing a usable
+  replacement. The first stop rule ended the whole adaptive search even when
+  sibling branches held applied patches. The controller now keeps that terminal
+  local to the runaway branch unless completion limits outnumber productive
+  proposals, as documented in the
+  [branch-local completion record](../plans/2026-09-04-sutura-completion-limit-branch-local.md).
 
 ## Requested features
 
@@ -39,10 +62,14 @@ claims about current service behavior.
 - Document function-calling and JSON Schema conformance by model.
 - Document GitHub OIDC or another short-lived credential flow if supported.
 - Document Data Lab redaction, upload, retention, and Zero Data Retention behavior.
+- Provide a versioned public compatibility matrix for ConTree image references,
+  including registry, tag, OCI index digest, and platform manifest behavior.
 
 ## Proposed impact
 
 These features would reduce custom validation code, make cost and latency
 evidence reproducible, improve recovery from partial failures, and let a CI
-repair system use shorter-lived credentials. Live observations, request IDs,
-and measured service results will be added only after an authorized probe.
+repair system use shorter-lived credentials. The observations above are
+retained failures, not estimates of general service reliability. The requests
+are proposed product improvements rather than claims about undocumented
+capabilities.

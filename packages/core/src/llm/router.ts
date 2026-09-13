@@ -1,8 +1,30 @@
 import type { FailureClass } from '../domain.js';
 import type { ModelPrice, ModelPrices, ModelTier } from './cost.js';
+import {
+  routeModel,
+  type RoutingBudget,
+  type RoutingProfile,
+  type RoutingReason,
+  type RoutingSignals,
+} from './routing-policy.js';
 
 export const MODEL_SELECTION_SCHEMA_VERSION = 'sutura-model-selection-v1' as const;
 export const DEFAULT_ROUTING_PROFILE_ID = 'production-baseline-v1' as const;
+export const DEVELOPMENT_ROUTING_PROFILE_ID = 'development-adaptive-v1' as const;
+
+/** Conservative development input ceilings, with output capacity held separately. */
+export const DEVELOPMENT_ROUTING_PROFILE: RoutingProfile = Object.freeze({
+  nanoRepairEnabled: true,
+  contextBytes: Object.freeze({ nano: 8_000, super: 64_000, ultra: 128_000 }),
+  verifiedTiers: Object.freeze(['nano', 'super', 'ultra'] as const),
+});
+
+export class RoutingAbstentionError extends Error {
+  constructor(readonly reason: RoutingReason, readonly profileHash: string) {
+    super(`Adaptive routing abstained: ${reason}`);
+    this.name = 'RoutingAbstentionError';
+  }
+}
 
 export interface ModelSelectionProfile {
   schemaVersion: typeof MODEL_SELECTION_SCHEMA_VERSION;
@@ -13,6 +35,12 @@ export interface ModelSelectionProfile {
   prices: ModelPrices;
 }
 
+export interface AdaptiveRoutingRequest {
+  signals: RoutingSignals;
+  profile: RoutingProfile;
+  budget: RoutingBudget;
+}
+
 export interface ModelRoutingInput {
   requestedRole: ModelTier;
   failureClass: FailureClass | null;
@@ -20,6 +48,12 @@ export interface ModelRoutingInput {
   boundedContextBytes: number;
   remainingInferenceBudgetUsd: number;
   profileId: string;
+  /**
+   * Opt-in adaptive tier selection. Absent, the requested role is used
+   * unchanged, which keeps fixed routing the reproducible control and the safe
+   * default until phase 10 evaluates promotion.
+   */
+  adaptive?: AdaptiveRoutingRequest;
 }
 
 export interface ModelRouteDecision {
@@ -28,6 +62,10 @@ export interface ModelRouteDecision {
   price: ModelPrice;
   profileId: string;
   fallbackReason?: string;
+  /** Present only when adaptive selection ran; names why the tier was chosen. */
+  adaptiveReason?: RoutingReason;
+  /** Binds the decision to the exact frozen routing profile that produced it. */
+  routingProfileHash?: string;
 }
 
 function validInput(input: ModelRoutingInput): void {
@@ -70,21 +108,31 @@ export class ModelRouter {
 
   select(input: ModelRoutingInput): ModelRouteDecision {
     validInput(input);
-    const selected = input.profileId === DEFAULT_ROUTING_PROFILE_ID
+    const selected = input.profileId === DEVELOPMENT_ROUTING_PROFILE_ID
+      ? { ...this.baseline, profileId: DEVELOPMENT_ROUTING_PROFILE_ID }
+      : input.profileId === DEFAULT_ROUTING_PROFILE_ID
       ? this.baseline
       : this.profiles.get(input.profileId);
     const usable = selected?.complete === true && selected.pricesVerified === true;
     const profile = usable ? selected : this.baseline;
+    const adaptive = input.adaptive === undefined
+      ? undefined
+      : routeModel(input.adaptive.signals, input.adaptive.profile, input.adaptive.budget);
+    if (adaptive?.tier === null) throw new RoutingAbstentionError(adaptive.reason, adaptive.profileHash);
+    const role = adaptive?.tier ?? input.requestedRole;
     return {
-      role: input.requestedRole,
-      modelId: profile.models[input.requestedRole],
-      price: { ...profile.prices[input.requestedRole] },
+      role,
+      modelId: profile.models[role],
+      price: { ...profile.prices[role] },
       profileId: profile.profileId,
       ...(!usable && input.profileId !== DEFAULT_ROUTING_PROFILE_ID
         ? { fallbackReason: selected === undefined
             ? 'selected profile is unavailable'
             : 'selected profile is incomplete or has unverified prices' }
         : {}),
+      ...(adaptive === undefined
+        ? {}
+        : { adaptiveReason: adaptive.reason, routingProfileHash: adaptive.profileHash }),
     };
   }
 }

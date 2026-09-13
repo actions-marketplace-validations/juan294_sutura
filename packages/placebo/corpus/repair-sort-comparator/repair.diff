@@ -1,0 +1,7 @@
+diff --git a/sorting.js b/sorting.js
+index 9e908dd..4b37a38 100644
+--- a/sorting.js
++++ b/sorting.js
+@@ -1 +1 @@
+-export const ascending = (values) => [...values].sort();
++export const ascending = (values) => [...values].sort((left, right) => left - right);

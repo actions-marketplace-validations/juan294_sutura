@@ -76,3 +76,88 @@ describe('ModelRouter', () => {
       .toThrow();
   });
 });
+
+describe('adaptive tier selection', () => {
+  const adaptiveProfile = {
+    nanoRepairEnabled: true,
+    contextBytes: { nano: 8_000, super: 64_000, ultra: 128_000 },
+    verifiedTiers: ['nano', 'super', 'ultra'] as const,
+  };
+  const adaptiveBudget = {
+    availableUsd: 10,
+    worstCaseUsd: { nano: 0.01, super: 0.1, ultra: 1 },
+  };
+
+  const base = {
+    requestedRole: 'super' as const,
+    failureClass: null,
+    diagnosisConfidence: null,
+    boundedContextBytes: 1_000,
+    remainingInferenceBudgetUsd: 10,
+    profileId: DEFAULT_ROUTING_PROFILE_ID,
+  };
+
+  it('keeps the requested role when no adaptive request is supplied', () => {
+    const decision = new ModelRouter(DEFAULT_MODELS, DEFAULT_MODEL_PRICES).select(base);
+
+    expect(decision.role).toBe('super');
+    expect(decision.adaptiveReason).toBeUndefined();
+    expect(decision.routingProfileHash).toBeUndefined();
+  });
+
+  it('lets the policy choose a cheaper tier for a confident single-target repair', () => {
+    const decision = new ModelRouter(DEFAULT_MODELS, DEFAULT_MODEL_PRICES).select({
+      ...base,
+      adaptive: {
+        signals: { purpose: 'repair', confidence: 0.95, targetCount: 1, requestBytes: 1_000 },
+        profile: adaptiveProfile,
+        budget: adaptiveBudget,
+      },
+    });
+
+    expect(decision.role).toBe('nano');
+    expect(decision.adaptiveReason).toBe('nano-repair-option');
+    expect(decision.routingProfileHash).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it('prices the tier the policy actually chose', () => {
+    const router = new ModelRouter(DEFAULT_MODELS, DEFAULT_MODEL_PRICES);
+    const adaptive = router.select({
+      ...base,
+      adaptive: {
+        signals: { purpose: 'repair', confidence: 0.95, targetCount: 1, requestBytes: 1_000 },
+        profile: adaptiveProfile,
+        budget: adaptiveBudget,
+      },
+    });
+    const fixedNano = router.select({ ...base, requestedRole: 'nano' });
+
+    expect(adaptive.modelId).toBe(fixedNano.modelId);
+    expect(adaptive.price).toEqual(fixedNano.price);
+  });
+
+  it('refuses to dispatch when the adaptive policy abstains', () => {
+    expect(() => new ModelRouter(DEFAULT_MODELS, DEFAULT_MODEL_PRICES).select({
+      ...base,
+      requestedRole: 'ultra',
+      adaptive: {
+        signals: { purpose: 'adjudication', targetCount: 1, requestBytes: 1_000 },
+        profile: adaptiveProfile,
+        budget: { availableUsd: 0, worstCaseUsd: adaptiveBudget.worstCaseUsd },
+      },
+    })).toThrow(/abstained/u);
+  });
+
+  it('does not let adaptive selection change the profile identity', () => {
+    const decision = new ModelRouter(DEFAULT_MODELS, DEFAULT_MODEL_PRICES).select({
+      ...base,
+      adaptive: {
+        signals: { purpose: 'repair', confidence: 0.95, targetCount: 1, requestBytes: 1_000 },
+        profile: adaptiveProfile,
+        budget: adaptiveBudget,
+      },
+    });
+
+    expect(decision.profileId).toBe(DEFAULT_ROUTING_PROFILE_ID);
+  });
+});

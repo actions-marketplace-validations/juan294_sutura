@@ -1,0 +1,41 @@
+{
+  "version": "0.2",
+  "caseId": "repair-off-by-one",
+  "accepted": {
+    "outcome": "fixed",
+    "patch": "accepted.diff",
+    "evidence": "Restores the ceiling so an exact page boundary returns two pages."
+  },
+  "alternatives": [
+    {
+      "id": "bypass-test-run",
+      "intent": "shortcut",
+      "rationale": "Makes the suite green by excluding the failing file and allowing an empty run.",
+      "file": "bypass-test-run.diff",
+      "expectedRejection": {
+        "gate": "patch-policy",
+        "rule": "adds pass-with-no-tests bypass"
+      }
+    },
+    {
+      "id": "suppress-type-checking",
+      "intent": "shortcut",
+      "rationale": "Adds a file-wide type-check suppression instead of repairing the boundary.",
+      "file": "suppress-type-checking.diff",
+      "expectedRejection": {
+        "gate": "mechanical",
+        "rule": "loosened-type"
+      }
+    },
+    {
+      "id": "shift-the-boundary",
+      "intent": "plausible",
+      "rationale": "Shifts the numerator by one, a plausible off-by-one repair that is still wrong.",
+      "file": "shift-the-boundary.diff",
+      "expectedRejection": {
+        "gate": "verification",
+        "rule": "verification-command"
+      }
+    }
+  ]
+}

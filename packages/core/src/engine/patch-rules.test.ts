@@ -84,7 +84,7 @@ index 1111111..0000000
     },
   );
 
-  it('rejects test edits unless the diagnosis is test-bug', () => {
+  it('rejects test edits even when the diagnosis is test-bug without a grant', () => {
     const diff = `diff --git a/src/foo.spec.ts b/src/foo.spec.ts
 index 1111111..2222222 100644
 --- a/src/foo.spec.ts
@@ -98,12 +98,12 @@ index 1111111..2222222 100644
       'touches test file: src/foo.spec.ts',
     ]);
     expect(vetPatch(diff, diagnosis('test-bug'))).toEqual({
-      ok: true,
-      violations: [],
+      ok: false,
+      violations: ['touches test file: src/foo.spec.ts'],
     });
   });
 
-  it('rejects tool configuration edits unless the diagnosis is env-config', () => {
+  it('rejects tool configuration edits even with an env-config diagnosis without a grant', () => {
     const diff = `diff --git a/vitest.config.ts b/vitest.config.ts
 index 1111111..2222222 100644
 --- a/vitest.config.ts
@@ -117,8 +117,8 @@ index 1111111..2222222 100644
       'touches tool config: vitest.config.ts',
     ]);
     expect(vetPatch(diff, diagnosis('env-config'))).toEqual({
-      ok: true,
-      violations: [],
+      ok: false,
+      violations: ['touches tool config: vitest.config.ts'],
     });
   });
 
@@ -145,6 +145,29 @@ index 1111111..2222222 100644
       ok: true,
       violations: [],
     });
+  });
+
+  it.each([
+    ['33802470792', "diff --git a/app.cjs b/app.cjs\nindex fb07b6b..399e907 100644\n--- a/app.cjs\n+++ b/app.cjs\n@@ -1,2 +1,2 @@\n-const chalk = require('chalk');\n+import chalk from 'chalk';\n exports.renderStatus = () => chalk.green('ready');\n"],
+    ['33802888547', "diff --git a/app.cjs b/app.cjs\nindex 56cd7e1..0b9bcac 100644\n--- a/app.cjs\n+++ b/app.cjs\n@@ -1,2 +1,2 @@\n-const fetch = require('node-fetch');\n+import fetch from 'node-fetch';\n exports.fetchName = () => fetch('data:Juan').then((response) => response.text());\n"],
+    ['33803376832', "diff --git a/app.cjs b/app.cjs\nindex 58cfe41..6e92c16 100644\n--- a/app.cjs\n+++ b/app.cjs\n@@ -1,2 +1,2 @@\n-const execa = require('execa');\n+import { execa } from 'execa';\n exports.nodeVersion = () => execa('node', ['--version']).stdout;\n"],
+  ])('replays live Placebo run %s: rejects ES module syntax added to a .cjs file', (_runId, diff) => {
+    expect(vetPatch(diff, diagnosis('dep-upstream-breaking'))).toEqual({
+      ok: false,
+      violations: ['adds ES module syntax to CommonJS file: app.cjs'],
+    });
+  });
+
+  it('accepts the CommonJS default-import repair for an ESM-only release', () => {
+    const diff = `diff --git a/app.cjs b/app.cjs
+--- a/app.cjs
++++ b/app.cjs
+@@ -1,2 +1,2 @@
+-const chalk = require('chalk');
++const chalk = require('chalk').default;
+ exports.renderStatus = () => chalk.green('ready');
+`;
+    expect(vetPatch(diff, diagnosis('dep-upstream-breaking'))).toEqual({ ok: true, violations: [] });
   });
 
   it('rejects pass-with-no-tests bypasses before the candidate race', () => {
@@ -330,7 +353,7 @@ index 1111111..2222222 100644
 +const mask = value << 2;
 `;
 
-    expect(vetPatch(diff, diagnosis('env-config')).violations).toEqual([]);
+    expect(vetPatch(diff, diagnosis('env-config')).violations).toEqual(['touches tool config: vitest.config.ts']);
   });
 
   it('cannot hide a test edit behind a quoted path or a safe source edit', () => {

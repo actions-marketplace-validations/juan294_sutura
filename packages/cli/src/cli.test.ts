@@ -181,6 +181,27 @@ describe('runCli', () => {
     expect(stdout.join('')).not.toContain('abc123');
   });
 
+  it('retains the terminal provider error and removes signed URLs before bounding diagnostics', async () => {
+    const stdout: string[] = [];
+    // Captured run 34312341360: repeated Docker redirects exhausted the old
+    // first-2,000-character excerpt before the importer terminal cause.
+    const redirect = 'https://production.cloudfront.docker.com/layer?Expires=123&Signature=private-signature&Key-Pair-Id=private-key';
+    const reason = `ConTree operation ended with FAILED: Import instance failed with exit code 1\n${`INFO Following redirect to ${redirect}\n`.repeat(40)}ERROR HTTP 502 Bad Gateway`;
+    await runCli(
+      ['heal', '--case-dir', '/tmp/case', '--format', 'json'],
+      { write: (value) => stdout.push(value) },
+      { heal: vi.fn().mockRejectedValue(new Error(reason)) },
+    );
+    const result = JSON.parse(stdout.join(''));
+    expect(result.diagnosis.errorExcerpt).toMatch(/^ConTree operation ended with FAILED/u);
+    expect(result.diagnosis.errorExcerpt).toContain('ERROR HTTP 502 Bad Gateway');
+    expect(result.diagnosis.errorExcerpt.length).toBeLessThanOrEqual(2_000);
+    expect(result.diagnosis.errorExcerpt).toContain('[truncated]');
+    expect(stdout.join('')).not.toContain('private-signature');
+    expect(stdout.join('')).not.toContain('private-key');
+    expect(result.stages[0].note).not.toContain('before provider execution');
+  });
+
   it('reports an auto-detected Python runtime when local healing fails', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'sutura-cli-python-failure-'));
     const stdout: string[] = [];
@@ -202,5 +223,20 @@ describe('runCli', () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+});
+
+describe('executed verification exit status', () => {
+  const argv = ['verify', '--case-dir', '/tmp/source', '--source-sha', 'a'.repeat(40), '--policy-base-sha', 'b'.repeat(40), '--candidate-diff', '/tmp/change.diff', '--failing-command', 'diagnosed', '--format', 'json'];
+  for (const status of ['refused', 'insufficient', 'infra-stop']) {
+    it(`returns nonzero for ${status} and preserves the result`, async () => {
+      const output: string[] = [];
+      const exit = await runCli(argv, { write: text => output.push(text) }, { verify: async () => ({ status }) });
+      expect(exit).toBe(1);
+      expect(JSON.parse(output.join('')).status).toBe(status);
+    });
+  }
+  it('returns zero only for a verified supplied patch', async () => {
+    expect(await runCli(argv, { write: () => {} }, { verify: async () => ({ status: 'verified-supplied-patch' }) })).toBe(0);
   });
 });

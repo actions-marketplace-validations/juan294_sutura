@@ -1,0 +1,7 @@
+diff --git a/clone.js b/clone.js
+index 4e3cb08..44d422f 100644
+--- a/clone.js
++++ b/clone.js
+@@ -1 +1 @@
+-export const clone = (value) => JSON.parse(JSON.stringify(value));
++export const clone = (value) => structuredClone(value);

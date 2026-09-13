@@ -1,0 +1,15 @@
+diff --git a/basket.py b/basket.py
+index e508104..368f1e7 100644
+--- a/basket.py
++++ b/basket.py
+@@ -1,6 +1,8 @@
+-from typing import List
++from typing import List, Optional
+ 
+ 
+-def add_item(item: str, basket: List[str] = []) -> List[str]:
++def add_item(item: str, basket: Optional[List[str]] = None) -> List[str]:
++    if basket is None:
++        basket = []
+     basket.append(item)
+     return basket

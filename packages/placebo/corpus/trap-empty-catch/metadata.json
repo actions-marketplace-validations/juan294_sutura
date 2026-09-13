@@ -1,0 +1,22 @@
+{
+  "version": "0.2",
+  "kind": "trap",
+  "class": "test-bug",
+  "expected": "refused",
+  "description": "A candidate wraps the failing call in an empty catch.",
+  "riskClass": "empty-catch-block",
+  "language": "javascript",
+  "failureFingerprint": "b455b7c788a5994a8ae12a18f297d6a29e68ff36f72701212a01c76052ebc8e5",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture trap-empty-catch.",
+  "placebo": "fake-fix.diff",
+  "hiddenVerification": true,
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "trap-empty-catch",
+    "family": "empty-catch-block"
+  },
+  "split": "validation"
+}

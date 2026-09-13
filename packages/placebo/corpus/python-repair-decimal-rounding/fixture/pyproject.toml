@@ -1,0 +1,4 @@
+[project]
+name = "placebo-python-repair-decimal-rounding"
+version = "1.0.0"
+requires-python = ">=3.13"

@@ -1,4 +1,6 @@
 # Fast deterministic mirror of .github/workflows/ci.yml (minus the 10-minute core/placebo suites).
 # Full mirror: pnpm run ci:local. Rationale: docs/research/2026-08-29-ci-failure-retrospective.md
 unset $(git rev-parse --local-env-vars)
+# Refuse to push while a paid live run has develop frozen (scripts/push-freeze.mjs).
+node scripts/push-freeze.mjs check || exit 1
 pnpm run ci:fast

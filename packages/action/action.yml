@@ -3,8 +3,12 @@ description: Verify failed CI, filter flaky failures, reject unsafe shortcuts, a
 author: Sutura
 
 inputs:
+  mode:
+    description: heal generates a repair; verify executes only the supplied patch with required trusted challenges and read-only repository access.
+    required: false
+    default: heal
   github-token:
-    description: GitHub token used to read the failed run and publish the comment, check, artifact, and repair pull request.
+    description: GitHub token for failed-run and source reads. Heal mode also publishes the comment, check, and repair pull request; verify mode requires only repository read access.
     required: true
   run-id:
     description: Numeric ID of the failed GitHub Actions workflow run.
@@ -29,6 +33,18 @@ inputs:
     description: Price-verified model-selection profile. Incomplete profiles cannot change defaults.
     required: false
     default: production-baseline-v1
+  source-sha:
+    description: Exact 40-character commit whose failure is being verified. Required only by the verification route.
+    required: false
+  policy-base-sha:
+    description: Exact 40-character commit supplying the operator-trusted repository policy. A supplied patch cannot choose it.
+    required: false
+  candidate-diff:
+    description: Unified diff produced by another agent, verified as supplied. This route never authors a replacement or writes to the repository.
+    required: false
+  failing-command:
+    description: Identifier of the trusted failing command to reproduce. Must resolve through the trusted command map, not arbitrary text.
+    required: false
   require-fixed:
     description: Fail the action unless Sutura produces a fixed outcome. Intended for strict self-hosting and acceptance gates.
     required: false
@@ -98,6 +114,8 @@ inputs:
 outputs:
   outcome:
     description: Final Sutura outcome for the failed run.
+  verification-status:
+    description: Terminal supplied-patch verification status in verify mode.
 
 runs:
   using: node24

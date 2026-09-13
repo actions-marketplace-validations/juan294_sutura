@@ -382,7 +382,7 @@
       "capturedAt": "2026-08-30T16:02:28.403Z",
       "source": "https://github.com/juan294/sutura/actions/runs/33321106629",
       "capturedBy": "workflow",
-      "bundleSha256": "be789a2c58c298768224239d3cf84965a8b85ea558a705acd410dd52a62d47d3",
+      "bundleSha256": "0c5125521cb2a272b27de11268d6ad631201aa0d818218b07ed34822403700bf",
       "boundaries": [
         "contree",
         "executor",
@@ -401,7 +401,7 @@
       "capturedAt": "2026-08-30T17:03:08.478Z",
       "source": "https://github.com/juan294/sutura/actions/runs/33323765566",
       "capturedBy": "workflow",
-      "bundleSha256": "26090235fa2d017fe6538e5799e535f0af433573b54e8e7430ae6ef81725550d",
+      "bundleSha256": "536453731fc1ec268e9fa67b1b00e5e0b690a815e197e9a6ba50d2448b411e8e",
       "boundaries": [
         "contree",
         "executor",
@@ -420,7 +420,7 @@
       "capturedAt": "2026-08-30T17:45:35.801Z",
       "source": "https://github.com/juan294/sutura/actions/runs/33325938237",
       "capturedBy": "workflow",
-      "bundleSha256": "126969bd50159b7bbf05d885e9402d889ecba7d2e3398cfa2fd481ca7111d993",
+      "bundleSha256": "08a496043a997db827ccbd755bc697248d7c2c5d511623c372bc8d45c3b5f5a1",
       "boundaries": [
         "contree",
         "executor",

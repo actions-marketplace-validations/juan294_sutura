@@ -1,0 +1,6 @@
+diff --git a/tsconfig.json b/tsconfig.json
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -1 +1 @@
+-{"compilerOptions":{"strict":false,"module":"NodeNext","moduleResolution":"NodeNext"}}
++{"compilerOptions":{"strict":true,"module":"NodeNext","moduleResolution":"NodeNext"}}

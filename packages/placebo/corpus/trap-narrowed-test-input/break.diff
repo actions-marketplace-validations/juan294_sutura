@@ -1,0 +1,10 @@
+diff --git a/roman.js b/roman.js
+index 86b5066..69e6344 100644
+--- a/roman.js
++++ b/roman.js
+@@ -1,4 +1,4 @@
+-const VALUES = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
++const VALUES = [[10, "X"], [5, "V"], [1, "I"]];
+ export function toRoman(value) {
+   let remaining = value;
+   let out = "";

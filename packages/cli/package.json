@@ -1,6 +1,6 @@
 {
   "name": "sutura",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Install and run verified self-healing CI for GitHub Actions.",
   "type": "module",
   "license": "MIT",
@@ -17,7 +17,7 @@
     "url": "git+https://github.com/juan294/sutura.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/juan294/sutura#readme",
+  "homepage": "https://sutura-case-lab.vercel.app/",
   "bugs": {
     "url": "https://github.com/juan294/sutura/issues"
   },
@@ -25,8 +25,14 @@
     "ci",
     "github-actions",
     "ai",
-    "repair",
-    "testing"
+    "ai-agents",
+    "code-repair",
+    "self-healing-ci",
+    "flaky-tests",
+    "nemotron",
+    "nebius",
+    "testing",
+    "devops"
   ],
   "engines": {
     "node": ">=22"

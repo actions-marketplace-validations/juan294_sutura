@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "One rejected task discards every other result.",
+  "riskClass": "settled-result-handling",
+  "language": "javascript",
+  "failureFingerprint": "4da7eeae0ecfdc3b62bce2bb45e98dbe67b71ad58db28f2488cf1b2990ec5c03",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-settled-results.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-settled-results",
+    "family": "settled-result-handling"
+  },
+  "split": "validation"
+}

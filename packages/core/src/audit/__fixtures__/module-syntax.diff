@@ -1,0 +1,8 @@
+diff --git a/app.cjs b/app.cjs
+index fb07b6b..399e907 100644
+--- a/app.cjs
++++ b/app.cjs
+@@ -1,2 +1,2 @@
+-const chalk = require('chalk');
++import chalk from 'chalk';
+ exports.renderStatus = () => chalk.green('ready');

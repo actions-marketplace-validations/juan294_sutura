@@ -47,6 +47,10 @@ function response(
 }
 
 describe('Super repair provider-contract canary', () => {
+  it('pins the force-nonempty contract version', () => {
+    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v5');
+  });
+
   it('rejects an empty provider credential before constructing the client', async () => {
     await expect(runSuperRepairProviderContractCanary(
       { apiKey: '  ' },
@@ -70,7 +74,10 @@ describe('Super repair provider-contract canary', () => {
       max_tokens: 8_192,
       temperature: 1,
       top_p: 0.95,
-      chat_template_kwargs: { enable_thinking: false },
+      chat_template_kwargs: {
+        enable_thinking: false,
+        force_nonempty_content: true,
+      },
       response_format: {
         type: 'json_schema',
         json_schema: {
@@ -189,6 +196,18 @@ describe('Super repair provider-contract canary', () => {
       { apiKey: 'test-key' },
       { fetch },
     )).rejects.toThrow(/think prefix/u);
+  });
+
+  it('fails closed when an invalid first response would trigger a valid retry', async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(response('<think>hidden reasoning</think>not json'))
+      .mockResolvedValueOnce(response(JSON.stringify({ replacement: FIXED_SOURCE })));
+
+    await expect(runSuperRepairProviderContractCanary(
+      { apiKey: 'test-key' },
+      { fetch },
+    )).rejects.toThrow(/expected exactly one response, received 2/u);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('replays canary 33314221139: accepts omitted zero-reasoning details', async () => {

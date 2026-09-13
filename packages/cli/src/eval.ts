@@ -11,6 +11,8 @@ import {
   type EvaluationManifest,
 } from '@sutura/evaluation';
 
+import { trimEdges } from '@sutura/core';
+
 import type { EvalExportArguments, EvalValidateArguments } from './args.js';
 
 export const MAX_EVALUATION_MANIFEST_BYTES = 5 * 1024 * 1024;
@@ -49,7 +51,8 @@ async function readManifest(path: string, fileSystem: EvaluationFileSystem): Pro
 }
 
 function safeCaseName(caseId: string): string {
-  const stem = caseId.toLowerCase().replace(/[^a-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '').slice(0, 40) || 'case';
+  const slug = caseId.toLowerCase().replace(/[^a-z0-9._-]+/gu, '-');
+  const stem = trimEdges(slug, '-').slice(0, 40) || 'case';
   const digest = createHash('sha256').update(caseId).digest('hex').slice(0, 8);
   return `${stem}-${digest}`;
 }

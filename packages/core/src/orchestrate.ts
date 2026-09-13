@@ -1,3 +1,7 @@
+import { freezeRepositorySource } from './replay/source-snapshot.js';
+import type { FrozenVerificationSource } from './heal.js';
+import { VerificationExecutionRecorder } from './verification/execution-record.js';
+import type { VerificationMode } from './verification/types.js';
 import { Buffer } from 'node:buffer';
 
 import { classifyMechanically } from './diagnose/classify.js';
@@ -172,6 +176,8 @@ export const REPAIR_SOURCE_LIMITS: Readonly<SourceReadLimits> = Object.freeze({
 });
 
 export interface RepositoryPort {
+  /** Replays recorded source provenance without reading unrecorded files. */
+  freezeSource?(checkoutDir: string): Promise<FrozenVerificationSource>;
   checkoutHead(
     repo: string,
     sha: string,
@@ -196,6 +202,7 @@ export interface RepositoryPort {
 export type OrchestratorLlm = HealLlm;
 
 export interface OrchestrationContext {
+  evidenceMode?: VerificationMode;
   runId: string;
   github: GitHubOrchestrationPort;
   repository: RepositoryPort;
@@ -370,6 +377,7 @@ export async function readRepairSourceContext(
   policy?: RepositoryPolicy,
   runtimeId: RuntimeId = 'node',
   sourceReferenceOrder: SourceReferenceOrder = 'first',
+  competingClasses: readonly FailureClass[] = [],
 ): Promise<RepairSourceContext> {
   const extractedReferences = extractSourceReferences(log, sourceReferenceOrder).filter((reference) =>
     policy === undefined || policyAllowsSourceRead(reference.path, policy),
@@ -383,7 +391,8 @@ export async function readRepairSourceContext(
   const fallbackPaths = runtimeId === 'python'
     ? PYTHON_FALLBACK_SOURCE_PATHS
     : NODE_FALLBACK_SOURCE_PATHS;
-  for (const path of diagnosis ? fallbackPaths[diagnosis.class] ?? [] : []) {
+  const fallbackClasses = [...new Set([...(diagnosis ? [diagnosis.class] : []), ...competingClasses])];
+  for (const path of fallbackClasses.flatMap((failureClass) => fallbackPaths[failureClass] ?? [])) {
     if (
       references.length < REPAIR_SOURCE_LIMITS.maxFiles &&
       (policy === undefined || policyAllowsSourceRead(path, policy)) &&
@@ -610,7 +619,9 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
   if (runtime.id === 'python' && ctx.imageRef !== undefined && ctx.imageRef !== runtime.imageRef) {
     throw new OrchestrationError('Python runtime image must use the verified exact digest');
   }
-  const executor = new AllowlistedExecutor(ctx.executor);
+  const executionRecorder = loadedPolicy.policy.verification?.mode === 'required'
+    ? new VerificationExecutionRecorder({ executor: ctx.executor, llm: ctx.llm, mode: ctx.evidenceMode ?? 'local' }) : undefined;
+  const executor = new AllowlistedExecutor(executionRecorder?.executor ?? ctx.executor);
   const baseImage = await executor.importImage(
     ctx.imageRef ?? runtime.imageRef,
   );
@@ -628,6 +639,9 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
     mechanical.failingCmd,
     stageLedger,
     runtime,
+    (loadedPolicy.policy.verification?.contracts.length ?? 0) > 0
+      ? () => freezeRepositorySource(ctx.repository, checkoutDir, ctx.replay)
+      : false,
   );
   if (!setup.ok) {
     const caseFile = preparationFailureCaseFile(
@@ -646,6 +660,7 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
     await publishReport(ctx.github, run, caseFile, marker, target, checkoutDir, ctx.replay);
     return caseFile;
   }
+  try {
   const reproduction = await executor.run(
     setup.imageId,
     sandboxTargetCommand(mechanical.failingCmd, runtime),
@@ -678,6 +693,8 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
   }
 
   const caseFile = await repairFailure({
+    ...(executionRecorder === undefined ? {} : { executionRecorder }),
+    evidenceMode: ctx.evidenceMode ?? 'local',
     runId: run.runId,
     repo: run.repo,
     failedLog,
@@ -689,14 +706,16 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
     raceK: ctx.raceK,
     ...(ctx.repairBudgets === undefined ? {} : { repairBudgets: ctx.repairBudgets }),
     ...(ctx.search === undefined ? {} : { search: ctx.search }),
-    readSourceContext: (_log, diagnosis) => readRepairSourceContext(
+    sourceIdentity: { kind: 'git', sourceSha: run.headSha, policyBaseSha: run.baseSha, snapshotSha256: setup.snapshotSha256 ?? null },
+    readSourceContext: (_log, diagnosis, _runtime, competingClasses) => readRepairSourceContext(
       ctx.repository,
-      checkoutDir,
+      setup.sourceDir ?? checkoutDir,
       failedLog,
       diagnosis,
       loadedPolicy.policy,
       runtime.id,
       ctx.sourceReferenceOrder,
+      competingClasses,
     ),
     policy: loadedPolicy.policy,
     policyEvidence,
@@ -741,4 +760,5 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
   });
   await uploadReplay(ctx.github, run, caseFile, ctx.replay);
   return caseFile;
+  } finally { await setup.cleanup?.(); }
 }
