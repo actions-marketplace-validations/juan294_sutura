@@ -1,0 +1,62 @@
+{
+  "generator": "Built-in image_gen",
+  "basePrompt": "Use case: ads-marketing. Create ONE polished Devpost gallery image for Sutura, a verified CI repair project. Landscape 3:2, ideally 1536x1024. Cohesive editorial technology campaign: warm white #fbfbf9 background, charcoal #1b1f24 oversized bold modern sans typography, restrained crimson #b3261e, forest green #1d6f42 for successful checks, muted gray fine lines. Premium dimensional paper/card illustrations, soft studio shadows, exceptionally clean hierarchy, plenty of whitespace, 70px safe margins. Wordmark 'Sutura' small at top left, series number top right. Headline in upper third, beautiful conceptual illustration below. Illustrations are explanatory, never fake product screenshots; small footer 'Concept illustration'. No sponsor logos, no invented metrics or testimonials, no promises of universal correctness, no extra text beyond specified. All text must be legible and spelled exactly. ",
+  "images": [
+    {
+      "filename": "01-verified-repair.png",
+      "series": "01 / 08",
+      "headline": "A green check is only the start.",
+      "caption": "Review the evidence behind every repair.",
+      "illustrationPrompt": "A striking split code document: a superficial green check on a thin upper layer, with deeper stacked evidence layers revealed underneath. Three substantial layers labeled 'Reproduce', 'Verify', 'Review', connected with a fine crimson stitch motif, conveying careful verified repair and human confidence."
+    },
+    {
+      "filename": "02-reject-shortcuts.png",
+      "series": "02 / 08",
+      "headline": "Catch the shortcut. Keep the fix.",
+      "caption": "Reject patches that weaken tests or remove checks.",
+      "illustrationPrompt": "Two beautifully rendered code patch cards side by side. Left crimson verdict 'REFUSED', with a visibly crossed-out test line and label 'Weakened test'. Right forest green verdict 'REVIEW', solid intact test lines and label 'Preserved checks'. Subtle connecting line from the same original failure. Conceptual cards, not literal interface screenshot."
+    },
+    {
+      "filename": "03-flake-triage.png",
+      "series": "03 / 08",
+      "headline": "Know when no patch is needed.",
+      "caption": "Repeated checks help separate flakes from persistent failures.",
+      "illustrationPrompt": "Two elegant horizontal rows of five small execution tiles, first alternates red and green outcomes and ends 'Flaky: no patch'; second shows five red outcomes and ends 'Persistent: investigate'. Dimensional tiles with soft shadows and precise graphical clarity. Avoid numerical performance claims."
+    },
+    {
+      "filename": "04-independent-checks.png",
+      "series": "04 / 08",
+      "headline": "Check behavior beyond the failing test.",
+      "caption": "Independent challenges test the contract a repair must preserve.",
+      "illustrationPrompt": "One refined central patch document passing through two freestanding translucent inspection frames labeled 'Visible test' and 'Behavior checks'. The second frame reveals multiple edge-case tiles. Crimson frozen seal labeled 'Frozen before candidate' on the independent challenge deck. Concept of multiple layers of evidence, not guarantee shield."
+    },
+    {
+      "filename": "05-external-verifier.png",
+      "series": "05 / 08",
+      "headline": "Your agent writes it. Sutura checks it.",
+      "caption": "Verify supplied patches through the CLI or GitHub Action.",
+      "illustrationPrompt": "Three minimal paper documents converging into one precise verification station. Input captions 'Your patch', 'CLI', 'GitHub Action'; output is a substantial evidence folio labeled 'Verification report'. A crimson stitch travels between documents. No logos or invented third party agent names."
+    },
+    {
+      "filename": "06-isolated-branches.png",
+      "series": "06 / 08",
+      "headline": "Compare repairs on common ground.",
+      "caption": "Isolated branches start from one prepared dependency snapshot.",
+      "illustrationPrompt": "Beautiful isometric branching sculpture made of paper cards: one base 'Prepared snapshot' fans into three equal parallel 'Candidate' cards, converges to a fresh separate 'Clean audit' card. Thin charcoal connectors, crimson small node accents, forest green on audit edge. Conveys reproducible environments without performance claims."
+    },
+    {
+      "filename": "07-human-review.png",
+      "series": "07 / 08",
+      "headline": "Human review stays in control.",
+      "caption": "Inspect the diff, checks, and audit before deciding to merge.",
+      "illustrationPrompt": "A premium evidence dossier open on a white surface with three tab labels 'Diff', 'Checks', 'Audit'. Large green outlined status 'Ready for review'. A separate empty outlined decision card labeled 'Maintainer decision' connected at right. No auto-merge button, no autonomous approval imagery. Warm approachable restrained technical design."
+    },
+    {
+      "filename": "08-case-lab.png",
+      "series": "08 / 08",
+      "headline": "See how a repair earns trust.",
+      "caption": "Explore five recorded cases. No account required.",
+      "illustrationPrompt": "Five elegant standing evidence cards arranged in a shallow fan, with small abstract code lines, branch traces, one green repair mark, one crimson refusal mark, one neutral no-patch mark. Prominent small mode badge 'RECORDED DEMO'. Lower clear call to action 'Explore the Sutura Case Lab' and URL 'sutura-case-lab.vercel.app'. No invented screenshot, no claim of live execution."
+    }
+  ]
+}

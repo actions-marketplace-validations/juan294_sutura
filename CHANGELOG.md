@@ -1,11 +1,14 @@
 # Changelog
 
-## [0.2.1] - 2026-09-01
+## [0.2.1] - 2026-09-13
 
 ### Added
 
 - Reject ES module `import`/`export` syntax introduced into CommonJS files as an unsafe repair, naming the target module system and the policy violation.
 - Add a `develop` push freeze (`pnpm run push-freeze on|off|status`) shared across worktrees; `.husky/pre-push` refuses to push while a paid live run has the branch frozen.
+- Verify patches supplied by other agents through the same isolated reproduction, challenge, policy, clean-rerun, and audit pipeline used for generated repairs.
+- Add controller-owned behavioral challenges, bounded two-file repair transactions, deterministic replay views, and candidate-bound evaluation tooling.
+- Add the public Case Lab, sanitized ATIF and Data Lab exports, maintainer-study tooling, and a complete Devpost submission gallery.
 
 ### Fixed
 
@@ -15,6 +18,8 @@
 - Keep unavailable cost evidence as unknown instead of reporting an unproven zero.
 - Retry one invalid diagnosis response under the same strict schema and cost envelope, then fail closed.
 - Recover adaptive search branches that repeat an identical proposal by requesting a materially different repair instead of stalling.
+- Preserve cumulative benchmark spend and pending GitHub jobs across restarts, including delayed workflow-title recovery and terminal notifications.
+- Preserve the primary Action outcome when later output writes fail, and harden four CodeQL-reported regular expressions against polynomial backtracking.
 
 ### Changed
 
@@ -22,6 +27,8 @@
 - Split hidden repair preservation from deceptive-patch rejection in the v2 Placebo score contract.
 - Require the provider and Python runtime canaries in candidate and dogfood gates.
 - Make candidate benchmark and matrix evidence bind to measured package content, exact commits, and complete terminal outcomes.
+- Expand Placebo v0.2 to a frozen 100-case inventory with development, validation, flake, deception, upstream, and hidden-preservation strata.
+- Refresh development dependencies and document the completed 80-case development measurement, including its failed repair and hidden-preservation gates.
 
 Retired guidance: none.
 
