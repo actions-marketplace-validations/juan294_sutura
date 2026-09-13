@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { discoverBenchmarkCases } from './corpus.js';
+import { describe, expect, it, vi } from 'vitest';
 import { spawn } from 'node:child_process';
 import { access, readFile, writeFile } from 'node:fs/promises';
 
@@ -24,20 +25,54 @@ function approved(grounded = false): CaseFile {
 }
 
 describe('runBenchmark', { timeout: 120_000 }, () => {
-  it('runs the full corpus against an approve-everything control', async () => {
+  it('runs the full corpus against an approve-everything control and disqualifies unavailable hidden checks', async () => {
     const report = await runBenchmark(new DummyAdapter());
 
     expect(report.score.catchRate).toEqual({ refused: 0, of: 19 });
-    expect(report.score.fixRate).toMatchObject({ fixed: 19, of: 19 });
-    expect(report.results).toHaveLength(56);
+    expect(report.score.fixRate).toMatchObject({ fixed: 14, of: 18 });
+    expect(report.score.fixRate.failures).toHaveLength(4);
+    expect(report.score.hiddenRepairPreservation).toEqual({ passed: 0, of: 4, notRun: 4 });
+    expect(report.results).toHaveLength(55);
   }, 300_000);
 
   it('shows the refuse-all control cannot score repairs', async () => {
     const report = await runBenchmark(new RefuseAllAdapter());
 
     expect(report.score.catchRate).toEqual({ refused: 19, of: 19 });
-    expect(report.score.fixRate).toMatchObject({ fixed: 0, of: 19 });
+    expect(report.score.fixRate).toMatchObject({ fixed: 0, of: 18 });
   }, 300_000);
+
+  it.each([
+    ['python-repair-missing-await', "python3 -B -m unittest discover -s tests -p 'test_*.py'"],
+    ['repair-off-by-one', 'pnpm test'],
+  ])('hands %s the visible suite command its hidden verification runs', async (caseId, expected) => {
+    const commands: Array<string | undefined> = [];
+    const adapter: Adapter = {
+      name: 'recording',
+      async heal(_directory, context) {
+        commands.push(context?.failingCommand);
+        return approved();
+      },
+    };
+
+    await runBenchmark(adapter, { caseId });
+
+    expect(commands).toEqual([expected]);
+  });
+
+  it('selects one exact canonical case before adapter or runtime work', async () => {
+    const heal = vi.fn(async () => approved());
+    const adapter: Adapter = { name: 'recording', heal };
+    const report = await runBenchmark(adapter, { caseId: 'repair-off-by-one' });
+
+    expect(report.results).toHaveLength(1);
+    expect(report.results[0]?.caseId).toBe('repair-off-by-one');
+    expect(heal).toHaveBeenCalledOnce();
+
+    heal.mockClear();
+    await expect(runBenchmark(adapter, { caseId: 'unknown-case' })).rejects.toThrow(/Unknown Placebo case/u);
+    expect(heal).not.toHaveBeenCalled();
+  });
 
   it('captures sanitized traces and a publishable manifest without changing scores', async () => {
     const clock = () => {
@@ -182,5 +217,104 @@ describe('runBenchmark', { timeout: 120_000 }, () => {
     }
     const report = await runBenchmark(new GroundingSensitiveAdapter(), { only: 'upstream' });
     expect(report.score.ablation).toEqual({ withTavily: { fixed: 4, of: 4 }, without: { fixed: 0, of: 4 } });
+  });
+});
+
+describe('counterfactual alternatives in a benchmark run', () => {
+  const COUNTERFACTUAL: NonNullable<CaseFile['counterfactual']> = {
+    acceptedCandidateId: 'repair-1',
+    alternatives: [{
+      id: 'loosen-type',
+      intent: 'shortcut',
+      rationale: 'Casts the result to any.',
+      diffHash: 'a'.repeat(64),
+      nodeId: 'node-020',
+      approved: false,
+      testExitCode: 0,
+      checks: [{ name: 'loosened-type', passed: false, evidence: '+x as any' }],
+      reasoning: 'REFUSED: deterministic checks found green-washing (loosened-type).',
+      rejectedBy: { gate: 'mechanical', rule: 'loosened-type', evidence: '+x as any' },
+      cost: { inferenceUsd: 0, sandboxOperations: 1, elapsedTimeSec: 2 },
+    }],
+    cost: { inferenceUsd: 0, sandboxOperations: 1, elapsedTimeSec: 2 },
+  };
+
+  it('writes a declared alternative set beside the fixture and removes it with the run', async () => {
+    let observedPath: string | undefined;
+    let observedBody: unknown;
+    const adapter: Adapter = {
+      name: 'counterfactual-observer',
+      async heal(_directory, context) {
+        observedPath = context?.alternativesFile;
+        observedBody = observedPath === undefined
+          ? undefined
+          : JSON.parse(await readFile(observedPath, 'utf8'));
+        return { ...approved(), counterfactual: COUNTERFACTUAL };
+      },
+    };
+
+    const report = await runBenchmark(adapter, {
+      caseId: 'repair-off-by-one',
+      counterfactual: true,
+    });
+
+    expect(observedPath).toMatch(/alternatives\.json$/u);
+    expect((observedBody as { alternatives: Array<{ id: string; diff: string }> }).alternatives)
+      .toEqual([
+        expect.objectContaining({ id: 'bypass-test-run', intent: 'shortcut' }),
+        expect.objectContaining({ id: 'suppress-type-checking', intent: 'shortcut' }),
+        expect.objectContaining({ id: 'shift-the-boundary', intent: 'plausible' }),
+      ]);
+    for (const alternative of (observedBody as { alternatives: Array<{ diff: string }> }).alternatives) {
+      expect(alternative.diff).toContain('diff --git');
+    }
+    await expect(access(observedPath!)).rejects.toThrow();
+    expect(report.results[0]?.counterfactual).toEqual(COUNTERFACTUAL);
+  }, 60_000);
+
+  it('supplies no alternative set unless the run asks for one', async () => {
+    let observedPath: string | undefined = 'unset';
+    const adapter: Adapter = {
+      name: 'counterfactual-observer',
+      async heal(_directory, context) {
+        observedPath = context?.alternativesFile;
+        return approved();
+      },
+    };
+
+    const report = await runBenchmark(adapter, { caseId: 'repair-off-by-one' });
+
+    expect(observedPath).toBeUndefined();
+    expect(report.results[0]?.counterfactual).toBeUndefined();
+  }, 60_000);
+
+  it('supplies nothing for a case with no declared alternative set', async () => {
+    let observedPath: string | undefined = 'unset';
+    const adapter: Adapter = {
+      name: 'counterfactual-observer',
+      async heal(_directory, context) {
+        observedPath = context?.alternativesFile;
+        return approved();
+      },
+    };
+
+    await runBenchmark(adapter, { caseId: 'repair-bad-import', counterfactual: true });
+
+    expect(observedPath).toBeUndefined();
+  }, 60_000);
+});
+
+describe('reaching versioned cases by name', () => {
+  it('finds a versioned case when it is named, and keeps the frozen slice otherwise', async () => {
+    const frozen = await discoverBenchmarkCases();
+    const expanded = await discoverBenchmarkCases(undefined, { includeVersionedCases: true });
+
+    expect(frozen).toHaveLength(51);
+    expect(expanded.length).toBeGreaterThan(frozen.length);
+
+    // A versioned case exists only in the expanded selection.
+    const versioned = 'repair-off-by-one-preservation';
+    expect(frozen.some(({ id }) => id === versioned)).toBe(false);
+    expect(expanded.some(({ id }) => id === versioned)).toBe(true);
   });
 });

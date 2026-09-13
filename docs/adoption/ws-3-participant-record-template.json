@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "sutura-adoption-participant-v1",
+  "participantId": null,
+  "participantBuiltSutura": false,
+  "participationConsent": false,
+  "repository": {
+    "url": null,
+    "familiarToParticipant": null,
+    "familiarToSuturaBuilders": false,
+    "language": null
+  },
+  "artifact": {
+    "packageVersion": null,
+    "actionCommit": null,
+    "installSource": "public-npm-and-immutable-action"
+  },
+  "measurements": {
+    "sessionStartedAt": null,
+    "timeToFirstValidResultMs": null,
+    "setupFailures": [],
+    "unclearInstructions": [],
+    "manualInterventions": []
+  },
+  "result": {
+    "classification": null,
+    "targetRunUrl": null,
+    "suturaRunUrl": null,
+    "checkRunUrl": null,
+    "valid": false
+  },
+  "releaseBlockingDefects": [],
+  "publicReviewConfirmed": false,
+  "feedbackPermission": false,
+  "feedbackQuote": null,
+  "feedbackDisplayName": null
+}

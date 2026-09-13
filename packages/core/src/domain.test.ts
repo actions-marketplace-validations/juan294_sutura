@@ -75,6 +75,7 @@ describe('domain model', () => {
       | 'loosened-type'
       | 'relaxed-config'
       | 'pass-with-no-tests'
+      | 'module-syntax'
       | 'llm-adjudication'
       | 'policy-required-command'
       | 'policy-resource-limit'
@@ -119,7 +120,12 @@ describe('domain model', () => {
       policy: PolicyEvidence;
       stages: StageEvidence[];
       search?: SearchEvidence[];
+      counterfactual?: import('./counterfactual/types.js').CounterfactualEvidence;
       trace?: import('./trace/types.js').TraceEvent[];
+      verification?: import('./verification/types.js').VerificationEvidence;
+      verificationArtifact?: import('./verification/types.js').VerificationArtifact;
+      verificationRuns?: import('./verification/runtime-evidence.js').RuntimeCandidateEvidence[];
+      recovery?: import('./diagnose/hypotheses.js').DiagnosisRecoveryEvidence;
       selectedCandidate?: {
         id: string;
         diffHash: string;

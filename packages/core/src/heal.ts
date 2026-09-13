@@ -1,5 +1,18 @@
-import { audit } from './audit/audit.js';
+import { VerificationExecutionRecorder } from './verification/execution-record.js';
+import { GeneratedVerificationRecorder } from './verification/generated-record.js';
+import type { VerificationMode } from './verification/types.js';
+import { snapshotSelectedSource, readBoundedRegularFile, MAX_SNAPSHOT_FILE_BYTES } from './verification/source.js';
+import { listSnapshotFiles } from './executor/contree.js';
+import { join } from 'node:path';
+import { parseRuntimeCandidateEvidence, type RuntimeCandidateEvidence } from './verification/runtime-evidence.js';
+import { challengeSubjectRecords } from './challenges/runner.js';
+import { canonicalJson } from './replay/canonical-json.js';
+import { evaluateRuntimeCandidate, type RuntimeCandidateResult } from './verification/runtime.js';
+import { prepareRuntimeChallenges, type PreparedRuntimeChallenges } from './challenges/runtime.js';
 import { runMechanicalChecks } from './audit/mechanical.js';
+import { budgetedRecoveryPorts, reserveRecoveryAudit, withinRecoveryDeadline } from './diagnose/hypotheses-budget.js';
+import { recoverDiagnosis, recoverySourceClasses, type DiagnosisRecoveryEvidence } from './diagnose/hypotheses.js';
+import { authorizeRepairCandidate, type RepairAuthorizationContext, type ControllerBaselineBinding } from './engine/repair-authorization.js';
 import { classify, classifyMechanically } from './diagnose/classify.js';
 import {
   ground,
@@ -11,6 +24,7 @@ import type {
   CaseFile,
   CostLedger,
   Diagnosis,
+  FailureClass,
   PolicyEvidence,
   RaceResult,
   SearchEvidence,
@@ -19,6 +33,8 @@ import type {
 } from './domain.js';
 import { MAX_STAGE_EVIDENCE_ENTRIES } from './config.js';
 import { vetPatch } from './engine/patch-rules.js';
+import { parseUnifiedDiff } from './diff/unified.js';
+import { repairTargetFileCap } from './engine/repair-targets.js';
 import {
   race,
   selectWinner,
@@ -27,6 +43,7 @@ import {
 } from './engine/repair.js';
 import {
   controlledRepairAttemptReservationUsd,
+  recoveryRepairReservationUsd,
   prepareControlledRepairProposalTemplate,
   RepairProposalPreparationError,
   runControlledRepairAttempt,
@@ -36,13 +53,19 @@ import {
 } from './engine/repair-attempt.js';
 import { validateCandidateDiff } from './engine/candidate-validation.js';
 import { candidateIdentity } from './engine/candidate-identity.js';
+import { diffFingerprint } from './engine/fingerprint.js';
 import {
   RepairBudget,
+  BudgetExceededError,
   repairBudgetLimits,
   type RepairBudgetOverrides,
 } from './engine/repair-budget.js';
 import { adaptiveSearch, DEFAULT_SEARCH_LIMITS, type SearchNode } from './engine/search.js';
 import type { SearchLimits } from './config.js';
+import {
+  sandboxExecutableCommand,
+  sandboxTargetCommand,
+} from './engine/sandbox-command.js';
 import { shellQuote } from './engine/shell.js';
 import { triage } from './engine/triage.js';
 import { notRunTriageVerdict } from './engine/triage.js';
@@ -63,9 +86,13 @@ import type { CapacitySnapshot } from './llm/types.js';
 import type { ChatMessage, ChatOptions, TierLlm } from './llm/types.js';
 import type { ModelTier } from './llm/cost.js';
 import { createHash } from 'node:crypto';
+import { evaluateCounterfactuals } from './counterfactual/evaluate.js';
+import type {
+  CounterfactualAlternative,
+  CounterfactualEvidence,
+} from './counterfactual/types.js';
 import {
   evaluatePatchPolicy,
-  evaluateResourceThresholds,
   filterPolicyDeniedText,
 } from './policy/evaluate.js';
 import { createDefaultRepositoryPolicy } from './policy/load.js';
@@ -77,7 +104,14 @@ import { NODE_IMAGE_REF, NODE_RUNTIME, nodePreparationCommand } from './runtime/
 import type { RuntimeAdapter, RuntimeId } from './runtime/types.js';
 
 export const SUTURA_DEFAULT_IMAGE_REF = NODE_IMAGE_REF;
-const DEFAULT_FAILURE_COMMAND = 'pnpm test';
+/**
+ * The command Sutura reproduces when no failing command was observed. The
+ * Action always passes the command extracted from the CI log; the CLI and the
+ * benchmark pass one explicitly or fall back here per runtime.
+ */
+export function defaultFailureCommand(runtimeId: RuntimeId | undefined): string {
+  return runtimeId === 'python' ? 'python -m unittest' : 'pnpm test';
+}
 const DEPENDENCY_INSTALL_COMMAND = /(?:^|(?:&&|;|\|\|)\s*)(?:(?:corepack\s+)?pnpm\s+(?:install|i)\b|npm\s+(?:ci|install|i)\b|(?:corepack\s+)?yarn\s+(?:install\b|--immutable\b))/iu;
 
 export const SUTURA_SANDBOX_ENV = Object.freeze({
@@ -104,16 +138,27 @@ export interface RepairFailureContext {
   lockfileDiff?: string;
   dependencyHints?: readonly string[];
   candidateDiff?: string;
+  counterfactuals?: readonly CounterfactualAlternative[];
   policy?: RepositoryPolicy;
   policyEvidence?: PolicyEvidence;
   stageLedger?: StageLedger;
   traceRecorder?: TraceRecorder;
   runtime?: RuntimeAdapter;
   repairVerificationScope?: RepairVerificationScope;
+  /** Trusted checkout identity; sandbox initialization commits are never source provenance. */
+  sourceIdentity?: Pick<Extract<ControllerBaselineBinding, { kind: 'git' }>, 'kind' | 'sourceSha' | 'policyBaseSha' | 'snapshotSha256'>
+    | Pick<Extract<ControllerBaselineBinding, { kind: 'local-snapshot' }>, 'kind' | 'sourceSha' | 'policyBaseSha' | 'snapshotSha256'>;
+  recovery?: DiagnosisRecoveryEvidence;
+  preparedChallenges?: PreparedRuntimeChallenges;
+  verificationRuns?: RuntimeCandidateEvidence[];
+  evidenceMode?: VerificationMode;
+  generatedVerification?: GeneratedVerificationRecorder;
+  executionRecorder?: VerificationExecutionRecorder;
   readSourceContext(
     log: string,
     diagnosis: Diagnosis,
     runtime?: RuntimeAdapter,
+    competingClasses?: readonly FailureClass[],
   ): Promise<RepairSourceContext>;
 }
 
@@ -230,7 +275,7 @@ export function tracedLlm(llm: HealLlm, trace: TraceRecorder): HealLlm {
       return quote;
     },
     async chat(tier: ModelTier, messages: readonly ChatMessage[], options?: ChatOptions) {
-      const model = delegate.modelQuote?.(tier, messages, options)?.modelId ??
+      const model = options?.quotedRoute?.modelId ?? delegate.modelQuote?.(tier, messages, options)?.modelId ??
         delegate.modelId?.(tier) ?? tier;
       const serializedPrompt = JSON.stringify(messages);
       const systemPrompt = messages.find(({ role }) => role === 'system');
@@ -459,8 +504,23 @@ export function buildSandboxRepositoryInitializationCommandForTest(
 }
 
 export type SandboxSetupResult =
-  | { ok: true; imageId: ImageId }
+  | { ok: true; imageId: ImageId; snapshotSha256?: string; sourceDir?: string; cleanup?: () => Promise<void> }
   | { ok: false; command: string; result: RunResult };
+
+export interface FrozenVerificationSource {
+  dir: string;
+  snapshotSha256: string;
+  cleanup(): Promise<void>;
+}
+
+export async function freezeSandboxSource(dir: string): Promise<FrozenVerificationSource> {
+  const files = (await listSnapshotFiles(dir, 'repository')).sort();
+  const frozen = await snapshotSelectedSource(dir, files, async () => {
+    const current = (await listSnapshotFiles(dir, 'repository')).sort();
+    if (canonicalJson(current) !== canonicalJson(files)) throw new HealCaseError('Source manifest changed during freezing');
+  });
+  return frozen;
+}
 
 export async function prepareSandbox(
   executor: AllowlistedExecutor,
@@ -469,6 +529,23 @@ export async function prepareSandbox(
   observedCommand: string,
   stages?: StageLedger,
   runtime: RuntimeAdapter = NODE_RUNTIME,
+  freezeSource: boolean | (() => Promise<FrozenVerificationSource>) = false,
+): Promise<SandboxSetupResult> {
+  if (!freezeSource) return prepareSandboxFromSource(executor, dir, baseImage, observedCommand, stages, runtime);
+  const frozen = await (typeof freezeSource === 'function' ? freezeSource() : freezeSandboxSource(dir));
+  try {
+    const setup = await prepareSandboxFromSource(executor, frozen.dir, baseImage, observedCommand, stages, runtime);
+    if (!setup.ok) { await frozen.cleanup(); return setup; }
+    return { ...setup, snapshotSha256: frozen.snapshotSha256, sourceDir: frozen.dir, cleanup: frozen.cleanup };
+  } catch (error) {
+    await frozen.cleanup();
+    throw error;
+  }
+}
+
+async function prepareSandboxFromSource(
+  executor: AllowlistedExecutor, dir: string, baseImage: ImageId, observedCommand: string,
+  stages: StageLedger | undefined, runtime: RuntimeAdapter,
 ): Promise<SandboxSetupResult> {
   let dependencyPreparation;
   try {
@@ -557,13 +634,7 @@ export async function prepareSandbox(
   return { ok: true, imageId: initialized.imageId };
 }
 
-export function sandboxTargetCommand(command: string, runtime: RuntimeAdapter = NODE_RUNTIME): string {
-  return `sh -lc ${shellQuote(sandboxExecutableCommand(command, runtime))}`;
-}
-
-export function sandboxExecutableCommand(command: string, runtime: RuntimeAdapter = NODE_RUNTIME): string {
-  return runtime.normalizeCommand(command);
-}
+export { sandboxExecutableCommand, sandboxTargetCommand };
 
 const PNPM_RECURSIVE_TEST_COMMAND = /^pnpm\s+(?:-r|--recursive)\s+test$/u;
 const PNPM_WORKSPACE_TEST_FAILURE = /\b(packages\/[A-Za-z0-9_@./-]+)\s+test:.*(?:\bFAIL\b|AssertionError|\bfailed\b)/iu;
@@ -620,6 +691,8 @@ function makeCaseFile(
     | 'stageLedger'
     | 'traceRecorder'
     | 'runtime'
+    | 'recovery'
+    | 'verificationRuns'
   >,
   diagnosis: Diagnosis,
   triageVerdict: CaseFile['triage'],
@@ -628,6 +701,7 @@ function makeCaseFile(
   auditVerdict?: CaseFile['audit'],
   search?: SearchEvidence[],
   selectedCandidate?: Candidate,
+  counterfactual?: CounterfactualEvidence,
 ): CaseFile {
   const trace = ctx.traceRecorder;
   if (auditVerdict !== undefined) {
@@ -657,12 +731,31 @@ function makeCaseFile(
       selectedCandidate: candidateIdentity(selectedCandidate),
     }),
     outcome,
+    ...(ctx.recovery === undefined ? {} : { recovery: ctx.recovery }),
+    ...(ctx.verificationRuns === undefined ? {} : { verificationRuns: ctx.verificationRuns }),
     cost: ctx.cost,
     policy: policyEvidenceFor(ctx),
     stages: ctx.stageLedger?.entries() ?? [],
     ...(search === undefined ? {} : { search }),
+    ...(counterfactual === undefined ? {} : { counterfactual }),
     ...(trace === undefined ? {} : { trace: trace.events() }),
   };
+}
+
+/**
+ * Every gate a candidate must pass before it is raced, whoever wrote it.
+ *
+ * The transaction file cap is applied here rather than only in the repair
+ * tools, because a supplied patch never passes through them. Without it a
+ * supplied candidate could change more files than a generated one is allowed
+ * to, which is how trap-two-file-third-path was approved live on 2026-09-07.
+ */
+export function policyVerdictForTest(
+  candidate: Candidate,
+  diagnosis: Diagnosis,
+  policy: RepositoryPolicy,
+): ReturnType<typeof vetPatch> {
+  return policyVerdict(candidate, diagnosis, policy);
 }
 
 function policyVerdict(
@@ -671,81 +764,96 @@ function policyVerdict(
   policy: RepositoryPolicy,
 ): ReturnType<typeof vetPatch> {
   const builtIn = vetPatch(candidate.diff, diagnosis);
-  return builtIn.ok ? evaluatePatchPolicy(candidate.diff, policy) : builtIn;
+  if (!builtIn.ok) return builtIn;
+  const repositoryVerdict = evaluatePatchPolicy(candidate.diff, policy);
+  if (!repositoryVerdict.ok) return repositoryVerdict;
+  const parsed = parseUnifiedDiff(candidate.diff);
+  const changedFiles = [...new Set(parsed.files.flatMap(({ oldPath, newPath }) =>
+    [oldPath, newPath].filter((path): path is string => path !== null)))];
+  const cap = repairTargetFileCap(policy);
+  if (changedFiles.length > cap) {
+    return {
+      ok: false,
+      violations: [
+        `changes ${changedFiles.length} files; the repair transaction permits at most ${cap}`,
+      ],
+    };
+  }
+  return repositoryVerdict;
 }
 
-async function enforceWinnerPolicy(
+async function counterfactualEvidence(
   ctx: RepairFailureContext,
-  winner: RaceResult,
   ledger: StageLedger,
-  auditVerdict: NonNullable<CaseFile['audit']>,
-): Promise<NonNullable<CaseFile['audit']>> {
-  if (!auditVerdict.approved) return auditVerdict;
+  diagnosis: Diagnosis,
+  providerLog: string,
+  verificationCommand: string,
+  acceptedCandidateId?: string,
+): Promise<CounterfactualEvidence | undefined> {
+  const alternatives = ctx.counterfactuals;
+  if (alternatives === undefined || alternatives.length === 0) return undefined;
   const policy = policyFor(ctx);
-  const checks = [...auditVerdict.checks];
-  const commandFailures: string[] = [];
-  const resourceFailures: string[] = [];
-  for (const [index, command] of policy.requiredCommands.entries()) {
-    const executable = sandboxTargetCommand(command, ctx.runtime ?? NODE_RUNTIME);
-    const baseline = await ctx.executor.run(ctx.failingImage, executable, {
-      cwd: SNAPSHOT_CWD,
-    });
-    ledger.record({
-      stage: 'audit',
-      attempt: index * 2 + 2,
-      network: 'disabled',
-      result: baseline,
-      parentImageId: ctx.failingImage,
-      note: `Required command ${index + 1} baseline`,
-    });
-    const candidate = await ctx.executor.run(winner.imageId, executable, {
-      cwd: SNAPSHOT_CWD,
-    });
-    ledger.record({
-      stage: 'audit',
-      attempt: index * 2 + 3,
-      network: 'disabled',
-      result: candidate,
-      parentImageId: winner.imageId,
-      note: `Required command ${index + 1} candidate`,
-    });
-    if (candidate.exitCode !== 0) {
-      commandFailures.push(`required command ${index + 1} exited ${candidate.exitCode}`);
-    }
-    resourceFailures.push(...evaluateResourceThresholds(
-      `required command ${index + 1}`,
-      baseline.metrics,
-      candidate.metrics,
-      policy.resourceLimits,
-    ));
-  }
-  checks.push({
-    name: 'policy-required-command',
-    passed: commandFailures.length === 0,
-    evidence: commandFailures.length === 0
-      ? `Passed ${policy.requiredCommands.length} repository policy commands`
-      : commandFailures.join('; '),
+  return evaluateCounterfactuals({
+    executor: ctx.executor,
+    llm: ctx.llm,
+    baselineImageId: ctx.failingImage,
+    diagnosis,
+    policy,
+    runtime: ctx.runtime ?? NODE_RUNTIME,
+    beforeLog: providerLog,
+    verificationCommand,
+    diffBytesLimit: policy.maxDiffBytes,
+    alternatives,
+    ...(ctx.preparedChallenges === undefined ? {} : { prepared: ctx.preparedChallenges }),
+    ...(acceptedCandidateId === undefined ? {} : { acceptedCandidateId }),
+    cost: ctx.cost,
+    ledger,
+    ...(ctx.traceRecorder === undefined ? {} : { trace: ctx.traceRecorder }),
   });
-  if (Object.keys(policy.resourceLimits).length > 0) {
-    checks.push({
-      name: 'policy-resource-limit',
-      passed: resourceFailures.length === 0,
-      evidence: resourceFailures.length === 0
-        ? 'Paired resource thresholds passed'
-        : resourceFailures.join('; '),
-    });
-  }
-  const violations = [...commandFailures, ...resourceFailures];
-  return violations.length === 0
-    ? { ...auditVerdict, checks }
-    : {
-        approved: false,
-        checks,
-        reasoning: `REFUSED: repository policy failed (${violations.join('; ')})`,
-      };
 }
 
 export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile> {
+  const policy = policyFor(ctx);
+  const generated = policy.verification?.mode === 'required' ? new GeneratedVerificationRecorder({
+    executor: ctx.executor, llm: ctx.llm, baselineImageId: ctx.failingImage, policy,
+    policySha256: /^[a-f0-9]{64}$/u.test(ctx.policyEvidence?.policySha ?? '') ? ctx.policyEvidence!.policySha : createHash('sha256').update(canonicalJson(policy)).digest('hex'),
+    mode: ctx.evidenceMode ?? 'local',
+    ...(ctx.executionRecorder === undefined ? {} : { executionRecorder: ctx.executionRecorder }),
+    ...(ctx.sourceIdentity === undefined ? {} : { sourceIdentity: ctx.sourceIdentity }),
+  }) : undefined;
+  if (generated) ctx = { ...ctx, executor: generated.executor, llm: generated.llm, generatedVerification: generated };
+  const configuredBudgets = repairBudgetLimits(ctx.repairBudgets);
+  const budget = new RepairBudget({
+    ...configuredBudgets,
+    diffBytes: Math.min(configuredBudgets.diffBytes, policy.maxDiffBytes),
+  });
+  const trace = ctx.traceRecorder ?? new TraceRecorder(ctx.runId);
+  const ledger = ctx.stageLedger ?? new StageLedger(trace);
+  const fullContext = {
+    ...ctx, policy, llm: tracedLlm(ctx.llm, trace),
+    stageLedger: ledger, traceRecorder: trace,
+  };
+  const charged = budgetedRecoveryPorts({ budget, llm: fullContext.llm, executor: ctx.executor, operationIdPrefix: `repair-${ctx.runId}-initial` });
+  const progress: { diagnosis?: Diagnosis; triage?: CaseFile['triage'] } = {};
+  try {
+    const file = await repairFailureWithinBudget(fullContext, budget, charged, progress);
+    return generated?.attach(file) ?? file;
+  } catch (error) {
+    if (!(error instanceof BudgetExceededError)) throw error;
+    ensureTraceStarted(trace);
+    ledger.record({ stage: 'search', attempt: 1, network: 'disabled', note: `Budget abstention: ${error.message}` });
+    const file = makeCaseFile(fullContext, progress.diagnosis ?? classifyMechanically(ctx.failedLog),
+      progress.triage ?? notRunTriageVerdict(), [], 'gave-up');
+    return generated?.attach(file) ?? file;
+  }
+}
+
+async function repairFailureWithinBudget(
+  ctx: RepairFailureContext,
+  budget: RepairBudget,
+  charged: { executor: Executor; llm: HealLlm },
+  progress: { diagnosis?: Diagnosis; triage?: CaseFile['triage'] },
+): Promise<CaseFile> {
   const policy = policyFor(ctx);
   const trace = ctx.traceRecorder ?? new TraceRecorder(ctx.runId);
   ensureTraceStarted(trace);
@@ -753,16 +861,18 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
   const fullContext: RepairFailureContext = {
     ...ctx,
     policy,
-    llm: tracedLlm(ctx.llm, trace),
+    llm: ctx.llm,
     stageLedger: ledger,
     traceRecorder: trace,
   };
   const providerLog = filterPolicyDeniedText(ctx.failedLog, policy);
-  let diagnosis = await classify(fullContext.llm, providerLog);
+  const chargedContext = { ...fullContext, ...charged };
+  let diagnosis = await classify(charged.llm, providerLog);
+  progress.diagnosis = diagnosis;
   diagnosis = promoteUpstreamDependencyDiagnosis(diagnosis, ctx.dependencyHints);
   diagnosis = withGrounding(
     diagnosis,
-    await ground(
+    await withinRecoveryDeadline(budget.remainingElapsedTimeSec(), undefined, () => ground(
       ctx.tavily ?? { search: async () => [] },
       diagnosis,
       {
@@ -772,7 +882,7 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
           ? {}
           : { dependencyHints: ctx.dependencyHints }),
       },
-    ),
+    )),
   );
   ledger.record({
     stage: 'search',
@@ -794,7 +904,7 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
   );
 
   const triageVerdict = await triage(
-    ctx.executor,
+    charged.executor,
     ctx.failingImage,
     executableCommand,
     ctx.triageN,
@@ -807,6 +917,8 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
       note: 'Reproduction probe',
     }),
   );
+  progress.diagnosis = diagnosis;
+  progress.triage = triageVerdict;
   if (triageVerdict.status !== 'real') {
     return makeCaseFile(fullContext, diagnosis, triageVerdict, [], 'flaky-no-patch');
   }
@@ -817,6 +929,28 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
     return makeCaseFile(fullContext, diagnosis, triageVerdict, [], 'gave-up');
   }
 
+  const recordVerification = (candidate: Candidate, prepared: PreparedRuntimeChallenges, result: RuntimeCandidateResult) => {
+    const evidence = parseRuntimeCandidateEvidence({schemaVersion:'sutura-runtime-candidate-v1',candidateId:candidate.id,
+      diffHash:createHash('sha256').update(candidate.diff).digest('hex'),setHash:prepared.set?.setHash??null,
+      verification:result.verification,subjects:result.challenges===null?[]:challengeSubjectRecords(result.challenges)});
+    (fullContext.verificationRuns ??= []).push(evidence);
+    fullContext.generatedVerification?.record(candidate, prepared, result);
+  };
+  const prepareChallenges = async (sources: RepairSourceContext['sources']) => {
+    const prepared = await prepareRuntimeChallenges({
+      ...charged, policy, baselineImage: ctx.failingImage,
+      policyBaseSha: ctx.sourceIdentity?.policyBaseSha ?? null,
+      policyHash: /^[a-f0-9]{64}$/u.test(ctx.policyEvidence?.policySha ?? '') ? ctx.policyEvidence!.policySha : createHash('sha256').update(canonicalJson(policy)).digest('hex'),
+      baselineSnapshotHash: ctx.sourceIdentity?.snapshotSha256 ?? '',
+      failureExcerpt: providerLog,
+      baselineSources: sources.map(({ path, startLine, content }) => ({ path, startLine, content })),
+      observe: (result, parentImageId) => { ledger.record({ stage: 'audit', attempt: 1, network: 'disabled', result, parentImageId, note: 'Frozen baseline challenge' }); },
+    });
+    fullContext.generatedVerification?.prepare(prepared);
+    fullContext.preparedChallenges = prepared;
+    chargedContext.preparedChallenges = prepared;
+    return prepared;
+  };
   const suppliedCandidate = ctx.candidateDiff === undefined
     ? undefined
     : {
@@ -825,15 +959,14 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
         diff: ctx.candidateDiff,
       };
   if (!suppliedCandidate) {
-    const sourceContext = await ctx.readSourceContext(ctx.failedLog, diagnosis, runtime);
+    const sourceContext = await withinRecoveryDeadline(
+      budget.remainingElapsedTimeSec(), undefined, () => ctx.readSourceContext(
+        ctx.failedLog, diagnosis, runtime, recoverySourceClasses(diagnosis, providerLog),
+      ),
+    );
     trace.record({
       type: 'search-decision', stage: 'search',
       summary: `Bounded source closure accepted ${sourceContext.sources.length} file${sourceContext.sources.length === 1 ? '' : 's'}`,
-    });
-    const configuredBudgets = repairBudgetLimits(ctx.repairBudgets);
-    const budget = new RepairBudget({
-      ...configuredBudgets,
-      diffBytes: Math.min(configuredBudgets.diffBytes, policy.maxDiffBytes),
     });
     let candidateAttempt = 0;
     const trustedCommands = Object.fromEntries([
@@ -847,107 +980,172 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
       ...DEFAULT_SEARCH_LIMITS,
       initialBranches: Math.min(ctx.raceK, DEFAULT_SEARCH_LIMITS.initialBranches),
     };
-    let proposalTemplate: ControlledRepairProposalTemplate;
-    try {
-      proposalTemplate = prepareControlledRepairProposalTemplate({ diagnosis, policy, sourceContext });
-    } catch (error) {
-      ledger.record({
-        stage: 'search', attempt: 1, network: 'disabled',
-        note: `${error instanceof RepairProposalPreparationError ? error.failureKind : 'policy'} failure: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      });
-      return makeCaseFile(fullContext, diagnosis, triageVerdict, [], 'gave-up', undefined, []);
-    }
-    const attemptContexts = new Map<string, ControlledRepairAttemptContext>();
-    const nodeTargets = new Map<string, number>();
-    const attemptContext = (
-      parent: SearchNode | undefined,
-      targetIndex: number,
-    ): ControlledRepairAttemptContext => {
-      const key = `${parent?.id ?? 'baseline'}:${targetIndex}`;
-      const existing = attemptContexts.get(key);
-      if (existing !== undefined) return existing;
-      const feedback = parent === undefined ? undefined : {
-        candidateDiff: parent.cumulativeDiff,
-        testOutput: parent.testEvidence.output,
-        errorFingerprint: parent.errorFingerprint,
-      };
-      const prepared = {
-        llm: fullContext.llm,
-        executor: ctx.executor,
-        initialImageId: ctx.failingImage,
-        diagnosis,
-        policy,
-        budget,
-        trustedCommands,
-        sourceContext,
-        proposalTemplate,
-        proposalContract: proposalTemplate.contract(feedback, targetIndex),
-        ...(feedback === undefined ? {} : { feedback }),
-      };
-      attemptContexts.set(key, prepared);
-      return prepared;
-    };
-    const targetIndexes = (parent: SearchNode | undefined): number[] => {
-      if (parent !== undefined) return [nodeTargets.get(parent.id) ?? 0];
-      return Array.from({ length: proposalTemplate.targetCount }, (_value, index) => index);
-    };
-    const inferenceCapacity = (parents: readonly (SearchNode | undefined)[]): number => {
-      const remainingUsd = budget.limits.inferenceCostUsd - budget.snapshot().inferenceCostUsd;
-      try {
-        const uniqueContexts = new Map<string, ControlledRepairAttemptContext>();
-        for (const parent of parents.length > 0 ? parents : [undefined]) {
-          for (const targetIndex of targetIndexes(parent)) {
-            const key = `${parent?.id ?? 'baseline'}:${targetIndex}`;
-            uniqueContexts.set(key, attemptContext(parent, targetIndex));
-          }
-        }
-        const reservationUsd = Math.max(
-          ...[...uniqueContexts.values()].map((context) =>
-            controlledRepairAttemptReservationUsd(context),
-          ),
-        );
-        return Math.max(0, Math.floor(remainingUsd / reservationUsd));
-      } catch {
-        return 0;
-      }
-    };
-    const initialBranchCapacity = Math.min(
-      Math.floor(budget.limits.modelTurns / REPAIR_ATTEMPT_COSTS.modelTurns),
-      Math.floor(budget.limits.toolCalls / REPAIR_ATTEMPT_COSTS.toolCalls),
-      Math.floor(budget.limits.sandboxOperations / REPAIR_ATTEMPT_COSTS.sandboxOperations),
-      inferenceCapacity([undefined]),
-    );
-    const reachableTargetCapacity = Math.min(
-      budget.limits.branches,
-      searchLimits.maximumTotalBranches,
-      initialBranchCapacity,
-    );
-    if (reachableTargetCapacity < proposalTemplate.targetCount) {
-      ledger.record({
-        stage: 'search', attempt: 1, network: 'disabled',
-        note: reachableTargetCapacity === 0
-          ? 'No complete controller-owned repair attempt fits the configured budgets'
-          : `Only ${reachableTargetCapacity} of ${proposalTemplate.targetCount} controller-owned repair targets fit the configured budgets`,
-      });
-      return makeCaseFile(fullContext, diagnosis, triageVerdict, [], 'gave-up', undefined, []);
-    }
-    let providerCapacity: CapacitySnapshot | undefined = fullContext.llm.capacitySnapshot?.();
-    const activeOperations = new Map<string, string>();
-    const lastOperations = new Map<string, string>();
-    const result = await adaptiveSearch({
+    // Non-Git fixtures still bind grants to the immutable baseline image and exact sources.
+    const baseline: ControllerBaselineBinding = {
+      ...(ctx.sourceIdentity ?? {
+        kind: 'local-snapshot' as const, sourceSha: null, policyBaseSha: null,
+        snapshotSha256: null,
+      }),
       baselineImageId: ctx.failingImage,
-      initialBranches: Math.min(
-        Math.max(searchLimits.initialBranches, proposalTemplate.targetCount),
+      policySha256: /^[a-f0-9]{64}$/u.test(ctx.policyEvidence?.policySha ?? '')
+        ? ctx.policyEvidence!.policySha
+        : createHash('sha256').update(canonicalJson(policy)).digest('hex'),
+    };
+    let repairReservationUsd: number;
+    try {
+      repairReservationUsd = recoveryRepairReservationUsd({
+        llm: fullContext.llm, diagnosis, policy, sourceContext, budget,
+        runtimeId: (ctx.runtime ?? NODE_RUNTIME).id,
+      });
+    } catch (error) {
+      const kind = error instanceof RepairProposalPreparationError ? error.failureKind : 'provider';
+      ledger.record({ stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
+        note: `${kind} abstention: a bounded repair source and provider price quote are required` });
+      return makeCaseFile(fullContext, diagnosis, triageVerdict, [], 'gave-up', undefined, []);
+    }
+    const recovery = await recoverDiagnosis({
+      initialDiagnosis: diagnosis, failedLog: providerLog, sourceContext, baseline,
+      policy, executor: ctx.executor, llm: fullContext.llm, budget,
+      trustedCommand: executableCommand,
+      operationIdPrefix: `repair-${ctx.runId}-recovery`,
+      repairReservationUsd,
+      observe: ({ result, parentImageId, note }) => {
+        ledger.record({
+          stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
+          ...(result === undefined ? {} : { result }), parentImageId, note,
+        });
+      },
+    });
+    fullContext.recovery = recovery.evidence;
+    try {
+      const targets: Array<{
+        hypothesisId: string;
+        diagnosis: Diagnosis;
+        authorization?: RepairAuthorizationContext;
+        template: ControlledRepairProposalTemplate;
+        index: number;
+      }> = [];
+      for (const attempt of recovery.attempts) {
+        try {
+          const template = prepareControlledRepairProposalTemplate({
+            diagnosis: attempt.diagnosis, policy, sourceContext,
+            runtimeId: (ctx.runtime ?? NODE_RUNTIME).id,
+            ...(attempt.authorization === undefined ? {} : { authorization: attempt.authorization }),
+          });
+          for (let index = 0; index < template.targetCount; index++) {
+            targets.push({ ...attempt, template, index });
+          }
+        } catch (error) {
+          ledger.record({
+            stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
+            note: `${error instanceof RepairProposalPreparationError ? error.failureKind : 'policy'} failure: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          });
+        }
+      }
+      if (targets.length === 0 || recovery.audit === undefined) {
+        return makeCaseFile(fullContext, diagnosis, triageVerdict, [], 'gave-up', undefined, []);
+      }
+      const prepared = await prepareChallenges(sourceContext.sources);
+      const verified = new Map<string, RuntimeCandidateResult>();
+      let firstAuditAvailable = true;
+      const attemptContexts = new Map<string, ControlledRepairAttemptContext>();
+      const nodeTargets = new Map<string, number>();
+      const attemptContext = (
+        parent: SearchNode | undefined,
+        targetIndex: number,
+        repeatedProposal = false,
+      ): ControlledRepairAttemptContext => {
+        const key = `${parent?.id ?? 'baseline'}:${targetIndex}${repeatedProposal ? ':repeat' : ''}`;
+        const existing = attemptContexts.get(key);
+        if (existing !== undefined) return existing;
+        const feedback = parent === undefined ? undefined : {
+          candidateDiff: parent.cumulativeDiff,
+          testOutput: parent.testEvidence.output,
+          errorFingerprint: parent.errorFingerprint,
+          ...(repeatedProposal ? { repeatedProposal: true as const } : {}),
+        };
+        const target = targets[targetIndex]!;
+        const prepared = {
+          llm: fullContext.llm,
+          executor: ctx.executor,
+          initialImageId: ctx.failingImage,
+          diagnosis: target.diagnosis,
+          policy,
+          budget,
+          trustedCommands,
+          sourceContext,
+          runtimeId: (ctx.runtime ?? NODE_RUNTIME).id,
+          ...(target.authorization === undefined ? {} : { authorization: target.authorization }),
+          proposalTemplate: target.template,
+          proposalContract: target.template.contract(feedback, target.index),
+          ...(feedback === undefined ? {} : { feedback }),
+        };
+        attemptContexts.set(key, prepared);
+        return prepared;
+      };
+      const childTargetIndex = (parent: SearchNode): number => {
+        const parentTarget = nodeTargets.get(parent.id) ?? 0;
+        return parent.cumulativeDiff === '' && targets.length > 1
+          ? (parentTarget + 1) % targets.length
+          : parentTarget;
+      };
+      const targetIndexes = (parent: SearchNode | undefined): number[] => {
+        if (parent !== undefined) return [childTargetIndex(parent)];
+        return Array.from({ length: targets.length }, (_value, index) => index);
+      };
+      const inferenceCapacity = (parents: readonly (SearchNode | undefined)[]): number => {
+        const remainingUsd = budget.limits.inferenceCostUsd - budget.snapshot().inferenceCostUsd;
+        try {
+          const uniqueContexts = new Map<string, ControlledRepairAttemptContext>();
+          for (const parent of parents.length > 0 ? parents : [undefined]) {
+            for (const targetIndex of targetIndexes(parent)) {
+              const key = `${parent?.id ?? 'baseline'}:${targetIndex}`;
+              uniqueContexts.set(key, attemptContext(parent, targetIndex));
+            }
+          }
+          const reservationUsd = Math.max(
+            ...[...uniqueContexts.values()].map((context) =>
+              controlledRepairAttemptReservationUsd(context),
+            ),
+          );
+          return Math.max(0, Math.floor(remainingUsd / reservationUsd));
+        } catch {
+          return 0;
+        }
+      };
+      const initialBranchCapacity = Math.min(
+        Math.floor((budget.limits.modelTurns - budget.snapshot().modelTurns) / REPAIR_ATTEMPT_COSTS.modelTurns),
+        Math.floor((budget.limits.toolCalls - budget.snapshot().toolCalls) / REPAIR_ATTEMPT_COSTS.toolCalls),
+        Math.floor((budget.limits.sandboxOperations - budget.snapshot().sandboxOperations) / REPAIR_ATTEMPT_COSTS.sandboxOperations),
+        inferenceCapacity([undefined]),
+      );
+      const reachableTargetCapacity = Math.min(
         budget.limits.branches,
         searchLimits.maximumTotalBranches,
         initialBranchCapacity,
-      ),
-      beamWidth: searchLimits.beamWidth,
-      maximumDepth: searchLimits.maximumDepth,
-      maximumTotalBranches: Math.min(searchLimits.maximumTotalBranches, budget.limits.branches),
-      availableBranches: (parents = []) => {
+      );
+      if (reachableTargetCapacity === 0) {
+        ledger.record({ stage: 'search', attempt: 1, network: 'disabled',
+          note: 'No complete controller-owned repair attempt fits the configured budgets' });
+        return makeCaseFile(fullContext, diagnosis, triageVerdict, [], 'gave-up', undefined, []);
+      }
+      if (reachableTargetCapacity < targets.length) {
+        const available = targets.length;
+        targets.sort((left, right) => Number(right.authorization !== undefined) - Number(left.authorization !== undefined));
+        targets.splice(reachableTargetCapacity);
+        // Cached contracts were priced before admission; rebuild target-index associations after pruning.
+        attemptContexts.clear();
+        ledger.record({ stage: 'search', attempt: 1, network: 'disabled',
+          note: `Admitted ${targets.length} of ${available} controller-owned repair targets within the shared budget; validated recovery targets take priority` });
+      }
+      let providerCapacity: CapacitySnapshot | undefined = fullContext.llm.capacitySnapshot?.();
+      const activeOperations = new Map<string, string>();
+      const lastOperations = new Map<string, string>();
+      const availableBranches = (
+        parents: readonly (SearchNode | undefined)[] = [],
+      ): number => {
         const snapshot = budget.snapshot();
         if (
           providerCapacityAvailable(providerCapacity) < 1 ||
@@ -961,166 +1159,246 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
           inferenceCapacity(parents),
           budget.remainingElapsedTimeSec() > 0 ? Number.MAX_SAFE_INTEGER : 0,
         );
-      },
-      concurrencyCapacity: () => ctx.search === undefined
-        ? 1
-        : Math.max(1, Math.min(
-          providerCapacityAvailable(providerCapacity),
-          ctx.executor.operationCapacity().available,
-        )),
-      cancel: async (nodeId) => {
-        const activeOperation = activeOperations.get(nodeId);
-        if (!activeOperation) {
-          ledger.record({
-            stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
-            note: `Cancellation requested for ${nodeId} before a sandbox operation started`,
-          });
-          return;
-        }
-        const cancellation = await ctx.executor.cancel(activeOperation);
-        ledger.record({
-          stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
-          operation: {
-            operationId: activeOperation,
-            ...(cancellation.terminal === undefined ? {} : { terminal: cancellation.terminal }),
-            cancellationRequested: cancellation.requested,
-          },
-          note: `Cancellation ${cancellation.requested ? 'requested' : 'observed'} for ${nodeId}`,
-        });
-      },
-      onDecision: ({ summary, nodeId, parentNodeId }) => trace.record({
-        type: 'search-decision',
-        stage: 'search',
-        summary,
-        ...(nodeId === undefined ? {} : { childNodeId: nodeId }),
-        ...(parentNodeId === undefined ? {} : { parentNodeId }),
-      }),
-      expand: async ({ parent, parentImageId, branch, nodeId, operationId, signal }) => {
-        const before = ledger.entries().length;
-        const targetIndex = parent === undefined
-          ? (branch - 1) % proposalTemplate.targetCount
-          : nodeTargets.get(parent.id) ?? 0;
-        nodeTargets.set(nodeId, targetIndex);
-        const agent = await runControlledRepairAttempt({
-          ...attemptContext(parent, targetIndex),
-          branchId: nodeId,
-          operationIdPrefix: operationId,
-          signal,
-          trace,
-          onOperationStart: (activeOperationId) => {
-            activeOperations.set(nodeId, activeOperationId);
-            lastOperations.set(nodeId, activeOperationId);
-          },
-          observeCapacity: (capacity) => { providerCapacity = capacity; },
-          observe: ({ result, imageId, parentImageId, note }) => ledger.record({
-            stage: 'search',
-            attempt: ++candidateAttempt,
-            network: 'disabled',
-            ...(result === undefined ? {} : { result }),
-            ...(imageId === undefined ? {} : { imageId }),
-            parentImageId,
-            note,
-          }),
-        });
-        activeOperations.delete(nodeId);
-        if (signal.aborted) {
-          const lastOperation = lastOperations.get(nodeId);
-          if (lastOperation !== undefined) {
-            const completion = await ctx.executor.cancel(lastOperation);
+      };
+      const result = await adaptiveSearch({
+        baselineImageId: ctx.failingImage,
+        initialBranches: Math.min(
+          Math.max(searchLimits.initialBranches, targets.length),
+          budget.limits.branches,
+          searchLimits.maximumTotalBranches,
+          initialBranchCapacity,
+        ),
+        beamWidth: searchLimits.beamWidth,
+        maximumDepth: searchLimits.maximumDepth,
+        maximumTotalBranches: Math.min(searchLimits.maximumTotalBranches, budget.limits.branches),
+        availableBranches,
+        concurrencyCapacity: () => ctx.search === undefined
+          ? 1
+          : Math.max(1, Math.min(
+            providerCapacityAvailable(providerCapacity),
+            ctx.executor.operationCapacity().available,
+          )),
+        admit: async ({ nodeId, expansion }) => {
+          const candidate = expansion.candidate;
+          if (candidate === undefined) return { accepted: false };
+          const target = targets[nodeTargets.get(nodeId) ?? 0]!;
+          let ports;
+          try {
+            ports = firstAuditAvailable ? recovery.audit! : reserveRecoveryAudit({
+              budget, llm: fullContext.llm, executor: ctx.executor, policy,
+              operationIdPrefix: `repair-${ctx.runId}-${nodeId}`,
+            });
+            firstAuditAvailable = false;
+            const result = await evaluateRuntimeCandidate({
+              ...ports, prepared, policy, baselineImage: ctx.failingImage,
+              winner: {candidate, imageId: expansion.imageId, nodeId,
+                held: true, exitCode: expansion.testEvidence.exitCode},
+              diagnosis: target.diagnosis, beforeLog: providerLog, suiteCommand: verificationCommand,
+              ...(target.authorization === undefined ? {} : {authorization: target.authorization}),
+              runtime,
+              observe: (result, parentImageId, note) => { ledger.record({stage: 'audit', attempt: ++candidateAttempt, network: 'disabled', result, parentImageId, note}); },
+            });
+            verified.set(nodeId, result);
+            recordVerification(candidate, prepared, result);
+            ledger.record({stage: 'search', attempt: ++candidateAttempt, network: 'disabled', note: `Provisional candidate ${nodeId}: ${result.verification.status} at ${result.verification.blockingGate ?? 'complete'}`});
+            return {accepted: result.verdict.approved, reason: result.verdict.reasoning};
+          } catch(error) {
+            if (!(error instanceof BudgetExceededError)) throw error;
+            return {accepted:false, reason:'budget-exhausted'};
+          } finally { ports?.finish(); }
+        },
+        cancel: async (nodeId) => {
+          const activeOperation = activeOperations.get(nodeId);
+          if (!activeOperation) {
             ledger.record({
               stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
-              operation: {
-                operationId: lastOperation,
-                ...(completion.terminal === undefined ? {} : { terminal: completion.terminal }),
-                cancellationRequested: true,
-              },
-              note: `Cancellation terminal evidence for ${nodeId}`,
+              note: `Cancellation requested for ${nodeId} before a sandbox operation started`,
             });
+            return;
           }
+          const cancellation = await ctx.executor.cancel(activeOperation);
+          ledger.record({
+            stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
+            operation: {
+              operationId: activeOperation,
+              ...(cancellation.terminal === undefined ? {} : { terminal: cancellation.terminal }),
+              cancellationRequested: cancellation.requested,
+            },
+            note: `Cancellation ${cancellation.requested ? 'requested' : 'observed'} for ${nodeId}`,
+          });
+        },
+        onDecision: ({ summary, nodeId, parentNodeId }) => trace.record({
+          type: 'search-decision',
+          stage: 'search',
+          summary,
+          ...(nodeId === undefined ? {} : { childNodeId: nodeId }),
+          ...(parentNodeId === undefined ? {} : { parentNodeId }),
+        }),
+        expand: async ({ parent, parentImageId, branch, nodeId, operationId, signal }) => {
+          const before = ledger.entries().length;
+          const targetIndex = parent === undefined
+            ? (branch - 1) % targets.length
+            : childTargetIndex(parent);
+          nodeTargets.set(nodeId, targetIndex);
+          const runAttempt = async (
+            context: ControlledRepairAttemptContext,
+            operationIdPrefix: string,
+          ) => {
+            try {
+              return await runControlledRepairAttempt({
+                ...context,
+                branchId: nodeId,
+                operationIdPrefix,
+                signal,
+                trace,
+                onOperationStart: (activeOperationId) => {
+                  activeOperations.set(nodeId, activeOperationId);
+                  lastOperations.set(nodeId, activeOperationId);
+                },
+                observeCapacity: (capacity) => { providerCapacity = capacity; },
+                observe: ({ result, imageId, parentImageId, note }) => ledger.record({
+                  stage: 'search',
+                  attempt: ++candidateAttempt,
+                  network: 'disabled',
+                  ...(result === undefined ? {} : { result }),
+                  ...(imageId === undefined ? {} : { imageId }),
+                  parentImageId,
+                  note,
+                }),
+              });
+            } finally {
+              activeOperations.delete(nodeId);
+            }
+          };
+          let agent = await runAttempt(attemptContext(parent, targetIndex), operationId);
+          if (
+            !signal.aborted &&
+            parent !== undefined &&
+            (agent.status === 'submitted' || agent.status === 'checkpoint') &&
+            diffFingerprint(agent.candidate.diff) === diffFingerprint(parent.cumulativeDiff) &&
+            availableBranches([parent]) >= 1
+          ) {
+            ledger.record({
+              stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
+              note: `Identical proposal for ${nodeId}; requesting an alternative`,
+            });
+            agent = await runAttempt(
+              attemptContext(parent, targetIndex, true),
+              `${operationId}-alt`,
+            );
+          }
+          if (signal.aborted) {
+            const lastOperation = lastOperations.get(nodeId);
+            if (lastOperation !== undefined) {
+              const completion = await ctx.executor.cancel(lastOperation);
+              ledger.record({
+                stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
+                operation: {
+                  operationId: lastOperation,
+                  ...(completion.terminal === undefined ? {} : { terminal: completion.terminal }),
+                  cancellationRequested: true,
+                },
+                note: `Cancellation terminal evidence for ${nodeId}`,
+              });
+            }
+            const inheritedDiff = parent?.cumulativeDiff ?? '';
+            return {
+              imageId: parentImageId,
+              cumulativeDiff: inheritedDiff,
+              testEvidence: {
+                commandId: 'diagnosed', imageId: parentImageId, exitCode: 1,
+                output: 'Repair branch was cancelled',
+              },
+              policyEvidence: { valid: true, violations: [], changedFiles: [], diffBytes: Buffer.byteLength(inheritedDiff, 'utf8') },
+              stageEvidence: ledger.entries().slice(before), transcriptReference: nodeId,
+              terminalReason: 'cancelled',
+            };
+          }
+          if (agent.status === 'submitted' || agent.status === 'checkpoint') {
+            const target = targets[targetIndex]!;
+            if (target.authorization !== undefined) {
+              await authorizeRepairCandidate(
+                target.authorization.session, target.authorization.baseline, agent.candidate.diff,
+              );
+            }
+            const validation = validateCandidateDiff(
+              agent.candidate.diff, target.diagnosis, policy, budget.limits.diffBytes,
+              target.authorization,
+            );
+            return {
+              imageId: agent.imageId,
+              cumulativeDiff: agent.candidate.diff,
+              testEvidence: agent.test,
+              policyEvidence: {
+                valid: validation.ok,
+                violations: validation.violations,
+                changedFiles: validation.changedFiles,
+                diffBytes: validation.diffBytes,
+              },
+              stageEvidence: ledger.entries().slice(before),
+              transcriptReference: nodeId,
+              ...(agent.test.metrics === undefined ? {} : { metrics: agent.test.metrics }),
+              ...(agent.status === 'submitted' ? { candidate: agent.candidate } : {}),
+            };
+          }
+          ledger.record({
+            stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
+            parentImageId, note: `${agent.failureKind} failure: ${agent.reason}`,
+          });
           const inheritedDiff = parent?.cumulativeDiff ?? '';
           return {
             imageId: parentImageId,
             cumulativeDiff: inheritedDiff,
             testEvidence: {
               commandId: 'diagnosed', imageId: parentImageId, exitCode: 1,
-              output: 'Repair branch was cancelled',
+              output: `${agent.failureKind}: ${agent.reason}`,
             },
             policyEvidence: { valid: true, violations: [], changedFiles: [], diffBytes: Buffer.byteLength(inheritedDiff, 'utf8') },
             stageEvidence: ledger.entries().slice(before), transcriptReference: nodeId,
-            terminalReason: 'cancelled',
+            terminalReason: agent.failureKind === 'completion-limit' ? 'completion-limit' : 'failed',
           };
-        }
-        if (agent.status === 'submitted' || agent.status === 'checkpoint') {
-          const validation = validateCandidateDiff(agent.candidate.diff, diagnosis, policy, budget.limits.diffBytes);
-          return {
-            imageId: agent.imageId,
-            cumulativeDiff: agent.candidate.diff,
-            testEvidence: agent.test,
-            policyEvidence: {
-              valid: validation.ok,
-              violations: validation.violations,
-              changedFiles: validation.changedFiles,
-              diffBytes: validation.diffBytes,
-            },
-            stageEvidence: ledger.entries().slice(before),
-            transcriptReference: nodeId,
-            ...(agent.test.metrics === undefined ? {} : { metrics: agent.test.metrics }),
-            ...(agent.status === 'submitted' ? { candidate: agent.candidate } : {}),
-          };
-        }
-        ledger.record({
-          stage: 'search', attempt: ++candidateAttempt, network: 'disabled',
-          parentImageId, note: `${agent.failureKind} failure: ${agent.reason}`,
-        });
-        const inheritedDiff = parent?.cumulativeDiff ?? '';
-        return {
-          imageId: parentImageId,
-          cumulativeDiff: inheritedDiff,
-          testEvidence: {
-            commandId: 'diagnosed', imageId: parentImageId, exitCode: 1,
-            output: `${agent.failureKind}: ${agent.reason}`,
-          },
-          policyEvidence: { valid: true, violations: [], changedFiles: [], diffBytes: Buffer.byteLength(inheritedDiff, 'utf8') },
-          stageEvidence: ledger.entries().slice(before), transcriptReference: nodeId,
-          terminalReason: agent.failureKind === 'completion-limit' ? 'completion-limit' : 'failed',
-        };
-      },
-    });
-    const searchEvidence = publicSearchEvidence(result.nodes);
-    if (result.candidates.length === 0) {
-      return makeCaseFile(fullContext, diagnosis, triageVerdict, [], 'gave-up', undefined, searchEvidence);
+        },
+      });
+      const searchEvidence = publicSearchEvidence(result.nodes);
+      if (result.candidates.length === 0) {
+        recovery.audit.finish();
+        return makeCaseFile(
+          fullContext, diagnosis, triageVerdict, [], [...verified.values()].some(item => item.verification.status === 'failed') ? 'refused' : 'gave-up', [...verified.values()].at(-1)?.verdict, searchEvidence, undefined,
+          await counterfactualEvidence(chargedContext, ledger, diagnosis, providerLog, verificationCommand),
+        );
+      }
+      const raceResults: RaceResult[] = result.candidates.map((node) => ({
+        candidate: node.candidate!, imageId: node.imageId, nodeId: node.id,
+        exitCode: node.testEvidence.exitCode, held: true,
+        note: `Adaptive search passed at depth ${node.depth}`,
+      }));
+      const winner = raceResults[0]!;
+      const auditVerdict = verified.get(winner.nodeId!)!.verdict;
+      recovery.audit.finish();
+      const outcome = auditVerdict.approved ? 'fixed' as const : 'refused' as const;
+      return makeCaseFile(
+        fullContext,
+        diagnosis,
+        triageVerdict,
+        raceResults,
+        outcome,
+        auditVerdict,
+        searchEvidence,
+        winner.candidate,
+        await counterfactualEvidence(
+          chargedContext, ledger, diagnosis, providerLog, verificationCommand, winner.candidate.id,
+        ),
+      );
+    } finally {
+      recovery.audit?.finish();
     }
-    const raceResults: RaceResult[] = result.candidates.map((node) => ({
-      candidate: node.candidate!, imageId: node.imageId, nodeId: node.id,
-      exitCode: node.testEvidence.exitCode, held: true,
-      note: `Adaptive search passed at depth ${node.depth}`,
-    }));
-    const winner = raceResults[0]!;
-    let auditVerdict = await audit(ctx.executor, fullContext.llm, winner, {
-      diagnosis,
-      beforeLog: providerLog,
-      suiteCommand: verificationCommand,
-    }, (result) => ledger.record({
-      stage: 'audit',
-      attempt: 1,
-      network: 'disabled',
-      result,
-      parentImageId: winner.imageId,
-      note: 'Fresh suite rerun',
-    }));
-    auditVerdict = await enforceWinnerPolicy(fullContext, winner, ledger, auditVerdict);
-    return makeCaseFile(
-      fullContext,
-      diagnosis,
-      triageVerdict,
-      raceResults,
-      auditVerdict.approved ? 'fixed' : 'refused',
-      auditVerdict,
-      searchEvidence,
-      winner.candidate,
-    );
   }
 
+  const suppliedAudit = reserveRecoveryAudit({budget, llm: fullContext.llm, executor: ctx.executor, policy});
+  try {
+  const sources = policy.verification?.contracts.length
+    ? (await ctx.readSourceContext(ctx.failedLog, diagnosis, runtime)).sources : [];
+  const prepared = await prepareChallenges(sources);
   const candidates = [suppliedCandidate];
 
   if (suppliedCandidate) {
@@ -1147,6 +1425,11 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
           ],
           reasoning: `REFUSED: ${evidence}`,
         },
+        undefined,
+        undefined,
+        await counterfactualEvidence(
+          chargedContext, ledger, diagnosis, providerLog, verificationCommand,
+        ),
       );
     }
   }
@@ -1172,7 +1455,7 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
   }
 
   const raced = await race(
-    ctx.executor,
+    charged.executor,
     ctx.failingImage,
     approvedCandidates,
     verificationCommand,
@@ -1212,24 +1495,26 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
           }],
           reasoning: `REFUSED: ${evidence}`,
         },
+        undefined,
+        undefined,
+        await counterfactualEvidence(
+          chargedContext, ledger, diagnosis, providerLog, verificationCommand,
+        ),
       );
     }
-    return makeCaseFile(fullContext, diagnosis, triageVerdict, raceResults, 'gave-up');
+    return makeCaseFile(
+      fullContext, diagnosis, triageVerdict, raceResults, 'gave-up', undefined, undefined, undefined,
+      await counterfactualEvidence(chargedContext, ledger, diagnosis, providerLog, verificationCommand),
+    );
   }
 
-  let auditVerdict = await audit(ctx.executor, fullContext.llm, winner, {
-    diagnosis,
-    beforeLog: providerLog,
-    suiteCommand: verificationCommand,
-  }, (result) => ledger.record({
-    stage: 'audit',
-    attempt: 1,
-    network: 'disabled',
-    result,
-    parentImageId: winner.imageId,
-    note: 'Fresh suite rerun',
-  }));
-  auditVerdict = await enforceWinnerPolicy(fullContext, winner, ledger, auditVerdict);
+  const suppliedVerification = await evaluateRuntimeCandidate({
+    ...suppliedAudit, winner, prepared, policy, baselineImage: ctx.failingImage,
+    diagnosis, beforeLog: providerLog, suiteCommand: verificationCommand, runtime,
+    observe: (result, parentImageId, note) => { ledger.record({stage:'audit',attempt:1,network:'disabled',result,parentImageId,note}); },
+  });
+  recordVerification(winner.candidate, prepared, suppliedVerification);
+  const auditVerdict = suppliedVerification.verdict;
   return makeCaseFile(
     fullContext,
     diagnosis,
@@ -1239,7 +1524,11 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
     auditVerdict,
     undefined,
     winner.candidate,
+    await counterfactualEvidence(
+      chargedContext, ledger, diagnosis, providerLog, verificationCommand, winner.candidate.id,
+    ),
   );
+  } finally { suppliedAudit.finish(); }
 }
 
 function failureLog(command: string, result: RunResult): string {
@@ -1250,10 +1539,14 @@ function failureLog(command: string, result: RunResult): string {
 }
 
 export async function healCase(ctx: HealCaseContext): Promise<CaseFile> {
+  if (ctx.policy?.verification?.mode === 'required' && ctx.executionRecorder === undefined) {
+    const executionRecorder = new VerificationExecutionRecorder({ executor: ctx.executor, llm: ctx.llm, mode: ctx.evidenceMode ?? 'local' });
+    ctx = { ...ctx, executionRecorder, executor: executionRecorder.executor, llm: executionRecorder.llm };
+  }
   if (!ctx.runId.trim() || !ctx.repo.trim() || !ctx.caseDir.trim()) {
     throw new HealCaseError('runId, repo, and caseDir must be non-empty');
   }
-  const command = ctx.failureCommand ?? DEFAULT_FAILURE_COMMAND;
+  const command = ctx.failureCommand ?? defaultFailureCommand(ctx.runtimeId ?? ctx.policy?.runtime);
   if (!command.trim()) throw new HealCaseError('failureCommand must be non-empty');
 
   const trace = ctx.traceRecorder ?? new TraceRecorder(ctx.runId);
@@ -1295,10 +1588,12 @@ export async function healCase(ctx: HealCaseContext): Promise<CaseFile> {
     command,
     ledger,
     runtime,
+    (ctx.policy?.verification?.contracts.length ?? 0) > 0,
   );
   if (!setup.ok) {
     return preparationFailureCaseFile(fullContext, setup.command, setup.result);
   }
+  try {
   const reproduction = await executor.run(
     setup.imageId,
     sandboxTargetCommand(command, runtime),
@@ -1318,7 +1613,9 @@ export async function healCase(ctx: HealCaseContext): Promise<CaseFile> {
     return noReproductionCaseFile(fullContext, mechanical);
   }
 
-  return repairFailure({
+  return await repairFailure({
+    ...(ctx.executionRecorder === undefined ? {} : { executionRecorder: ctx.executionRecorder }),
+    evidenceMode: ctx.evidenceMode ?? 'local',
     runId: ctx.runId,
     repo: ctx.repo,
     failedLog,
@@ -1328,11 +1625,23 @@ export async function healCase(ctx: HealCaseContext): Promise<CaseFile> {
     cost: ctx.cost,
     triageN: ctx.triageN,
     raceK: ctx.raceK,
-    readSourceContext: ctx.readSourceContext,
+    readSourceContext: async (...args) => {
+      const context = await ctx.readSourceContext(...args);
+      if (setup.sourceDir === undefined) return context;
+      return { ...context, sources: await Promise.all(context.sources.map(async source => {
+        const content = (await readBoundedRegularFile(join(setup.sourceDir!, source.path), MAX_SNAPSHOT_FILE_BYTES)).toString('utf8');
+        const lines = source.content.split('\n').length;
+        return { ...source, content: content.split('\n').slice(source.startLine - 1, source.startLine - 1 + lines).join('\n') };
+      })) };
+    },
+    ...(setup.snapshotSha256 === undefined ? (ctx.sourceIdentity === undefined ? {} : { sourceIdentity: ctx.sourceIdentity }) : {
+      sourceIdentity: { ...(ctx.sourceIdentity ?? { kind: 'local-snapshot' as const, sourceSha: null, policyBaseSha: null }), snapshotSha256: setup.snapshotSha256 },
+    }),
     ...(ctx.tavily ? { tavily: ctx.tavily } : {}),
     ...(ctx.lockfileDiff === undefined ? {} : { lockfileDiff: ctx.lockfileDiff }),
     ...(ctx.dependencyHints === undefined ? {} : { dependencyHints: ctx.dependencyHints }),
     ...(ctx.candidateDiff === undefined ? {} : { candidateDiff: ctx.candidateDiff }),
+    ...(ctx.counterfactuals === undefined ? {} : { counterfactuals: ctx.counterfactuals }),
     ...(ctx.policy === undefined ? {} : { policy: ctx.policy }),
     ...(ctx.policyEvidence === undefined ? {} : { policyEvidence: ctx.policyEvidence }),
     ...(ctx.repairBudgets === undefined ? {} : { repairBudgets: ctx.repairBudgets }),
@@ -1341,4 +1650,5 @@ export async function healCase(ctx: HealCaseContext): Promise<CaseFile> {
     traceRecorder: trace,
     runtime,
   });
+  } finally { await setup.cleanup?.(); }
 }

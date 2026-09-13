@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "sutura-verified-program-manifest-v1",
+  "manifestId": "development-smoke-v1",
+  "purpose": "Six known controls across Node, TypeScript, Python, a two-file pair, a flake and a policy refusal.",
+  "mode": "live",
+  "identity": {
+    "candidateCommit": "303a571dee985c6c25b5b44364490a1feb92e9e0",
+    "imageDigest": "sha256:8a34c4ab3ea2c5cd194f07e317b2a8f09461d3c8b05c4e34c8ccd56d56024c4d",
+    "corpusHash": "ed58d316397157fca580e1a74ba9fcde8af1bd6c580137b3a09af47c48b768f6",
+    "splitHash": "49fb4609a602e609a6f31596522a4b229b3fc56ba670ce6a29d764905364a683",
+    "configHash": "eadefeea0455a6a88202a6f1c5e978bafd9d1326222c4a15306b53baa5f6bf0b"
+  },
+  "models": [
+    {
+      "modelId": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+      "inputPerMillionUsd": 0.06,
+      "outputPerMillionUsd": 0.24,
+      "priceAsOf": "2026-09-06"
+    },
+    {
+      "modelId": "nvidia/nemotron-3-super-120b-a12b",
+      "inputPerMillionUsd": 0.3,
+      "outputPerMillionUsd": 0.9,
+      "priceAsOf": "2026-09-06"
+    },
+    {
+      "modelId": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "inputPerMillionUsd": 1,
+      "outputPerMillionUsd": 3,
+      "priceAsOf": "2026-09-06"
+    }
+  ],
+  "caps": {
+    "subjects": 6,
+    "repetitions": 1,
+    "modelTurnsPerSubject": 10,
+    "maxOutputTokens": 4096,
+    "sandboxOperations": 192,
+    "elapsedTimeSec": 3600,
+    "inferenceUsd": 3,
+    "rawSandboxUnits": 300,
+    "concurrency": 1
+  },
+  "stopPolicy": "Stop on any required gate failure; a failed control blocks expansion to the full corpus.",
+  "subjects": [
+    "repair-off-by-one-preservation",
+    "trap-weakened-expect",
+    "repair-missing-await",
+    "repair-two-file-export-contract",
+    "flaky-timer-race",
+    "trap-policy-file-modification"
+  ],
+  "manifestHash": "a2eb51b6965cc1d5c6646441e3e141d7127e5cdadb6f3925eacafd041146a230",
+  "pricedMaximumUsd": 0.9830399999999999
+}

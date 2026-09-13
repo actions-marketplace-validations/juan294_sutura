@@ -12,13 +12,40 @@ import {
   publicGitHubUrl,
   SHA256_PATTERN,
 } from './evidence-contract.mjs';
-import { validateDogfoodLedger } from './dogfood.mjs';
+import {
+  dogfoodLedgerCostSummary,
+  MAX_PHASE_5_SPEND_USD,
+  validateDogfoodLedger,
+} from './dogfood.mjs';
 
+/**
+ * Every required check. New requirements are additive: the existing eleven
+ * stay, and final readiness stays false while any of them is missing.
+ *
+ * The last four were added by the verified repair program. `judging-readiness`
+ * is deliberately about being ready to check in December, not about having
+ * checked: an October submission cannot be blocked on a window that has not
+ * opened.
+ */
 export const RELEASE_EVIDENCE_IDS = Object.freeze([
   'benchmark', 'candidate-matrix', 'demo', 'devpost', 'dogfood', 'feedback',
   'github-release', 'local-gate', 'marketplace', 'npm', 'public-matrix',
+  'sponsor-experiments', 'challenge-evidence', 'external-patch-evidence',
+  'adoption-study', 'judging-readiness',
+]);
+
+/** Checks the verified repair program added, kept nameable on their own. */
+export const VERIFIED_PROGRAM_EVIDENCE_IDS = Object.freeze([
+  'sponsor-experiments', 'challenge-evidence', 'external-patch-evidence',
+  'adoption-study', 'judging-readiness',
+]);
+export const ACTION_EXECUTABLE_PATHS = Object.freeze([
+  'action.yml',
+  'packages/action/action.yml',
+  'packages/action/dist/index.cjs',
 ]);
 const STATUSES = new Set(['passed', 'failed', 'skipped', 'pending']);
+const MAX_PHASE_5_SPEND_MICRO_USD = MAX_PHASE_5_SPEND_USD * 1_000_000;
 
 function githubApiDefault(endpoint, binary = false) {
   return execFileSync('gh', ['api', '-X', 'GET', endpoint], {
@@ -26,6 +53,47 @@ function githubApiDefault(endpoint, binary = false) {
     maxBuffer: binary ? 10 * 1024 * 1024 : 1024 * 1024,
     timeout: 60_000,
   });
+}
+
+function gitObjectIdDefault(commit, path) {
+  return execFileSync('git', ['rev-parse', `${commit}:${path}`], {
+    encoding: 'utf8',
+    timeout: 60_000,
+  }).trim();
+}
+
+export function actionExecutableFingerprint(commit, options = {}) {
+  const candidate = exactSha(commit, 'Action executable commit');
+  const gitObjectId = options.gitObjectId ?? gitObjectIdDefault;
+  const entries = ACTION_EXECUTABLE_PATHS.map((path) => {
+    const objectId = gitObjectId(candidate, path);
+    if (typeof objectId !== 'string' || !/^[a-f0-9]{40}$/u.test(objectId)) {
+      throw new Error(`Action executable Git object is invalid: ${path}`);
+    }
+    return { path, objectId };
+  });
+  return contentHash(entries);
+}
+
+function normalizedDogfoodEquivalence(value, check, releaseCommit) {
+  if (value === undefined) return undefined;
+  const keys = value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? Object.keys(value).sort() : [];
+  const expectedKeys = ['executableFingerprint', 'paths', 'releaseCommit', 'streakActionSha'];
+  const valid = check.id === 'dogfood' && check.status === 'passed' &&
+    JSON.stringify(keys) === JSON.stringify(expectedKeys) &&
+    /^[a-f0-9]{40}$/u.test(value.streakActionSha ?? '') &&
+    value.releaseCommit === releaseCommit &&
+    SHA256_PATTERN.test(value.executableFingerprint ?? '') &&
+    Array.isArray(value.paths) &&
+    JSON.stringify(value.paths) === JSON.stringify(ACTION_EXECUTABLE_PATHS);
+  if (!valid) throw new Error(`${check.id} has invalid dogfood equivalence metadata`);
+  return {
+    streakActionSha: value.streakActionSha,
+    releaseCommit: value.releaseCommit,
+    executableFingerprint: value.executableFingerprint,
+    paths: [...ACTION_EXECUTABLE_PATHS],
+  };
 }
 
 export function createGitHubEvidenceVerifier(githubApi = githubApiDefault) {
@@ -144,12 +212,14 @@ export function analyzeReleaseEvidence(input, options = {}) {
         (typeof check.authorizationGate !== 'string' || check.authorizationGate.trim().length === 0)) {
       throw new Error(`Pending check ${check.id} requires an authorization gate`);
     }
+    const equivalence = normalizedDogfoodEquivalence(check.equivalence, check, releaseCommit);
     return {
       id: check.id,
       required: true,
       status: check.status,
       candidate: check.candidate,
       evidence,
+      ...(equivalence === undefined ? {} : { equivalence }),
       ...(check.authorizationGate === undefined ? {} : { authorizationGate: check.authorizationGate }),
     };
   });
@@ -174,10 +244,6 @@ export function assertReleaseReady(report) {
 export function verifyDogfoodStreak(ledger, releaseCommit, options = {}) {
   const candidate = exactSha(releaseCommit, 'Dogfood release commit');
   const validatedLedger = validateDogfoodLedger(ledger);
-  const packagesTreeHash = options.packagesTreeHash ?? execFileSync(
-    'git', ['rev-parse', `${candidate}:packages`], { encoding: 'utf8' },
-  ).trim();
-  if (!/^[a-f0-9]{40}$/u.test(packagesTreeHash)) throw new Error('Dogfood packages tree hash is invalid');
   const trailing = validatedLedger.entries.slice(-10);
   const actionShas = new Set(trailing.map((entry) => entry?.actionSha));
   const actionSha = actionShas.size === 1 && /^[a-f0-9]{40}$/u.test(trailing[0]?.actionSha ?? '')
@@ -186,28 +252,40 @@ export function verifyDogfoodStreak(ledger, releaseCommit, options = {}) {
     : options.actionPackagesTreeHash ?? execFileSync(
       'git', ['rev-parse', `${actionSha}:packages`], { encoding: 'utf8' },
     ).trim();
-  const totalMicroUsd = trailing.reduce((sum, entry) => sum + Math.round(
-    ((Number.isFinite(entry?.sandboxUsd) ? entry.sandboxUsd : Number.NaN) +
-    (Number.isFinite(entry?.inferenceUsd) ? entry.inferenceUsd : Number.NaN)) * 1_000_000,
-  ), 0);
+  if (actionPackagesTreeHash !== undefined && !/^[a-f0-9]{40}$/u.test(actionPackagesTreeHash)) {
+    throw new Error('Dogfood Action packages tree hash is invalid');
+  }
+  const actionFingerprint = actionSha === undefined ? undefined
+    : actionExecutableFingerprint(actionSha, options);
+  const releaseFingerprint = actionSha === undefined ? undefined
+    : actionExecutableFingerprint(candidate, options);
+  const phaseTotalMicroUsd = dogfoodLedgerCostSummary(validatedLedger.entries).spentMicroUsd;
   const distinct = (field) => new Set(trailing.map((entry) => entry?.[field])).size === 10;
   const passed = trailing.length === 10 && actionSha !== undefined &&
-    actionPackagesTreeHash === packagesTreeHash && totalMicroUsd <= 10_000_000 &&
+    actionFingerprint === releaseFingerprint &&
+    phaseTotalMicroUsd <= MAX_PHASE_5_SPEND_MICRO_USD &&
     distinct('ciRunId') && distinct('suturaRunId') && distinct('dogfoodSha') && distinct('prUrl') &&
     trailing.every((entry) => entry?.outcome === 'fixed' &&
-      entry.actionSha === actionSha && entry.packagesTreeHash === packagesTreeHash &&
+      entry.actionSha === actionSha && entry.packagesTreeHash === actionPackagesTreeHash &&
       typeof entry.prUrl === 'string');
-  const ledgerBytes = options.ledgerBytes ?? Buffer.from(`${JSON.stringify(validatedLedger, null, 2)}\n`);
+  const evidence = passed ? [{
+    reference: 'docs/demo/dogfood-ledger.json',
+    contentHash: createHash('sha256').update(options.ledgerBytes ??
+      Buffer.from(`${JSON.stringify(validatedLedger, null, 2)}\n`)).digest('hex'),
+    candidate,
+  }] : [];
   return {
     id: 'dogfood',
     required: true,
     status: passed ? 'passed' : 'pending',
     candidate,
-    evidence: passed ? [{
-      reference: 'docs/demo/dogfood-ledger.json',
-      contentHash: createHash('sha256').update(ledgerBytes).digest('hex'),
-      candidate,
-    }] : [],
+    evidence,
+    ...(passed ? { equivalence: {
+      streakActionSha: actionSha,
+      releaseCommit: candidate,
+      executableFingerprint: actionFingerprint,
+      paths: [...ACTION_EXECUTABLE_PATHS],
+    } } : {}),
     ...(passed ? {} : { authorizationGate: 'live-dogfood-streak' }),
   };
 }

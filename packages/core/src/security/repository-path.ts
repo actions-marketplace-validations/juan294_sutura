@@ -1,3 +1,13 @@
+/** Reserved controller/evaluator storage, never candidate source or patch targets.
+ * Public .sutura.json contracts are specifications and deliberately remain readable.
+ */
+export function isVerificationPrivatePath(path: string): boolean {
+  const segments = path.split('/');
+  return segments.some((segment, index) =>
+    ['.sutura-controller', '.sutura-evaluator', 'hidden'].includes(segment) ||
+    (segment === '.sutura' && segments[index + 1] === 'challenges'));
+}
+
 export interface SensitiveRepositoryPathOptions {
   includeDependencies?: boolean;
 }
@@ -8,6 +18,7 @@ export function isSensitiveRepositoryPath(
 ): boolean {
   const segments = path.split('/');
   if (
+    isVerificationPrivatePath(path) ||
     segments.includes('.git') ||
     (!options.includeDependencies && segments.includes('node_modules'))
   ) {

@@ -6,15 +6,28 @@
 ![Node](https://img.shields.io/badge/Node-22%2B-339933)
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB)
 
+Try it: [Sutura Case Lab](https://sutura-case-lab.vercel.app/) — five CI repair, refusal, and no-patch cases with labeled evidence, no account needed.
+
 AI agents make CI pass. Sutura verifies the fix, filters flaky failures,
 rejects unsafe shortcuts, and opens an evidence-backed PR for human review.
 
 Sutura reproduces real failures in isolated sandboxes and searches bounded
 repair checkpoints before the independent audit. It never auto-merges.
 
-Sutura is built for the Nebius x NVIDIA Global AI Hackathon. The public judge
-demo remains disabled until the release, provider-spend, and non-collaborator
-acceptance gates are authorized and pass against one exact release commit.
+The public [Sutura Case Lab](https://sutura-case-lab.vercel.app/) lets a
+signed-out visitor select one of five fixed cases and read a stable, labeled
+result. Its source lives in [`packages/case-lab`](packages/case-lab/README.md).
+Live runs stay disabled until the public-demo gate is authorized against one
+exact release commit; every case has a labeled deterministic result today.
+Sutura is built for the Nebius x NVIDIA Global AI Hackathon.
+
+## Technical review
+
+The [technical evaluation guide](docs/evaluation/README.md) maps controller-owned
+repairs, reusable ConTree isolation, and layered audit to source, tests, and dated
+evidence. It distinguishes implemented behavior from failed live quality gates,
+offline examples, controls, and pending evidence. The
+[documentation index](docs/README.md) also links setup, security, and process history.
 
 ## How it works
 
@@ -25,7 +38,7 @@ flowchart LR
   C --> D[ConTree dependency-prepared snapshot]
   D -->|Branching use 1| E1[Progressive triage batch 1]
   D -->|Same image| E2[Next batch when evidence is mixed]
-  E1 --> F[Nemotron Super repair tools]
+  E1 --> F[Nemotron Super repair proposals]
   E2 --> F
   D -->|Branching use 2| G1[Initial checkpoint branches]
   D -->|Same image| G2[Adaptive beam expansion]
@@ -46,7 +59,8 @@ rerun of the selected patch for adversarial audit. Search starts four branches,
 keeps the best two, and stops at depth four or 12 total branches by default.
 A passing command is necessary, but
 it is not enough. Sutura also rejects deleted or skipped tests, weakened
-assertions, relaxed compiler or linter settings, and similar green-wash fixes.
+assertions, relaxed compiler or linter settings, ES module syntax added to
+CommonJS files, and similar green-wash fixes.
 
 Sutura detects Node and Python repositories from bounded manifests, source-path
 evidence, and the observed failing command. A polyglot repository must set
@@ -81,6 +95,28 @@ dated. Catch-rate claims use the form “refused X/X placebos in Placebo vN.”
 Fix rate includes every failed case ID, and flaky accuracy states the corpus
 sample size. The internal ship gate is zero false approvals.
 
+On 2026-09-01, the exact v0.2.0 subject
+`a943ded4c734aed75c5c63f2b2dd63a2f44556c2` completed all 51 Placebo v0.2
+cases and 55 evaluations. The [machine-readable result](docs/demo/placebo-v0.2-live-2026-09.json),
+[run ledger](docs/demo/placebo-v0.2-live-ledger-2026-09.json), and
+[evidence note](docs/demo/placebo-v0.2-live-2026-09.md) retain every failure.
+
+- Sutura refused 15/19 traps with zero false approvals.
+- It fixed 10/18 repairable cases.
+- It identified 9/10 flaky cases without patching them.
+- It fixed 0/4 upstream cases with Tavily and 0/4 without Tavily.
+- Hidden-test preservation was 0/15 under the v0.2 score contract: 14 checks
+  were not run and one deceptive candidate failed its hidden check and was
+  rejected.
+- Recorded inference cost was USD 0.077343 and recorded sandbox cost was USD
+  5.40446309 across the complete evaluation.
+
+This is a complete failed baseline, not passing release evidence. The candidate
+matrix passed 6/8 and the public matrix passed 5/8, both with zero false
+approvals. The immutable v0.2.0 Python image digest is unavailable, so Python
+execution currently stops before repair. The v0.2.1 remediation plan is
+[tracked here](docs/plans/2026-09-01-sutura-v0.2.1-evidence-remediation.md).
+
 On 2026-08-28, Sutura commit `478684646ee1e4ccb56fdd8260c6fe01bc4c0158`
 completed the full live Placebo v0.1 run. The machine-readable
 [result](docs/demo/placebo-v0.1-2026-08-28.json) and its
@@ -113,10 +149,12 @@ The public dogfood record starts with [PR #18](https://github.com/juan294/sutura
   hooks before it enables network access.
 - Log-derived source reads are bounded, stay inside the checkout, reject
   sensitive paths, and do not follow symlinks.
-- The repair agent can use only six bounded tools. Source reads and literal
-  searches stay inside the network-disabled sandbox. Tests resolve trusted
-  command IDs, run on disposable children, and never advance the editable
-  image. Every cumulative patch passes built-in and repository policy checks.
+- Each repair attempt is one structured Nemotron Super proposal for one
+  controller-selected source excerpt. The controller, not the model, applies
+  the patch, runs the trusted test, and submits the candidate through three
+  bounded tool calls. Tests resolve trusted command IDs, run on disposable
+  children, and never advance the editable image. Every cumulative patch
+  passes built-in and repository policy checks.
 - Global repair limits default to 8 model turns, 24 tool calls, 12 branches, 32
   sandbox operations, 600 seconds, $0.25 inference cost, and 65,536 diff bytes.
   Action inputs can lower these limits but cannot raise the core maxima.
@@ -134,8 +172,9 @@ The public dogfood record starts with [PR #18](https://github.com/juan294/sutura
 Treat every generated patch as untrusted until its audit and repository checks
 pass. Keep branch protection and human merge review enabled.
 
-Read the complete [data boundary and retention contract](docs/security/data-boundaries.md)
-and [private repository threat model](docs/security/private-repositories.md)
+Read the complete [data boundary and retention contract](docs/security/data-boundaries.md),
+the [private repository threat model](docs/security/private-repositories.md), and
+the [provider processing guide](docs/security/provider-processing.md)
 before enabling Sutura on confidential source.
 
 ## Install Sutura
@@ -159,17 +198,29 @@ Set `NEBIUS_API_KEY`, `CONTREE_TOKEN`, `CONTREE_PROJECT`, and optional
 `TAVILY_API_KEY` in your environment. Then run these commands:
 
 ```bash
-npx sutura@0.2.0 init
-npx sutura@0.2.0 doctor
+npx sutura@0.2.1 init
+npx sutura@0.2.1 doctor
 ```
 
 The installer detects a single CI workflow. Use `--workflow <name>` when the
 repository has multiple workflows. Add `--no-tavily` when Tavily is unavailable.
 
-The installer resolves the `v0.2.0` Action tag and writes its immutable commit
+The installer resolves the `v0.2.1` Action tag and writes its immutable commit
 SHA into the generated workflow. `doctor` resolves the tag again and verifies
 the pin. Release-candidate testing can supply an exact commit with
 `--action-sha <40-character-commit>`; mutable refs are rejected.
+
+Maintainers verify the published npm package and independently resolved immutable
+Action tag from a fresh temporary consumer with:
+
+```bash
+node scripts/test-public-install.mjs --release 0.2.1
+```
+
+The command installs only that exact public npm version, disables lifecycle
+scripts, removes provider credentials from the child environment, runs the
+installed `init`, `doctor`, and version commands, and records package and Action
+identity hashes. It never substitutes `latest` or a mutable Action ref.
 
 The generated workflow uses the repository's automatic GitHub token. It stores
 provider keys as GitHub secrets. It stores `CONTREE_PROJECT` as a repository
@@ -268,10 +319,12 @@ and Super model as production. The manual `Provider contract canary` workflow
 runs it with read-only repository permissions and uploads SHA-bound evidence.
 Unverified Super model overrides fail closed.
 
-The versioned [release evidence requirements](docs/demo/sutura-v0.2.0-release-evidence-requirements.json)
+The versioned [release evidence requirements](docs/demo/sutura-v0.2.1-release-evidence-requirements.json)
 define the eleven required records, including dogfood plus separate candidate and public
-matrices. Live benchmark, dogfood, publication, public demo, and Devpost evidence
-remain pending their separate authorization gates.
+matrices. Canaries, the live benchmark, both matrices, publication, public demo,
+and Devpost evidence use separate authorization gates. The v0.2.0 benchmark and
+matrices remain immutable failed baselines. v0.2.1 evidence stays pending until
+each required gate is authorized and passed.
 
 ### Evaluation Lab
 
@@ -298,14 +351,25 @@ The committed [manifest](docs/demo/sutura-evaluation-manifest-v1.json) and
 [ATIF trajectory](docs/demo/sutura-trajectory-v1.atif.json) are sanitized
 examples. The trajectory passes `nat.atif.trajectory.Trajectory` from NVIDIA
 NeMo Agent Toolkit commit `23cd127dfba56994cd272f2771350d0ec13f3dd1`
-with `uv 0.12.7`:
+with `uv 0.12.x`:
 
 ```text
 uv run --project packages/evaluation python packages/evaluation/scripts/validate-atif.py docs/demo/sutura-trajectory-v1.atif.json
 ```
 
-Data Lab upload remains disabled. JSONL is a local, explicit export only. Sutura
-does not change the account Zero Data Retention setting.
+The WS-3 Data Lab path uses a stricter allowlisted export from the public Placebo
+artifact. Prepare the reviewable request without provider access or spending:
+
+```bash
+pnpm --filter @sutura/evaluation build
+node scripts/datalab-experiment.mjs prepare --source docs/demo/placebo-v0.2-live-2026-09.json --dataset-output docs/datalab/sutura-placebo-v0.2-live-data-lab-v1.jsonl --request-output docs/datalab/sutura-placebo-v0.2-live-dataset-request-v1.json
+```
+
+Data Lab upload and batch dispatch remain disabled unless their separate literal
+authorization tokens are supplied. Sutura does not change the account Zero Data
+Retention setting. ZDR prevents inference-log collection; it does not make an
+explicit Data Lab dataset transient. Read the
+[provider processing guide](docs/security/provider-processing.md) before upload.
 
 ## GitHub Action configuration
 
@@ -324,7 +388,40 @@ output and GitHub Check.
 Runtime detection is automatic for single-runtime repositories. For local
 healing, `--runtime node` or `--runtime python` is an explicit override. The
 Action `runtime` input accepts `auto`, `node`, or `python`. Prefer the protected
-`.sutura.json` field for a persistent polyglot repository choice.
+`.sutura.json` field for a persistent polyglot repository choice. The Action
+reproduces the command it read from the failing log; a local `sutura heal`
+takes `--failing-command "<command>"` and otherwise defaults to `pnpm test` or,
+for Python, `python -m unittest`.
+
+### Verifying a patch another agent wrote
+
+`sutura verify` checks a patch this tool did not write, through the same gate
+order a generated repair walks. It never authors a replacement, opens a branch
+or a pull request, or accepts an uploaded green log in place of execution.
+
+```text
+sutura verify \
+  --case-dir /tmp/sutura-verify/checkout \
+  --source-sha 0f2a1c9d4e6b8a7c5d3e1f0a2b4c6d8e0f2a1c9d \
+  --policy-base-sha 9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e1d0c \
+  --candidate-diff /tmp/sutura-verify/candidate.diff \
+  --failing-command diagnosed \
+  --format json
+```
+
+Both commits are exact and required: a branch name or short sha is refused,
+because verification is tied to the commit that actually failed. The trusted
+policy commit is chosen by the operator through `--policy-base-sha`, so a patch
+cannot ask for a more permissive policy by carrying one. The failing command is
+an identifier resolved through the trusted command map, not arbitrary text. The
+candidate is always a file path, read once and bounded, and a patch touching
+`.sutura.json`, controller or evaluator storage, hidden tests or a credential
+path is refused before anything runs.
+
+The Action selects the same route with `mode: verify` and the `source-sha`,
+`policy-base-sha`, `candidate-diff` and `failing-command` inputs. It takes no
+repository write access. See the [read-only Action setup](docs/adoption/external-verification-action.md)
+for trusted-policy configuration, execution artifacts and failure behavior.
 
 ### Reduced-assurance audit-only mode
 

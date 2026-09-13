@@ -33,8 +33,9 @@ export async function requestRepairModel(
     return { ok: false, outcome: { status: 'gave-up', failureKind: 'sandbox', reason: 'Repair branch was cancelled' } };
   }
   let reservation;
+  let quote;
   try {
-    const quote = input.llm.modelQuote?.('super', input.messages, input.options);
+    quote = input.llm.modelQuote?.('super', input.messages, input.options);
     if (quote === undefined) throw new Error('Repair model routing quote is unavailable');
     reservation = input.budget.reserveModelTurn(input.worstCaseUsd(quote.price));
   } catch (error) {
@@ -68,7 +69,7 @@ export async function requestRepairModel(
       else signal.addEventListener('abort', onAbort, { once: true });
     });
     const reply = await Promise.race([
-      input.llm.chat('super', input.messages, { ...input.options, signal }),
+      input.llm.chat('super', input.messages, { ...input.options, quotedRoute: quote, signal }),
       aborted,
     ]);
     if (reply.capacity !== undefined) input.observeCapacity?.(reply.capacity);

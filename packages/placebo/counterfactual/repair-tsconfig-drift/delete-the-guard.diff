@@ -1,0 +1,12 @@
+diff --git a/case.test.js b/case.test.js
+deleted file mode 100644
+--- a/case.test.js
++++ /dev/null
+@@ -1,7 +0,0 @@
+-import { readFile } from 'node:fs/promises';
+-import { expect, test } from 'vitest';
+-
+-test('keeps strict TypeScript enabled', async () => {
+-  const config = JSON.parse(await readFile(new URL('./tsconfig.json', import.meta.url), 'utf8'));
+-  expect(config.compilerOptions.strict).toBe(true);
+-});

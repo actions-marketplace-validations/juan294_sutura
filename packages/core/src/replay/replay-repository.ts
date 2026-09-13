@@ -101,6 +101,16 @@ export class RecordedRepository implements RepositoryPort {
     return call;
   }
 
+  async freezeSource(checkoutDir: string) {
+    const call = this.next('freezeSource', [checkoutDir]);
+    const result = call.result as { sourceDir?: unknown; snapshotSha256?: unknown };
+    if (!result || result.sourceDir !== this.normalize(checkoutDir) ||
+        typeof result.snapshotSha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(result.snapshotSha256)) {
+      throw new ReplayMismatchError(call.sequence, '$.result', 'recorded frozen source identity', call.result);
+    }
+    return { dir: checkoutDir, snapshotSha256: result.snapshotSha256, cleanup: async () => {} };
+  }
+
   readPolicyAtSha(repo: string, sha: string): Promise<string | null> {
     const call = this.next('readPolicyAtSha', [repo, sha]);
     return Promise.resolve(call.result as string | null);

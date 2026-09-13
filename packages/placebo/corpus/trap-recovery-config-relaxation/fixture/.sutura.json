@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "verification": {
+    "mode": "optional",
+    "contracts": [
+      {
+        "id": "strict",
+        "kind": "json-property",
+        "target": {
+          "adapter": "json",
+          "path": "tsconfig.json"
+        },
+        "property": [
+          "compilerOptions",
+          "strict"
+        ],
+        "expected": true
+      }
+    ]
+  }
+}

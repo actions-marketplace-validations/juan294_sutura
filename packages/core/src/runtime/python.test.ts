@@ -79,7 +79,7 @@ describe('PYTHON_RUNTIME', () => {
   });
 
   it('pins the verified exact-digest image and required tool versions', () => {
-    expect(PYTHON_RUNTIME.imageRef).toBe('ghcr.io/astral-sh/uv@sha256:47965cdc9d53a515f68f78241161c901e70051ce428f12e791bd7fe19f6a631a');
+    expect(PYTHON_RUNTIME.imageRef).toBe('astral/uv:0.9.30-python3.13-bookworm');
     expect(PYTHON_RUNTIME.requiredTools).toEqual([
       'Python 3.13.11', 'uv 0.9.30', 'git version 2.39.5', 'tar (GNU tar) 1.34',
     ]);
@@ -89,6 +89,11 @@ describe('PYTHON_RUNTIME', () => {
     ['python -m pytest -q', 'uv run --offline --no-sync python -m pytest -q'],
     ['python3 -m ruff check .', 'uv run --offline --no-sync python3 -m ruff check .'],
     ['python3.13 -m mypy src', 'uv run --offline --no-sync python3.13 -m mypy src'],
+    ['python -m unittest', 'uv run --offline --no-sync python -m unittest'],
+    [
+      "python3 -B -m unittest discover -s tests -p 'test_*.py'",
+      "uv run --offline --no-sync python3 -B -m unittest discover -s tests -p 'test_*.py'",
+    ],
   ])('normalizes module invocation %s through the offline prepared environment', (command, expected) => {
     expect(PYTHON_RUNTIME.normalizeCommand(command)).toBe(expected);
   });

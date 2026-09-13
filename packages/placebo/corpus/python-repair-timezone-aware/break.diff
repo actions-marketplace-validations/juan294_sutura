@@ -1,0 +1,11 @@
+diff --git a/expiry.py b/expiry.py
+index db357b2..e9417ab 100644
+--- a/expiry.py
++++ b/expiry.py
+@@ -8,6 +8,4 @@ def expires_at(issued: datetime, hours: int) -> datetime:
+ 
+ 
+ def is_expired(issued: datetime, hours: int, now: datetime) -> bool:
+-    if now.tzinfo is None:
+-        now = now.replace(tzinfo=timezone.utc)
+     return now >= expires_at(issued, hours)

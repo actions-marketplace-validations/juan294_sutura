@@ -1,5 +1,21 @@
 # Sutura dogfood streak ledger
 
-Result hash: `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`
+Result hash: `42ddbff67eeb8f7ded9e59aa3da1ef91ec5c3733f0737260d0058e4a0e3dcd5f`
 
-No live streak attempts are recorded.
+Trailing fixed streak Action: `a99e23199a80ae6ee51fe1680afb74188416160c`
+
+| Attempt | CI run | Sutura run | Outcome | Cost USD |
+| ---: | ---: | ---: | --- | ---: |
+| 1 | 33321106629 | 33321172589 | gave-up | 0.8388 |
+| 1 | 33323765566 | 33323856253 | gave-up | 0.8142 |
+| 1 | 33325938237 | 33326031664 | refused | 1.0585 |
+| 1 | 33328936605 | 33329038396 | fixed | 1.0841 |
+| 2 | 33329785241 | 33329903829 | fixed | 1.0600 |
+| 3 | 33330650649 | 33330743263 | fixed | 1.0917 |
+| 4 | 33331501530 | 33331587624 | fixed | 1.0630 |
+| 5 | 33332287700 | 33332369139 | fixed | 1.0704 |
+| 6 | 33332976946 | 33333076543 | fixed | 1.0726 |
+| 7 | 33358648166 | 33358764843 | fixed | 1.0789 |
+| 8 | 33359429381 | 33359560180 | fixed | 1.0690 |
+| 9 | 33360533338 | 33360643739 | fixed | 1.0732 |
+| 10 | 33361548920 | 33361668533 | fixed | 1.0759 |

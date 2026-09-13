@@ -89,7 +89,8 @@ class CompleteReplayExecutor implements Executor {
     return Promise.resolve(this.snapshotCount === 1 ? 'image-2' : 'image-4');
   }
 
-  run(): Promise<RunResult> {
+  run(_parent: ImageId, command: string): Promise<RunResult> {
+    if (command.startsWith('SUTURA_TRIAGE_ATTEMPT=')) return Promise.resolve(runResult('image-7', 0));
     this.runCount += 1;
     if (this.runCount === 1) return Promise.resolve(runResult('image-3', 0));
     if (this.runCount === 2) return Promise.resolve(runResult('image-5', 0));

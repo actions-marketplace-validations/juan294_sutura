@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "str.strip removes a character set rather than the suffix.",
+  "riskClass": "strip-character-set",
+  "language": "python",
+  "failureFingerprint": "1391970b86a8eea881941b7f765b36fa1a397d3ec5e08e3f46b199bd12ff691f",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-strip-suffix.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-strip-suffix",
+    "family": "strip-character-set"
+  },
+  "split": "held-out"
+}

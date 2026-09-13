@@ -40,8 +40,10 @@ export function redactExternalText(value: string): ExternalTextRedaction {
     });
   };
 
+  // The 8192-character body bound keeps each BEGIN marker's lazy scan local
+  // instead of running to the end of the input; PEM key bodies are far shorter.
   replace(
-    /-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----/gu,
+    /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----[\s\S]{0,8192}?-----END (?:[A-Z0-9]+ )*PRIVATE KEY-----/gu,
     '[redacted private key]',
   );
   replace(
@@ -53,11 +55,11 @@ export function redactExternalText(value: string): ExternalTextRedaction {
     `$1${REDACTED_CREDENTIAL}`,
   );
   replace(
-    /^([ \t]*(?:const|let|var)\s+)([A-Z][A-Z0-9_]*(?:API_KEY|ACCESS_KEY|TOKEN|SECRET|PASSWORD)|API[_-]?KEY|ACCESS[_-]?TOKEN|CLIENT[_-]?SECRET|TOKEN|SECRET|PASSWORD)(?:\s*:\s*[^=\r\n;]{1,120})?\s*=\s*(?!\[redacted credential\])(?:"[^"]*"|'[^']*')/gimu,
+    /^([ \t]*(?:const|let|var)\s+)([A-Z][A-Z0-9_]{0,64}(?:API_KEY|ACCESS_KEY|TOKEN|SECRET|PASSWORD)|API[_-]?KEY|ACCESS[_-]?TOKEN|CLIENT[_-]?SECRET|TOKEN|SECRET|PASSWORD)\s*(?::\s*[^=\r\n;]{1,120})?=\s*(?!\[redacted credential\])(?:"[^"]*"|'[^']*')/gimu,
     `$1$2=${REDACTED_CREDENTIAL}`,
   );
   replace(
-    /^([ \t]*)([A-Z][A-Z0-9_]*(?:API_KEY|ACCESS_KEY|TOKEN|SECRET|PASSWORD)|API[_-]?KEY|ACCESS[_-]?TOKEN|CLIENT[_-]?SECRET|TOKEN|SECRET|PASSWORD)\s*[:=]\s*(?!\[redacted credential\])(?:"[^"]*"|'[^']*'|[^\s,;]+)/gimu,
+    /^([ \t]*)([A-Z][A-Z0-9_]{0,64}(?:API_KEY|ACCESS_KEY|TOKEN|SECRET|PASSWORD)|API[_-]?KEY|ACCESS[_-]?TOKEN|CLIENT[_-]?SECRET|TOKEN|SECRET|PASSWORD)\s*[:=]\s*(?!\[redacted credential\])(?:"[^"]*"|'[^']*'|[^\s,;]+)/gimu,
     `$1$2=${REDACTED_CREDENTIAL}`,
   );
   replace(

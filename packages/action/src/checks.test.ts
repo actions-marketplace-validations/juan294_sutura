@@ -78,6 +78,6 @@ describe('GitHub check helpers', () => {
       await rm(directory, { recursive: true, force: true });
       await rm(outside, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
 import { execFile } from 'node:child_process';

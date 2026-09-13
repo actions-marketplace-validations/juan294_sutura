@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "sutura-diagnosis-recovery-v1",
+  "initialClass": "typecheck",
+  "observedCommand": "pnpm typecheck",
+  "executedCommand": "pnpm typecheck",
+  "status": "passed",
+  "reason": "controller-probe-supported",
+  "hypotheses": [
+    {
+      "id": "hypothesis-1",
+      "class": "typecheck",
+      "intent": "repair-source",
+      "path": null,
+      "sourceSha256": null,
+      "signal": "initial-diagnosis",
+      "probeId": null,
+      "status": "not-run",
+      "reason": "initial-diagnosis-retained",
+      "probeOutputSha256": null
+    },
+    {
+      "id": "hypothesis-2",
+      "class": "test-bug",
+      "intent": "await-operation",
+      "path": "test/async.test.ts",
+      "sourceSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "signal": "Promise assertion",
+      "probeId": "async-completion",
+      "status": "passed",
+      "reason": "controller-probe-supported",
+      "probeOutputSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "authorizations": [
+    {
+      "kind": "await-operation",
+      "path": "test/async.test.ts",
+      "excerptSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "baseline": {
+        "kind": "git",
+        "sourceSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "policyBaseSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "policySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "baselineImageId": "baseline-1",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "failingCommand": "pnpm typecheck",
+      "evidenceReferences": [
+        "Promise assertion"
+      ],
+      "probeId": "async-completion",
+      "probeOutputSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  ]
+}

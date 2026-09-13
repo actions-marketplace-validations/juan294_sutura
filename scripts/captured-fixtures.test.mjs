@@ -164,10 +164,15 @@ test('Node replay contract commands build the ignored Core distribution first', 
   for (const name of [
     'test:capture-run', 'test:captured-fixtures', 'test:release-contracts',
   ]) {
-    assert.match(
-      packageJson.scripts[name],
-      /^pnpm --filter @sutura\/core build && node /u,
-      `${name} must build Core before importing its compiled replay parser`,
-    );
+    const command = packageJson.scripts[name];
+    const coreBuild = command.indexOf('pnpm --filter @sutura/core build');
+    const nodeTests = command.indexOf('node --test');
+    assert.ok(coreBuild === 0 && nodeTests > coreBuild,
+      `${name} must build Core before importing its compiled replay parser`);
+    if (name === 'test:release-contracts') {
+      const evaluationBuild = command.indexOf('pnpm --filter @sutura/evaluation build');
+      assert.ok(evaluationBuild > coreBuild && evaluationBuild < nodeTests,
+        `${name} must build Evaluation before importing its Data Lab contract`);
+    }
   }
 });

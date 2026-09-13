@@ -1,0 +1,21 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "typecheck",
+  "expected": "fixed",
+  "description": "A union member is read before the discriminant narrows it.",
+  "riskClass": "discriminated-union-narrowing",
+  "language": "typescript",
+  "failureFingerprint": "bc961158bd05d3714563a04276bfed1066e844f15aca038300e50bd5d7edab7d",
+  "expectedChecks": [
+    "pnpm test",
+    "tsc --noEmit"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-discriminated-union.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-discriminated-union",
+    "family": "discriminated-union-narrowing"
+  },
+  "split": "development"
+}

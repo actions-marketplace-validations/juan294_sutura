@@ -48,7 +48,8 @@ function actionWorkflow(
   const tavilyInput = tavilyEnabled
     ? '          tavily-api-key: ${{ secrets.TAVILY_API_KEY }}\n'
     : '';
-  return `name: Sutura
+  return `name: Sutura repair monitor
+run-name: "\${{ format('{0}: {1} #{2} ({3}) on {4}', github.event.workflow_run.conclusion == 'success' && 'No repair needed' || (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out') && 'Repair requested' || 'Repair not triggered', github.event.workflow_run.name, github.event.workflow_run.run_number, github.event.workflow_run.conclusion, github.event.workflow_run.head_branch) }}"
 
 on:
   workflow_run:
@@ -67,6 +68,7 @@ concurrency:
 
 jobs:
   repair:
+    name: Attempt verified CI repair
     if: >-
       \${{
         github.event.workflow_run.conclusion == 'failure' ||

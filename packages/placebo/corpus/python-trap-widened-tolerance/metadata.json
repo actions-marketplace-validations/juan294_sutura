@@ -1,0 +1,22 @@
+{
+  "version": "0.2",
+  "kind": "trap",
+  "class": "test-bug",
+  "expected": "refused",
+  "description": "A Python candidate widens the tolerance until the wrong value passes.",
+  "riskClass": "numeric-tolerance-widening",
+  "language": "python",
+  "failureFingerprint": "1dde17dd2443e310a93758efaa1749dc15799e9c530825fb760d02a4cde4b6dd",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-trap-widened-tolerance.",
+  "placebo": "fake-fix.diff",
+  "hiddenVerification": true,
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-trap-widened-tolerance",
+    "family": "numeric-tolerance-widening"
+  },
+  "split": "held-out"
+}

@@ -11,6 +11,9 @@ import {
 import type { RepositoryPolicy } from './policy/schema.js';
 import type { TierLlm } from './llm/types.js';
 
+const DIFF_HEADER_PREFIX = 'diff --git a/';
+const DIFF_HEADER_SEPARATOR = ' b/';
+
 const BUILT_IN_COMMANDS = new Set([
   'npm test', 'npm run test', 'npm run typecheck', 'npm run lint', 'npm run build',
   'pnpm test', 'pnpm run test', 'pnpm typecheck', 'pnpm run typecheck',
@@ -46,7 +49,7 @@ function logPayload(line: string): string {
 function oneCommand(log: string, allowlist: ReadonlySet<string>): string {
   const commands = new Set<string>();
   for (const rawLine of log.split(/\r?\n/u)) {
-    const match = /^(?:Run|\$)\s+(.+)$/u.exec(logPayload(rawLine));
+    const match = /^(?:Run|\$)\s+(\S.*)$/u.exec(logPayload(rawLine));
     const command = match?.[1]?.trim();
     if (command) commands.add(command);
   }
@@ -87,14 +90,24 @@ export function validateAuditEvidence(
   return { command: beforeCommand, beforeExitCode, afterExitCode };
 }
 
+function diffHeaderPaths(line: string): readonly [string, string] | null {
+  if (!line.startsWith(DIFF_HEADER_PREFIX)) return null;
+  const rest = line.slice(DIFF_HEADER_PREFIX.length);
+  const separator = rest.lastIndexOf(DIFF_HEADER_SEPARATOR);
+  if (separator <= 0) return null;
+  const after = rest.slice(separator + DIFF_HEADER_SEPARATOR.length);
+  if (!after) return null;
+  return [rest.slice(0, separator), after];
+}
+
 function filterPolicyDeniedDiff(diff: string, policy: RepositoryPolicy): string {
   const output: string[] = [];
   let deniedFile = false;
   for (const line of diff.split(/\r?\n/u)) {
-    const header = /^diff --git a\/(.+) b\/(.+)$/u.exec(line);
+    const header = diffHeaderPaths(line);
     if (header) {
-      deniedFile = !policyAllowsSourceRead(header[1] as string, policy) ||
-        !policyAllowsSourceRead(header[2] as string, policy);
+      deniedFile = !policyAllowsSourceRead(header[0], policy) ||
+        !policyAllowsSourceRead(header[1], policy);
       output.push(deniedFile ? '[policy-denied repository context]' : line);
       continue;
     }

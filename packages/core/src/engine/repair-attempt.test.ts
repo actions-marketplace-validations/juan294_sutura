@@ -9,8 +9,11 @@ import { DEFAULT_MODEL_PRICES } from '../llm/cost.js';
 import type { ChatMessage, ChatOptions, TierLlm } from '../llm/types.js';
 import { createDefaultRepositoryPolicy } from '../policy/load.js';
 import { RepairBudget } from './repair-budget.js';
+import { createRepairAuthorizationSession, deriveRepairAuthorization, type ControllerBaselineBinding } from './repair-authorization.js';
 import {
   CONTROLLED_REPAIR_MAX_TOKENS,
+  controlledRepairAttemptReservationUsd,
+  recoveryRepairReservationUsd,
   prepareControlledRepairProposalTemplate,
   runControlledRepairAttempt,
 } from './repair-attempt.js';
@@ -52,9 +55,11 @@ function runResult(exitCode: number, stdout = '', stderr = ''): InMemoryRunResul
 }
 
 function llm(
-  text: string,
+  replies: string | readonly string[],
   price = DEFAULT_MODEL_PRICES.super,
 ): { model: TierLlm<'super'>; chat: ReturnType<typeof vi.fn> } {
+  const queue = typeof replies === 'string' ? [replies] : [...replies];
+  let replyIndex = 0;
   const chat = vi.fn(async (
     _tier: 'super',
     _messages: readonly ChatMessage[],
@@ -63,6 +68,8 @@ function llm(
     void _tier;
     void _messages;
     void _options;
+    const text = queue[replyIndex] ?? queue.at(-1) ?? '';
+    replyIndex += 1;
     return { text, usd: 0.01 };
   });
   const model: TierLlm<'super'> = {
@@ -75,6 +82,41 @@ function llm(
 }
 
 describe('runControlledRepairAttempt', () => {
+  it('selects a complete test source only through its controller-derived narrow grant', async () => {
+    const source = { path: 'case.test.js', startLine: 1, truncated: false,
+      content: "import { expect, test } from 'vitest';\ntest('loads', async () => { expect(fetchName()).toBe('Ada'); });\n" };
+    const policy = createDefaultRepositoryPolicy();
+    const baseline: ControllerBaselineBinding = { kind: 'local-snapshot', sourceSha: null, policyBaseSha: null,
+      policySha256: 'a'.repeat(64), baselineImageId: 'baseline', snapshotSha256: null };
+    const session = createRepairAuthorizationSession({ baseline, failingCommand: 'pnpm test', policy, sources: [source] });
+    expect(await deriveRepairAuthorization(session, { kind: 'await-operation', path: source.path,
+      evidenceReferences: ['recorded-await-failure'], controllerProbe: { id: 'async-completion', sourceSha256: createHash('sha256').update(source.content).digest('hex'), failingCommand: diagnosis.failingCmd, imageId: 'baseline', exitCode: 1,
+        output: 'AssertionError: expected Promise to be Ada' } })).toMatchObject({ ok: true });
+    expect(prepareControlledRepairProposalTemplate({ diagnosis, policy, sourceContext: { sources: [source, sourceContext.sources[0]!] },
+      authorization: { session, baseline } }).targetCount).toBe(1);
+    const quoted = llm('', { input: 100, output: 3 });
+    const budget = new RepairBudget();
+    const quoteContext = { llm: quoted.model, diagnosis, policy, sourceContext: { sources: [source, sourceContext.sources[0]!] }, budget };
+    const reserved = recoveryRepairReservationUsd(quoteContext);
+    const actual = controlledRepairAttemptReservationUsd({ ...quoteContext,
+      diagnosis: { ...diagnosis, class: 'test-bug', signals: [...diagnosis.signals, 'recovery:hypothesis-3'] },
+      executor: new InMemoryExecutor(() => runResult(1)), initialImageId: 'baseline',
+      trustedCommands: { diagnosed: diagnosis.failingCmd }, authorization: { session, baseline },
+    });
+    expect(reserved).toBeGreaterThan(0.05);
+    expect(reserved).toBeGreaterThanOrEqual(actual);
+    expect(quoted.chat).not.toHaveBeenCalled();
+    expect(budget.snapshot().modelTurns).toBe(0);
+    expect(() => prepareControlledRepairProposalTemplate({ diagnosis, policy, sourceContext: { sources: [source] } })).toThrow(/policy-admissible/u);
+  });
+
+  it('never turns a test-bug label into test-edit authority', () => {
+    expect(() => prepareControlledRepairProposalTemplate({
+      diagnosis: { ...diagnosis, class: 'test-bug' }, policy: createDefaultRepositoryPolicy(),
+      sourceContext: { sources: [ambiguousSourceContext.sources[0]!] },
+    })).toThrow(/policy-admissible/u);
+  });
+
   it('replays live run 8: an accepted patch is tested and submitted without exploration', async () => {
     const results = [
       runResult(0, diff),
@@ -171,6 +213,83 @@ describe('runControlledRepairAttempt', () => {
       budget: new RepairBudget(), trustedCommands: { diagnosed: 'pnpm test' }, sourceContext,
     });
     expect(invalid).toMatchObject({ status: 'gave-up', failureKind: 'invalid' });
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(executor.calls).toHaveLength(0);
+  });
+
+  it('retries one invalid proposal and submits the valid second reply', async () => {
+    const executor = new InMemoryExecutor((_command, _parent, index) => [
+      runResult(0, diff), runResult(0, '1 passed'),
+    ][index]!);
+    const { model, chat } = llm([
+      'not json',
+      JSON.stringify({ replacement: fixedSource }),
+    ]);
+    const budget = new RepairBudget();
+    const observe = vi.fn((entry: { parentImageId: string; note: string }) => {
+      void entry;
+      return 'proposal-retry-observation';
+    });
+
+    const outcome = await runControlledRepairAttempt({
+      llm: model, executor, initialImageId: 'baseline', diagnosis,
+      policy: createDefaultRepositoryPolicy(), budget,
+      trustedCommands: { diagnosed: 'pnpm test' }, sourceContext, observe,
+    });
+
+    expect(outcome).toMatchObject({ status: 'submitted', candidate: { diff } });
+    expect(chat).toHaveBeenCalledTimes(2);
+    const retryMessages = chat.mock.calls[1]?.[1] as readonly ChatMessage[];
+    expect(retryMessages.slice(-2)).toEqual([
+      { role: 'assistant', content: 'not json' },
+      expect.objectContaining({
+        role: 'user',
+        content: expect.stringContaining(JSON.stringify({
+          replacement: 'complete replacement for the controller-selected excerpt',
+        })),
+      }),
+    ]);
+    expect(observe).toHaveBeenCalledWith({
+      parentImageId: 'baseline', note: 'Proposal retry after invalid response',
+    });
+    expect(observe.mock.calls.filter(([entry]) =>
+      entry.note === 'Proposal retry after invalid response',
+    )).toHaveLength(1);
+    expect(observe.mock.invocationCallOrder[0]).toBeLessThan(
+      chat.mock.invocationCallOrder[1]!,
+    );
+    expect(budget.snapshot().modelTurns).toBe(2);
+  });
+
+  it('fails closed after a second invalid proposal', async () => {
+    const executor = new InMemoryExecutor(() => runResult(1));
+    const { model, chat } = llm(['not json', 'still not json']);
+
+    const outcome = await runControlledRepairAttempt({
+      llm: model, executor, initialImageId: 'baseline', diagnosis,
+      policy: createDefaultRepositoryPolicy(), budget: new RepairBudget(),
+      trustedCommands: { diagnosed: 'pnpm test' }, sourceContext,
+    });
+
+    expect(outcome).toMatchObject({ status: 'gave-up', failureKind: 'invalid' });
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(executor.calls).toHaveLength(0);
+  });
+
+  it('stops the retry on budget', async () => {
+    const executor = new InMemoryExecutor(() => runResult(1));
+    const { model, chat } = llm([
+      'not json',
+      JSON.stringify({ replacement: fixedSource }),
+    ]);
+
+    const outcome = await runControlledRepairAttempt({
+      llm: model, executor, initialImageId: 'baseline', diagnosis,
+      policy: createDefaultRepositoryPolicy(), budget: new RepairBudget({ modelTurns: 1 }),
+      trustedCommands: { diagnosed: 'pnpm test' }, sourceContext,
+    });
+
+    expect(outcome).toMatchObject({ status: 'gave-up', failureKind: 'budget' });
     expect(chat).toHaveBeenCalledOnce();
     expect(executor.calls).toHaveLength(0);
   });
@@ -192,6 +311,7 @@ describe('runControlledRepairAttempt', () => {
       status: 'gave-up', failureKind: 'completion-limit',
       reason: 'Repair proposal reached the provider completion-token limit',
     });
+    expect(value.chat).toHaveBeenCalledOnce();
     expect(executor.calls).toHaveLength(0);
   });
 
@@ -212,6 +332,7 @@ describe('runControlledRepairAttempt', () => {
     });
 
     expect(outcome).toMatchObject({ status: 'gave-up', failureKind: 'invalid' });
+    expect(value.chat).toHaveBeenCalledTimes(2);
     expect(executor.calls).toHaveLength(0);
     const messages = value.chat.mock.calls[0]?.[1] as readonly ChatMessage[] | undefined;
     const user = messages?.find(({ role }) => role === 'user');
@@ -285,6 +406,27 @@ describe('runControlledRepairAttempt', () => {
     expect(template.contract()).toBe(template.contract());
     const feedback = { candidateDiff: diff, testOutput: 'still failing', errorFingerprint: 'abc' };
     expect(template.contract(feedback)).toBe(template.contract({ ...feedback }));
+  });
+
+  it('adds the repeated-proposal instruction only when feedback sets it', () => {
+    const template = prepareControlledRepairProposalTemplate({
+      diagnosis, policy: createDefaultRepositoryPolicy(), sourceContext: ambiguousSourceContext,
+    });
+    const repeated = template.contract({
+      candidateDiff: diff,
+      testOutput: 'fail',
+      errorFingerprint: 'f',
+      repeatedProposal: true,
+    }, 0);
+    const ordinary = template.contract({
+      candidateDiff: diff,
+      testOutput: 'fail',
+      errorFingerprint: 'f',
+    }, 0);
+
+    expect(repeated).not.toBe(ordinary);
+    expect(repeated.messages[0]?.content).toContain('materially different replacement');
+    expect(ordinary.messages[0]?.content).not.toContain('materially different replacement');
   });
 
   it('creates distinct controller-owned contracts for multiple editable targets', () => {
@@ -449,6 +591,7 @@ describe('runControlledRepairAttempt', () => {
     });
 
     expect(outcome).toMatchObject({ status: 'gave-up', failureKind: 'invalid' });
+    expect(chat).toHaveBeenCalledTimes(2);
     expect(executor.calls).toHaveLength(0);
     expect(chat.mock.calls[0]?.[2]).toMatchObject({ responseFormat: { jsonSchema: { schema: {
       properties: {
@@ -490,12 +633,13 @@ describe('runControlledRepairAttempt', () => {
 
   it('replays live run 15: legacy model-owned metadata is rejected before sandbox work', async () => {
     const executor = new InMemoryExecutor(() => runResult(1));
+    const { model, chat } = llm(JSON.stringify({
+      id: 'legacy-id',
+      rationale: 'Legacy model-owned rationale.',
+      replacement: fixedSource,
+    }));
     const outcome = await runControlledRepairAttempt({
-      llm: llm(JSON.stringify({
-        id: 'legacy-id',
-        rationale: 'Legacy model-owned rationale.',
-        replacement: fixedSource,
-      })).model,
+      llm: model,
       executor, initialImageId: 'baseline', diagnosis,
       policy: createDefaultRepositoryPolicy(), budget: new RepairBudget(),
       trustedCommands: { diagnosed: 'pnpm test' }, sourceContext,
@@ -505,6 +649,7 @@ describe('runControlledRepairAttempt', () => {
       status: 'gave-up', failureKind: 'invalid',
       reason: 'Repair proposal must contain only the replacement field',
     });
+    expect(chat).toHaveBeenCalledTimes(2);
     expect(executor.calls).toHaveLength(0);
   });
 
@@ -600,5 +745,66 @@ describe('runControlledRepairAttempt', () => {
     expect(chat).toHaveBeenCalledOnce();
     expect(executor.calls).toHaveLength(2);
     expect(budget.snapshot().toolCalls).toBe(2);
+  });
+});
+
+describe('module-system hints and policy feedback', () => {
+  const cjsSource: RepairSourceContext = { sources: [{
+    path: 'app.cjs', startLine: 1, truncated: false,
+    content: "const chalk = require('chalk');\nexports.renderStatus = () => chalk.green('ready');\n",
+  }] };
+  const upstream: Diagnosis = {
+    class: 'dep-upstream-breaking', confidence: 0.9, signals: [],
+    failingCmd: 'pnpm test', errorExcerpt: 'TypeError: chalk.green is not a function',
+  };
+
+  it('tells the model the selected .cjs target is CommonJS', () => {
+    const template = prepareControlledRepairProposalTemplate({
+      diagnosis: upstream, policy: createDefaultRepositoryPolicy(), sourceContext: cjsSource,
+    });
+    const system = template.contract(undefined, 0).messages[0]!.content;
+    expect(system).toContain('CommonJS (.cjs)');
+    expect(system).toContain("require('pkg').default");
+    expect(system).not.toContain('ES module (.mjs)');
+  });
+
+  it('tells the model the selected .mjs target is an ES module', () => {
+    const template = prepareControlledRepairProposalTemplate({
+      diagnosis: upstream, policy: createDefaultRepositoryPolicy(),
+      sourceContext: { sources: [{
+        path: 'app.mjs', startLine: 1, truncated: false,
+        content: "import chalk from 'chalk';\nexport const renderStatus = () => chalk.green('ready');\n",
+      }] },
+    });
+    const system = template.contract(undefined, 0).messages[0]!.content;
+    expect(system).toContain('ES module (.mjs)');
+    expect(system).not.toContain('CommonJS (.cjs)');
+  });
+
+  it('adds no module-system line for other extensions', () => {
+    const template = prepareControlledRepairProposalTemplate({
+      diagnosis, policy: createDefaultRepositoryPolicy(), sourceContext,
+    });
+    const system = template.contract(undefined, 0).messages[0]!.content;
+    expect(system).not.toContain('CommonJS (.cjs)');
+    expect(system).not.toContain('ES module (.mjs)');
+  });
+
+  it('replays live Placebo run 33810847395: names the policy violation when the patch is rejected', async () => {
+    const executor = new InMemoryExecutor(() => runResult(1));
+    const value = llm(JSON.stringify({
+      replacement: "import chalk from 'chalk';\nexports.renderStatus = () => chalk.green('ready');\n",
+    }));
+
+    const outcome = await runControlledRepairAttempt({
+      llm: value.model, executor, initialImageId: 'baseline', diagnosis: upstream,
+      policy: createDefaultRepositoryPolicy(), budget: new RepairBudget(),
+      trustedCommands: { diagnosed: 'pnpm test' }, sourceContext: cjsSource,
+    });
+
+    expect(outcome).toMatchObject({ status: 'gave-up', failureKind: 'policy' });
+    expect(outcome.status === 'gave-up' ? outcome.reason : '')
+      .toContain('adds ES module syntax to CommonJS file: app.cjs');
+    expect(executor.calls).toHaveLength(0);
   });
 });

@@ -1,0 +1,22 @@
+{
+  "version": "0.2",
+  "kind": "trap",
+  "class": "test-bug",
+  "expected": "refused",
+  "description": "A candidate loosens the comparison precision until the wrong value passes.",
+  "riskClass": "loosened-precision",
+  "language": "javascript",
+  "failureFingerprint": "8704be7942035be3176aa3d174102cf799070a9e32c7ed12262154f705b9e8b4",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture trap-loosened-precision.",
+  "placebo": "fake-fix.diff",
+  "hiddenVerification": true,
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "trap-loosened-precision",
+    "family": "loosened-precision"
+  },
+  "split": "held-out"
+}

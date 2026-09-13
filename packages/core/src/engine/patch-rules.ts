@@ -1,4 +1,6 @@
 import type { Diagnosis } from '../domain.js';
+import { checkRepairAuthorization, isAuthorizedRepairTarget, repairAuthorizationCommandMatches, type RepairAuthorizationContext } from './repair-authorization.js';
+import type { RepairSourceExcerpt } from './repair.js';
 import {
   isConventionalTestPath,
   parseUnifiedDiff,
@@ -8,6 +10,7 @@ import {
   isShellCommandPath,
   isTestCommandPath,
 } from './test-bypass.js';
+import { addsEsModuleSyntax, isCommonJsPath } from './module-syntax.js';
 import {
   hasBroadPythonSuppression,
   hasPythonSkip,
@@ -29,19 +32,20 @@ interface FileChange {
 const TOOL_CONFIG =
   /(?:^|\/)(?:tsconfig(?:\.[^/]+)?\.json|eslint\.config\.[^/]+|\.eslintrc(?:\.[^/]+)?|\.eslintignore|vitest\.(?:config|workspace)\.[^/]+|vite\.config\.[^/]+|ruff\.toml|mypy\.ini|pytest\.ini|pyproject\.toml)$/;
 
-function repairPathViolations(path: string, diagnosis: Diagnosis): string[] {
+function repairPathViolations(path: string, authorized = false): string[] {
   const violations: string[] = [];
-  if (diagnosis.class !== 'test-bug' && isConventionalTestPath(path)) {
+  if (!authorized && isConventionalTestPath(path)) {
     violations.push(`touches test file: ${path}`);
   }
-  if (diagnosis.class !== 'env-config' && TOOL_CONFIG.test(path)) {
+  if (!authorized && TOOL_CONFIG.test(path)) {
     violations.push(`touches tool config: ${path}`);
   }
   return violations;
 }
 
-export function isRepairPathAdmissible(path: string, diagnosis: Diagnosis): boolean {
-  return repairPathViolations(path, diagnosis).length === 0;
+export function isRepairPathAdmissible(path: string, diagnosis: Diagnosis, authorization?: RepairAuthorizationContext, source?: RepairSourceExcerpt): boolean {
+  const authorized = authorization !== undefined && source !== undefined && source.path === path && repairAuthorizationCommandMatches(authorization, diagnosis.failingCmd) && isAuthorizedRepairTarget(authorization.session, authorization.baseline, source);
+  return repairPathViolations(path, authorized).length === 0;
 }
 function parseChanges(diff: string): { changes: FileChange[]; valid: boolean } {
   const parsed = parseUnifiedDiff(diff);
@@ -89,7 +93,7 @@ function addsPassWithNoTestsBypass(diff: string): boolean {
   });
 }
 
-export function vetPatch(diff: string, diagnosis: Diagnosis): PatchVerdict {
+export function vetPatch(diff: string, diagnosis: Diagnosis, authorization?: RepairAuthorizationContext): PatchVerdict {
   const parsed = parseChanges(diff);
   if (!parsed.valid) {
     return {
@@ -109,7 +113,8 @@ export function vetPatch(diff: string, diagnosis: Diagnosis): PatchVerdict {
     if (change.deleted && isConventionalTestPath(change.path)) {
       violations.push(`deletes test file: ${change.path}`);
     } else {
-      violations.push(...repairPathViolations(change.path, diagnosis));
+      const authorized = authorization !== undefined && repairAuthorizationCommandMatches(authorization, diagnosis.failingCmd) && checkRepairAuthorization(authorization.session, authorization.baseline, diff, change.path);
+      violations.push(...repairPathViolations(change.path, authorized));
     }
   }
   const unified = parseUnifiedDiff(diff);
@@ -124,6 +129,9 @@ export function vetPatch(diff: string, diagnosis: Diagnosis): PatchVerdict {
       )) violations.push(`adds unsafe Python shortcut: ${path}`);
       if (isPythonControlPath(path) && hasRelaxedPythonConfig(path, additions)) {
         violations.push(`relaxes Python tool config: ${path}`);
+      }
+      if (isCommonJsPath(path) && addsEsModuleSyntax(additions)) {
+        violations.push(`adds ES module syntax to CommonJS file: ${path}`);
       }
     }
   }

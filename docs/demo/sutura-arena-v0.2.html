@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Sutura Arena arena-controls-v0.2</title>
+  <style>
+:root {
+  color-scheme: light dark;
+  --paper: #f4f8f6; --paper-raised: #ffffff; --ink: #17221e; --ink-soft: #53635c;
+  --accent: #08766c; --danger: #a93645; --rule: #c9d7d1;
+  font-family: Charter, "Bitstream Charter", "Sitka Text", Georgia, serif;
+  background: var(--paper); color: var(--ink);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); }
+.arena { width: min(1180px, calc(100% - 40px)); margin: 28px auto 72px; }
+header.docket { padding: clamp(24px, 5vw, 56px); border: 1px solid var(--ink); background: var(--paper-raised); box-shadow: 9px 9px 0 var(--rule); }
+h1 { margin: 0; font-family: "Arial Narrow", "Roboto Condensed", sans-serif; text-transform: uppercase; font-size: clamp(2.4rem, 6vw, 5rem); line-height: 0.9; letter-spacing: -0.04em; }
+h2 { margin: 40px 0 12px; font-family: "Arial Narrow", "Roboto Condensed", sans-serif; text-transform: uppercase; letter-spacing: 0.04em; font-size: 1.15rem; }
+.eyebrow, .micro-label, dt { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.68rem; color: var(--ink-soft); }
+.draft { margin: 18px 0 0; padding: 14px 18px; border: 1px solid var(--danger); color: var(--danger); }
+.facts { margin: 24px 0 0; }
+.facts div { display: grid; grid-template-columns: minmax(150px, 0.3fr) 1fr; gap: 20px; padding: 10px 0; border-top: 1px solid var(--rule); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; margin: 24px 0 0; background: var(--rule); border: 1px solid var(--rule); }
+.headline div { padding: 20px; background: var(--paper-raised); }
+.headline strong { display: block; margin-top: 8px; font: 700 clamp(1.4rem, 3vw, 2.2rem) "Arial Narrow", sans-serif; }
+.headline small { color: var(--ink-soft); font-size: 0.72rem; }
+.table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--rule); }
+table { width: 100%; min-width: 640px; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
+th, td { padding: 12px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+thead th { font: 0.65rem ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); }
+tbody tr:last-child > * { border-bottom: 0; }
+code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 0.85em; overflow-wrap: anywhere; }
+.zero { color: var(--accent); font-weight: 700; }
+.nonzero { color: var(--danger); font-weight: 700; }
+footer { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--rule); color: var(--ink-soft); font: 0.74rem ui-monospace, monospace; }
+footer code { color: var(--ink); }
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #101714; --paper-raised: #18211d; --ink: #e9f1ed; --ink-soft: #a1b1aa; --accent: #55c9ba; --danger: #f07887; --rule: #34473f; }
+}
+@media (max-width: 720px) {
+  .arena { width: min(100% - 24px, 1180px); }
+  header.docket { padding: 26px 20px; box-shadow: 5px 5px 0 var(--rule); }
+  .facts div { grid-template-columns: 1fr; gap: 6px; }
+}
+</style>
+</head>
+<body>
+  <main class="arena">
+    <header class="docket">
+      <p class="eyebrow">Sutura Arena · controlled search comparison</p>
+      <h1>arena-controls-v0.2</h1>
+      <p class="draft">CONTROL ARTIFACT — NOT A SUTURA RESULT. The arms below were produced by the scripted dummy and refuse-all control adapters, not by Sutura. It exists only to prove the comparison harness, the scorer wiring, and this page end to end with no provider and no spend. The measured Arena replaces it once the authorized benchmark run completes.</p>
+      
+      <p>Every arm below ran the same 51 cases, the same models, the same routing profile, the same budget profile, and the same scoring contract. The only difference between executed arms is the search shape.</p>
+      <dl class="facts">
+        <div><dt>Sutura commit</dt><dd><code>9cb76e280c8a0af231e3f3280e806804e3da8d95</code></dd></div>
+        <div><dt>Corpus</dt><dd><code>placebo</code> v0.2 · <code>785cfc70359935a0f04a9a9cda39e8fb6ff4b05cc8fea3738fb24b70bcda101f</code></dd></div>
+        <div><dt>Models</dt><dd><code>nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B</code> · <code>nvidia/nemotron-3-super-120b-a12b</code> · <code>nvidia/Nemotron-3-Ultra-550b-a55b</code></dd></div>
+        <div><dt>Routing profile</dt><dd><code>production-baseline-v1</code></dd></div>
+        <div><dt>Budget profile</dt><dd><code>e12e51b76e87edae4e3d861f30ed974d7a74c1a96f10a103eea9e03f483ae487</code></dd></div>
+        <div><dt>Score contract</dt><dd><code>sutura-placebo-score-v3</code></dd></div>
+        <div><dt>Grounding</dt><dd>Tavily enabled</dd></div>
+      </dl>
+    </header>
+
+    <div class="headline">
+      <div><span class="micro-label">Sutura repair rate</span><strong>77.8% <small>(95% 54.8%–91.0%)</small></strong></div>
+      <div><span class="micro-label">Single-branch repair rate</span><strong>0.0% <small>(95% 0.0%–17.6%)</small></strong></div>
+      <div><span class="micro-label">Sutura false approvals</span><strong class="nonzero">19</strong></div>
+      <div><span class="micro-label">First-green-wins false approvals</span><strong class="zero">0</strong><small>Accepts the first green patch with no mechanical check, no fresh rerun, and no adversarial audit.</small></div>
+    </div>
+
+    <h2>Why green is not sufficient</h2>
+    <p>14 of 15 alternative patches across 5 cases were rejected, including 10 declared shortcuts, by mechanical, patch-policy, verification. Counterfactual evidence <code>6ae5251175d90f21da2cc64030e9823420593eab9ae603ebbb9b05585c9c2e1f</code>.</p>
+
+    <h2>Measures by arm</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Arm</th><th>Repair rate</th><th>Catch rate</th><th>False approvals</th><th>Flake accuracy</th><th>Median latency</th><th>p95 latency</th><th>Inference</th><th>Sandbox ops</th><th>Not run</th></tr></thead>
+      <tbody><tr>
+        <th scope="row"><code>sutura</code></th>
+        <td>77.8% <small>(95% 54.8%–91.0%)</small></td>
+        <td>0.0% <small>(95% 0.0%–16.8%)</small></td>
+        <td class="nonzero">19</td>
+        <td>0.0% <small>(95% 0.0%–27.8%)</small></td>
+        <td>1.14 s</td>
+        <td>4.18 s</td>
+        <td>$0.0000</td>
+        <td>0</td>
+        <td>0</td>
+      </tr><tr>
+        <th scope="row"><code>single-branch</code></th>
+        <td>0.0% <small>(95% 0.0%–17.6%)</small></td>
+        <td>100.0% <small>(95% 83.2%–100.0%)</small></td>
+        <td class="zero">0</td>
+        <td>0.0% <small>(95% 0.0%–27.8%)</small></td>
+        <td>0.79 s</td>
+        <td>2.88 s</td>
+        <td>$0.0000</td>
+        <td>0</td>
+        <td>0</td>
+      </tr><tr>
+        <th scope="row"><code>fixed-parallel</code></th>
+        <td>0.0% <small>(95% 0.0%–17.6%)</small></td>
+        <td>100.0% <small>(95% 83.2%–100.0%)</small></td>
+        <td class="zero">0</td>
+        <td>0.0% <small>(95% 0.0%–27.8%)</small></td>
+        <td>0.79 s</td>
+        <td>2.88 s</td>
+        <td>$0.0000</td>
+        <td>0</td>
+        <td>0</td>
+      </tr><tr>
+        <th scope="row"><code>first-green-wins</code> <small>derived</small></th>
+        <td>0.0% <small>(95% 0.0%–17.6%)</small></td>
+        <td>0.0% <small>(95% 0.0%–16.8%)</small></td>
+        <td class="zero">0</td>
+        <td>0.0% <small>(95% 0.0%–27.8%)</small></td>
+        <td>0.00 s</td>
+        <td>0.00 s</td>
+        <td>$0.0000</td>
+        <td>0</td>
+        <td>0</td>
+      </tr></tbody>
+    </table></div>
+
+    <h2>Results by language</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Group</th><th>Arm</th><th>Approved</th></tr></thead>
+      <tbody><tr>
+        <th scope="row">javascript</th>
+        <td><code>sutura</code></td>
+        <td>39 / 39</td>
+      </tr><tr>
+        <th scope="row">python</th>
+        <td><code>sutura</code></td>
+        <td>8 / 8</td>
+      </tr><tr>
+        <th scope="row">typescript</th>
+        <td><code>sutura</code></td>
+        <td>4 / 4</td>
+      </tr><tr>
+        <th scope="row">javascript</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 39</td>
+      </tr><tr>
+        <th scope="row">python</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 8</td>
+      </tr><tr>
+        <th scope="row">typescript</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 4</td>
+      </tr><tr>
+        <th scope="row">javascript</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 39</td>
+      </tr><tr>
+        <th scope="row">python</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 8</td>
+      </tr><tr>
+        <th scope="row">typescript</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 4</td>
+      </tr><tr>
+        <th scope="row">javascript</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 39</td>
+      </tr><tr>
+        <th scope="row">python</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 8</td>
+      </tr><tr>
+        <th scope="row">typescript</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 4</td>
+      </tr></tbody>
+    </table></div>
+    <h2>Results by failure class</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Group</th><th>Arm</th><th>Approved</th></tr></thead>
+      <tbody><tr>
+        <th scope="row">build</th>
+        <td><code>sutura</code></td>
+        <td>4 / 4</td>
+      </tr><tr>
+        <th scope="row">dep-upstream-breaking</th>
+        <td><code>sutura</code></td>
+        <td>4 / 4</td>
+      </tr><tr>
+        <th scope="row">env-config</th>
+        <td><code>sutura</code></td>
+        <td>5 / 5</td>
+      </tr><tr>
+        <th scope="row">flaky-timing</th>
+        <td><code>sutura</code></td>
+        <td>11 / 11</td>
+      </tr><tr>
+        <th scope="row">lint</th>
+        <td><code>sutura</code></td>
+        <td>2 / 2</td>
+      </tr><tr>
+        <th scope="row">test-assertion</th>
+        <td><code>sutura</code></td>
+        <td>13 / 13</td>
+      </tr><tr>
+        <th scope="row">test-bug</th>
+        <td><code>sutura</code></td>
+        <td>7 / 7</td>
+      </tr><tr>
+        <th scope="row">typecheck</th>
+        <td><code>sutura</code></td>
+        <td>5 / 5</td>
+      </tr><tr>
+        <th scope="row">build</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 4</td>
+      </tr><tr>
+        <th scope="row">dep-upstream-breaking</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 4</td>
+      </tr><tr>
+        <th scope="row">env-config</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 5</td>
+      </tr><tr>
+        <th scope="row">flaky-timing</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 11</td>
+      </tr><tr>
+        <th scope="row">lint</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 2</td>
+      </tr><tr>
+        <th scope="row">test-assertion</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 13</td>
+      </tr><tr>
+        <th scope="row">test-bug</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 7</td>
+      </tr><tr>
+        <th scope="row">typecheck</th>
+        <td><code>single-branch</code></td>
+        <td>0 / 5</td>
+      </tr><tr>
+        <th scope="row">build</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 4</td>
+      </tr><tr>
+        <th scope="row">dep-upstream-breaking</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 4</td>
+      </tr><tr>
+        <th scope="row">env-config</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 5</td>
+      </tr><tr>
+        <th scope="row">flaky-timing</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 11</td>
+      </tr><tr>
+        <th scope="row">lint</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 2</td>
+      </tr><tr>
+        <th scope="row">test-assertion</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 13</td>
+      </tr><tr>
+        <th scope="row">test-bug</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 7</td>
+      </tr><tr>
+        <th scope="row">typecheck</th>
+        <td><code>fixed-parallel</code></td>
+        <td>0 / 5</td>
+      </tr><tr>
+        <th scope="row">build</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 4</td>
+      </tr><tr>
+        <th scope="row">dep-upstream-breaking</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 4</td>
+      </tr><tr>
+        <th scope="row">env-config</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 5</td>
+      </tr><tr>
+        <th scope="row">flaky-timing</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 11</td>
+      </tr><tr>
+        <th scope="row">lint</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 2</td>
+      </tr><tr>
+        <th scope="row">test-assertion</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 13</td>
+      </tr><tr>
+        <th scope="row">test-bug</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 7</td>
+      </tr><tr>
+        <th scope="row">typecheck</th>
+        <td><code>first-green-wins</code></td>
+        <td>0 / 5</td>
+      </tr></tbody>
+    </table></div>
+
+    <h2>Complete failures and refusal reasons</h2>
+    <p>0 cases no arm repaired. No failed case is removed from any denominator.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Case</th></tr></thead>
+      <tbody><tr><td>Every case was repaired by at least one arm</td></tr></tbody>
+    </table></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Arm</th><th>Outcome</th><th>Cases</th></tr></thead>
+      <tbody><tr>
+        <th scope="row"><code>single-branch</code></th>
+        <td>refused</td>
+        <td>51</td>
+      </tr><tr>
+        <th scope="row"><code>fixed-parallel</code></th>
+        <td>refused</td>
+        <td>51</td>
+      </tr><tr>
+        <th scope="row"><code>first-green-wins</code></th>
+        <td>gave-up</td>
+        <td>51</td>
+      </tr></tbody>
+    </table></div>
+
+    <footer>
+      <p>Reproduce: <code>placebo compare --arm sutura --arm single-branch --arm fixed-parallel --arm first-green-wins --output-json arena.json</code> then <code>placebo arena --comparison arena.json --output-json report.json --output-html report.html</code></p>
+      <p>Comparison hash <code>6bdd7bada67220b8d49c78e2b69e289bf36f9030f6cc057ad23019326c67ea40</code> · report hash <code>f13e1635b17f2a519fe04abca9bd53ca906d7c60967848f3f82fdee5d45139bf</code> · selection hash <code>289f6a2ec6b417942addb3956882fc2006d32fe4a7f4d10188e83d02c810b2cb</code></p>
+    </footer>
+  </main>
+</body>
+</html>

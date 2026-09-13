@@ -2,12 +2,13 @@ const MAX_CANDIDATE_DIFF_BYTES = 1024 * 1024;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u;
 const SHA_PATTERN = /^[a-f0-9]{40}$/iu;
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.2.1';
 export const USAGE = [
   'Usage:',
   '  sutura init [--workflow <name>] [--repo <owner/repo>] [--action-sha <commit>] [--force] [--no-tavily]',
   '  sutura doctor [--repo <owner/repo>] [--action-sha <commit>]',
-  '  sutura heal --case-dir <dir> --format json [--candidate-diff <diff>] [--routing-profile <id>] [--runtime <auto|node|python>] [--no-tavily]',
+  '  sutura heal --case-dir <dir> --format json [--candidate-diff <diff>] [--alternatives-file <file>] [--routing-profile <id>] [--runtime <auto|node|python>] [--no-tavily]',
+  '  sutura verify --case-dir <dir> --source-sha <commit> --policy-base-sha <commit> --candidate-diff <file> --failing-command <id> [--runtime <auto|node|python>] --format json',
   '  sutura audit --case-dir <dir> --candidate-diff <file> --before-log <file> --after-log <file> --format json',
   '  sutura replay --bundle <file> --format json [--runtime <auto|node|python>]',
   '  sutura eval validate --manifest <file>',
@@ -21,8 +22,19 @@ export interface HealArguments {
   caseDir: string;
   format: 'json';
   candidateDiff?: string;
+  /**
+   * Path to a JSON file holding `{ "alternatives": [...] }`. A path, never
+   * inline JSON, because a three-entry alternative set exceeds a comfortable
+   * argv value. The file is read and validated in `heal.ts`.
+   */
+  alternativesFile?: string;
   routingProfile?: string;
   runtime?: 'node' | 'python';
+  /**
+   * The failing command to reproduce, exactly as CI ran it. Without it the
+   * core uses its per-runtime default (`pnpm test`, or `python -m unittest`).
+   */
+  failingCommand?: string;
   tavilyEnabled: boolean;
 }
 
@@ -33,6 +45,24 @@ export interface InitArguments {
   actionSha?: string;
   force: boolean;
   tavilyEnabled: boolean;
+}
+
+/**
+ * Execution-backed verification of a patch this tool did not write. Every
+ * identity is exact and required: a branch name or short sha cannot stand in
+ * for the commit that failed, and the trusted policy commit is chosen by the
+ * operator rather than by the patch. The candidate is always a file path, never
+ * inline bytes, so a large diff never has to survive argv.
+ */
+export interface VerifyArguments {
+  command: 'verify';
+  caseDir: string;
+  sourceSha: string;
+  policyBaseSha: string;
+  candidateDiff: string;
+  failingCommand: string;
+  runtime?: 'node' | 'python';
+  format: 'json';
 }
 
 export interface AuditArguments {
@@ -80,6 +110,7 @@ export interface EvalExportArguments {
 
 export type CliArguments =
   | HealArguments
+  | VerifyArguments
   | AuditArguments
   | ReplayArguments
   | InitArguments
@@ -118,10 +149,28 @@ function validateActionSha(value: string): string {
   return value.toLowerCase();
 }
 
+const MAX_FAILING_COMMAND_BYTES = 256;
+
+function validateFailingCommand(value: string): string {
+  const trimmed = value.trim();
+  if (
+    trimmed.length === 0 ||
+    Buffer.byteLength(trimmed, 'utf8') > MAX_FAILING_COMMAND_BYTES ||
+    !/^[\x20-\x7e]+$/u.test(trimmed)
+  ) {
+    throw new CliUsageError(
+      `--failing-command must be printable ASCII on one line, at most ${MAX_FAILING_COMMAND_BYTES} bytes`,
+    );
+  }
+  return trimmed;
+}
+
 function parseHeal(args: readonly string[]): HealArguments {
   let caseDir: string | undefined;
   let format: string | undefined;
   let candidateDiff: string | undefined;
+  let alternativesFile: string | undefined;
+  let failingCommand: string | undefined;
   let routingProfile: string | undefined;
   let runtime: 'node' | 'python' | undefined;
   let tavilyEnabled = true;
@@ -129,7 +178,7 @@ function parseHeal(args: readonly string[]): HealArguments {
 
   for (let index = 1; index < args.length; index += 1) {
     const flag = args[index];
-    if (!flag || !['--case-dir', '--format', '--candidate-diff', '--routing-profile', '--runtime', '--no-tavily'].includes(flag)) {
+    if (!flag || !['--case-dir', '--format', '--candidate-diff', '--alternatives-file', '--failing-command', '--routing-profile', '--runtime', '--no-tavily'].includes(flag)) {
       throw new CliUsageError(`Unknown argument: ${flag ?? '(missing)'}`);
     }
     if (seen.has(flag)) throw new CliUsageError(`Duplicate argument: ${flag}`);
@@ -143,6 +192,8 @@ function parseHeal(args: readonly string[]): HealArguments {
     if (flag === '--case-dir') caseDir = value;
     else if (flag === '--format') format = value;
     else if (flag === '--candidate-diff') candidateDiff = value;
+    else if (flag === '--alternatives-file') alternativesFile = value;
+    else if (flag === '--failing-command') failingCommand = validateFailingCommand(value);
     else if (flag === '--routing-profile') routingProfile = value;
     else if (value === 'auto') runtime = undefined;
     else if (value === 'node' || value === 'python') runtime = value;
@@ -162,6 +213,8 @@ function parseHeal(args: readonly string[]): HealArguments {
     caseDir,
     format: 'json',
     ...(candidateDiff === undefined ? {} : { candidateDiff }),
+    ...(alternativesFile === undefined ? {} : { alternativesFile }),
+    ...(failingCommand === undefined ? {} : { failingCommand }),
     ...(routingProfile === undefined ? {} : { routingProfile }),
     ...(runtime === undefined ? {} : { runtime }),
     tavilyEnabled,
@@ -210,6 +263,45 @@ function parseInit(args: readonly string[]): InitArguments {
     ...(actionSha ? { actionSha } : {}),
     force,
     tavilyEnabled,
+  };
+}
+
+function parseVerify(args: readonly string[]): VerifyArguments {
+  const values = new Map<string, string>();
+  const required = ['--case-dir', '--source-sha', '--policy-base-sha', '--candidate-diff', '--failing-command', '--format'];
+  const allowed = new Set([...required, '--runtime']);
+  for (let index = 1; index < args.length; index += 2) {
+    const flag = args[index];
+    if (!flag || !allowed.has(flag)) throw new CliUsageError(`Unknown argument: ${flag ?? '(missing)'}`);
+    if (values.has(flag)) throw new CliUsageError(`Duplicate argument: ${flag}`);
+    values.set(flag, nonEmptyValue(args, index, flag));
+  }
+  for (const flag of required) {
+    if (!values.has(flag)) throw new CliUsageError(`${flag} is required`);
+  }
+  if (values.get('--format') !== 'json') throw new CliUsageError('--format must be json');
+  for (const flag of ['--source-sha', '--policy-base-sha']) {
+    const value = values.get(flag) as string;
+    if (!/^[a-f0-9]{40}$/u.test(value)) {
+      throw new CliUsageError(`${flag} must be an exact lowercase 40-character commit`);
+    }
+  }
+  const runtimeValue = values.get('--runtime');
+  if (runtimeValue !== undefined && !['auto', 'node', 'python'].includes(runtimeValue)) {
+    throw new CliUsageError('--runtime must be auto, node, or python');
+  }
+  const runtime = runtimeValue === undefined || runtimeValue === 'auto'
+    ? undefined
+    : runtimeValue as 'node' | 'python';
+  return {
+    command: 'verify',
+    caseDir: values.get('--case-dir') as string,
+    sourceSha: values.get('--source-sha') as string,
+    policyBaseSha: values.get('--policy-base-sha') as string,
+    candidateDiff: values.get('--candidate-diff') as string,
+    failingCommand: values.get('--failing-command') as string,
+    ...(runtime === undefined ? {} : { runtime }),
+    format: 'json',
   };
 }
 
@@ -329,6 +421,7 @@ export function parseArgs(args: readonly string[]): CliArguments {
   if (args.length === 1 && (args[0] === '--help' || args[0] === 'help')) return { command: 'help' };
   if (args.length === 1 && (args[0] === '--version' || args[0] === 'version')) return { command: 'version' };
   if (args[0] === 'heal') return parseHeal(args);
+  if (args[0] === 'verify') return parseVerify(args);
   if (args[0] === 'audit') return parseAudit(args);
   if (args[0] === 'replay') return parseReplay(args);
   if (args[0] === 'init') return parseInit(args);

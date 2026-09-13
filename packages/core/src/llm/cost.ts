@@ -16,7 +16,11 @@ export type TokenUsage = Pick<
   'inTok' | 'outTok' | 'reasoningTok'
 >;
 
-/** Prices in USD per one million tokens, verified on 2026-08-27. */
+/** Exact catalog values checked on this date; future pricing requires a new record. */
+export const DEFAULT_MODEL_PRICE_PROVENANCE = Object.freeze({
+  asOf: '2026-09-08', source: 'https://tokenfactory.nebius.com/model-catalog.md',
+});
+/** Prices in USD per one million tokens at the recorded provenance date. */
 export const DEFAULT_MODEL_PRICES: ModelPrices = {
   nano: { input: 0.06, output: 0.24 },
   super: { input: 0.3, output: 0.9 },

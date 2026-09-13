@@ -95,6 +95,17 @@ All VERIFIED in the 2026-08-30 research session unless labeled INFERRED.
    external input boundaries must additionally be driven by captured fixtures,
    enforced by a contract test.
 
+## Approved Phase 5 cap extension (2026-08-31)
+
+The user authorized completion of the remaining four samples under a total
+Phase 5 live-spend cap of USD 14.00. The streak runner now applies the cap to
+all entries in the scratch ledger, including earlier non-fixed candidates,
+rather than only to the trailing fixed entries for the current candidate. At
+authorization, prior Phase 5 spend was USD 9.153422 and candidate
+`a99e23199a80ae6ee51fe1680afb74188416160c` had six consecutive fixed entries.
+The existing reserve rule remains unchanged, and the runner still halts on the
+first non-`fixed` outcome.
+
 ## Approved implementation corrections (2026-08-30)
 
 The user approved these corrections after implementation preflight found that
@@ -256,8 +267,8 @@ live Sutura run (capture-replay: true)
    SHA-256, sandbox USD, and inference USD. `resultHash` is the canonical-JSON
    hash of all entries.
 8. `streak` halts on the first non-`fixed` outcome and refuses the next
-   dispatch when current spend plus the reserved per-attempt headroom would
-   exceed USD 10.00.
+   dispatch when total Phase 5 ledger spend plus the reserved per-attempt
+   headroom would exceed USD 14.00.
 9. After a `gave-up`, no candidate is pushed to `develop` until the bundle is
    committed as a captured fixture, a named replay test reproduces the
    terminal, and the complete local gate (`pnpm run ci:local`) passes.
@@ -340,7 +351,8 @@ Then `/simplify` (reuse, quality, efficiency), fix all findings, and repeat.
    child of the dogfood SHA and changes only `left - right` to `left + right`,
    and whose CI is green.
 4. The ledger shows 10 consecutive `fixed` entries on one `packages/` tree
-   hash; the `dogfood` evidence id is `passed`.
+   hash; total Phase 5 ledger spend is at most USD 14.00; the `dogfood`
+   evidence id is `passed`.
 5. Remote dogfood and repair branches from the streak are preserved as public
    evidence.
 
@@ -360,4 +372,4 @@ product decision.
 - [x] Phase 3b: Guard tests — provider, Tavily, ConTree, routing
 - [x] Phase 3c: Guard tests — engine, budget, policy, runtime, config + `guards:verify`
 - [x] Phase 4: Dogfood automation
-- [ ] Phase 5: Live 10/10 streak
+- [x] Phase 5: Live 10/10 streak

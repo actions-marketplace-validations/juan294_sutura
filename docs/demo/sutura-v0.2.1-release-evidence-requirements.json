@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "sutura-release-evidence-requirements-v1",
+  "releaseVersion": "0.2.1",
+  "requiredEvidenceIds": [
+    "benchmark",
+    "candidate-matrix",
+    "demo",
+    "dogfood",
+    "devpost",
+    "feedback",
+    "github-release",
+    "local-gate",
+    "marketplace",
+    "npm",
+    "public-matrix"
+  ],
+  "authorizationGates": [
+    "provider-contree-canaries",
+    "live-provider-benchmark",
+    "candidate-matrix",
+    "release-publication",
+    "public-matrix",
+    "public-demo-enable",
+    "devpost-update"
+  ],
+  "ownerPhaseByEvidenceId": {
+    "benchmark": 4,
+    "candidate-matrix": 4,
+    "demo": 1,
+    "devpost": 7,
+    "dogfood": 4,
+    "feedback": 5,
+    "github-release": 4,
+    "local-gate": 4,
+    "marketplace": 4,
+    "npm": 4,
+    "public-matrix": 4
+  },
+  "pendingMeansNotReleaseReady": true
+}

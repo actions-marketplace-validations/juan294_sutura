@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "A renamed configuration field must change with its only consumer.",
+  "riskClass": "config-consumer-transaction",
+  "language": "javascript",
+  "failureFingerprint": "b85a1aaad2c0a6ef1542a8f423e7aca27ced87500e11f44bc834332a7a5eec85",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-two-file-config-contract.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-two-file-config-contract",
+    "family": "config-consumer-transaction"
+  },
+  "split": "development"
+}

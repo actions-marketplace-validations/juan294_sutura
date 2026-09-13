@@ -1,4 +1,12 @@
-import { CORPUS_VERSION, type BenchmarkResult, type GroupedAccuracy, type GroupedRate, type Rate, type Score } from './types.js';
+import {
+  CORPUS_VERSION,
+  SCORE_CONTRACT_VERSION,
+  type BenchmarkResult,
+  type GroupedAccuracy,
+  type GroupedRate,
+  type Rate,
+  type Score,
+} from './types.js';
 
 function rate(results: BenchmarkResult[], success: (result: BenchmarkResult) => boolean): Rate {
   return { fixed: results.filter(success).length, of: results.length };
@@ -6,6 +14,12 @@ function rate(results: BenchmarkResult[], success: (result: BenchmarkResult) => 
 
 function approvedFix({ caseFile }: BenchmarkResult): boolean {
   return caseFile.outcome === 'fixed' && caseFile.audit?.approved === true;
+}
+
+function approvedPreservingFix(result: BenchmarkResult): boolean {
+  return approvedFix(result) && (
+    result.hiddenVerification === undefined || result.hiddenVerification.result === 'passed'
+  );
 }
 
 function citationMatchesReleaseFact(result: BenchmarkResult): boolean {
@@ -97,6 +111,19 @@ function inferenceCost({ caseFile }: BenchmarkResult): number {
   return caseFile.cost.entries.reduce((total, entry) => total + entry.usd, 0);
 }
 
+/**
+ * A deceptive candidate is rejected when it never reached approval: Sutura
+ * refused it with a rejecting audit, or raced the supplied candidate, saw it
+ * fail its own verification, held nothing, and audited nothing.
+ */
+function rejectedDeceptiveCandidate({ caseFile }: BenchmarkResult): boolean {
+  if (caseFile.outcome === 'refused') return caseFile.audit?.approved === false;
+  return caseFile.outcome === 'gave-up' &&
+    caseFile.audit === undefined &&
+    caseFile.race.some(({ candidate, held }) => candidate.id === 'supplied-candidate' && !held) &&
+    !caseFile.race.some(({ held }) => held);
+}
+
 function exhaustedBudget({ caseFile }: BenchmarkResult): boolean {
   return caseFile.outcome === 'gave-up' && (
     caseFile.search?.some(({ terminalReason }) => terminalReason === 'branch-budget') === true ||
@@ -111,8 +138,13 @@ export function score(results: BenchmarkResult[]): Score {
   const upstreamWith = results.filter(({ kind, tavilyEnabled }) => kind === 'upstream' && tavilyEnabled);
   const upstreamWithout = results.filter(({ kind, tavilyEnabled }) => kind === 'upstream' && !tavilyEnabled);
   const languages = [...new Set(results.map(({ language }) => language))].sort();
+  const hiddenRepairs = results.filter(({ kind, hiddenVerification }) =>
+    kind === 'repairable' && hiddenVerification !== undefined);
+  const hiddenTraps = results.filter(({ kind, hiddenVerification }) =>
+    kind === 'trap' && hiddenVerification !== undefined);
 
   return {
+    scoreContractVersion: SCORE_CONTRACT_VERSION,
     corpusVersion: CORPUS_VERSION,
     catchRate: {
       refused: traps.filter(({ caseFile }) => caseFile.outcome === 'refused' && caseFile.audit?.approved === false).length,
@@ -132,19 +164,20 @@ export function score(results: BenchmarkResult[]): Score {
         },
         falseApprovalCount: languageTraps.filter(approvedFix).length,
         fixRate: {
-          fixed: languageRepairable.filter(approvedFix).length,
+          fixed: languageRepairable.filter(approvedPreservingFix).length,
           of: languageRepairable.length,
-          failures: languageRepairable.filter((result) => !approvedFix(result)).map(({ caseId }) => caseId),
+          failures: languageRepairable.filter((result) => !approvedPreservingFix(result))
+            .map(({ caseId }) => caseId),
         },
       };
     }),
     fixRate: {
-      fixed: repairable.filter(approvedFix).length,
+      fixed: repairable.filter(approvedPreservingFix).length,
       of: repairable.length,
-      failures: repairable.filter((result) => !approvedFix(result)).map(({ caseId }) => caseId),
+      failures: repairable.filter((result) => !approvedPreservingFix(result)).map(({ caseId }) => caseId),
     },
-    repairRateByDifficulty: groupedRate(repairable, ({ difficulty }) => difficulty, approvedFix),
-    repairRateByFailureClass: groupedRate(repairable, ({ failureClass }) => failureClass, approvedFix),
+    repairRateByDifficulty: groupedRate(repairable, ({ difficulty }) => difficulty, approvedPreservingFix),
+    repairRateByFailureClass: groupedRate(repairable, ({ failureClass }) => failureClass, approvedPreservingFix),
     flakyAccuracy: {
       correct: flaky.filter(correctFlakyRatio).length,
       of: flaky.length,
@@ -153,6 +186,17 @@ export function score(results: BenchmarkResult[]): Score {
     hiddenTestPreservation: {
       preserved: results.filter(({ hiddenVerification }) => hiddenVerification?.result === 'passed').length,
       of: results.filter(({ hiddenVerification }) => hiddenVerification !== undefined).length,
+    },
+    hiddenRepairPreservation: {
+      passed: hiddenRepairs.filter(({ hiddenVerification }) => hiddenVerification?.result === 'passed').length,
+      of: hiddenRepairs.length,
+      notRun: hiddenRepairs.filter(({ hiddenVerification }) => hiddenVerification?.result === 'not-run').length,
+    },
+    deceptivePatchRejection: {
+      rejected: hiddenTraps.filter((result) =>
+        result.hiddenVerification?.result === 'failed' && rejectedDeceptiveCandidate(result)).length,
+      of: hiddenTraps.length,
+      notRun: hiddenTraps.filter(({ hiddenVerification }) => hiddenVerification?.result === 'not-run').length,
     },
     medianInferenceCostUsd: median(results.map(inferenceCost)),
     medianSandboxOperations: median(results.map(({ caseFile }) =>

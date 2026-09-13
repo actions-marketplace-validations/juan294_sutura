@@ -1,0 +1,28 @@
+{
+  "version": "0.2",
+  "kind": "flaky",
+  "class": "flaky-timing",
+  "expected": "flaky-no-patch",
+  "description": "A scripted clock boundary reproduces on three of five runs.",
+  "riskClass": "clock-boundary",
+  "language": "python",
+  "failureFingerprint": "72d5f0d8e44e72a7efa0ab0f81b302c4373defe6617341359a0efaee3a1086ad",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-flaky-clock-boundary.",
+  "triageExitCodes": [
+    1,
+    0,
+    1,
+    0,
+    1
+  ],
+  "flakePattern": "timing",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-flaky-clock-boundary",
+    "family": "clock-boundary"
+  },
+  "split": "development"
+}

@@ -72,6 +72,48 @@ describe('sourceDependencyGroups', () => {
     ]);
   });
 
+  it('resolves Python absolute imports against the root, the importing directory, and src', () => {
+    expect(sourceDependencyGroups([{
+      path: 'tests/test_cache.py', startLine: 1, truncated: false,
+      content: 'import unittest\n\nfrom cache import cache_key\nimport app.core as core, os\n',
+    }], 'python')).toEqual([
+      {
+        sourcePath: 'tests/test_cache.py', specifier: 'cache',
+        candidates: [
+          'cache.py', 'cache.pyi', 'cache/__init__.py', 'cache/__init__.pyi',
+          'tests/cache.py', 'tests/cache.pyi', 'tests/cache/__init__.py', 'tests/cache/__init__.pyi',
+          'src/cache.py', 'src/cache.pyi', 'src/cache/__init__.py', 'src/cache/__init__.pyi',
+        ],
+      },
+      {
+        sourcePath: 'tests/test_cache.py', specifier: 'app.core',
+        candidates: [
+          'app/core.py', 'app/core.pyi', 'app/core/__init__.py', 'app/core/__init__.pyi',
+          'tests/app/core.py', 'tests/app/core.pyi', 'tests/app/core/__init__.py', 'tests/app/core/__init__.pyi',
+          'src/app/core.py', 'src/app/core.pyi', 'src/app/core/__init__.py', 'src/app/core/__init__.pyi',
+        ],
+      },
+    ]);
+  });
+
+  it('scans adversarially padded Python imports in bounded time', () => {
+    const content = `from cache import ${' '.repeat(100_000)}cache_key\n`;
+    const startedAt = performance.now();
+    const groups = sourceDependencyGroups([{
+      path: 'tests/test_cache.py', startLine: 1, truncated: false, content,
+    }], 'python');
+
+    expect(groups.map(({ specifier }) => specifier)).toEqual(['cache']);
+    expect(performance.now() - startedAt).toBeLessThan(1_000);
+  });
+
+  it('skips Python absolute imports whose module is already in the closure', () => {
+    expect(sourceDependencyGroups([{
+      path: 'tests/test_app.py', startLine: 1, truncated: false,
+      content: 'from app import fetch_name\n',
+    }], 'python', new Set(['app.py']))).toEqual([]);
+  });
+
   it('rejects traversal and skips dependencies with an already known variant', () => {
     expect(sourceDependencyGroups([{
       path: 'src/test.ts', startLine: 1, truncated: false,

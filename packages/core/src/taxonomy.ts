@@ -17,7 +17,7 @@ export const FAILURE_TAXONOMY: Readonly<Record<FailureClass, TaxonomyEntry>> = {
   lint: {
     signatures: [
       /\b(?:eslint|typescript-eslint)\b/i,
-      /\b(?:@?[a-z][\w-]*\/)?[a-z][\w-]*(?:-[a-z][\w-]*)+\b[^\n]*(?:error|warning)/i,
+      /\b(?:@?[a-z][\w-]*\/)?[a-z]\w*(?:-[a-z]\w*)+\b[^\n]*(?:error|warning)/i,
     ],
     examples: ['error Unexpected value no-example-rule'],
     repairable: true,

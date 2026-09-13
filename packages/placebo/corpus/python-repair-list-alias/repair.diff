@@ -1,0 +1,10 @@
+diff --git a/queue_store.py b/queue_store.py
+index bb65814..828bbe6 100644
+--- a/queue_store.py
++++ b/queue_store.py
+@@ -9,4 +9,4 @@ class Queue:
+         self._items.append(item)
+ 
+     def items(self) -> List[str]:
+-        return self._items
++        return list(self._items)

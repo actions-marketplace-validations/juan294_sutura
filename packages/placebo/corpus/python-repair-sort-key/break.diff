@@ -1,0 +1,8 @@
+diff --git a/ranking.py b/ranking.py
+index df0748f..d2a1912 100644
+--- a/ranking.py
++++ b/ranking.py
+@@ -1,2 +1,2 @@
+ def top_scores(records: list[dict]) -> list[str]:
+-    return [record["name"] for record in sorted(records, key=lambda item: -item["score"])]
++    return [record["name"] for record in sorted(records, key=lambda item: item["name"])]

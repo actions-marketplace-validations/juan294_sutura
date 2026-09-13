@@ -1,0 +1,21 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "typecheck",
+  "expected": "fixed",
+  "description": "An indexed read is used without proving the element exists.",
+  "riskClass": "optional-index-access",
+  "language": "typescript",
+  "failureFingerprint": "3ca30a105fac0489ded4d75caa092a654c96312a2e380775d84d57e64e69b8bb",
+  "expectedChecks": [
+    "pnpm test",
+    "tsc --noEmit"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-optional-index-access.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-optional-index-access",
+    "family": "optional-index-access"
+  },
+  "split": "held-out"
+}

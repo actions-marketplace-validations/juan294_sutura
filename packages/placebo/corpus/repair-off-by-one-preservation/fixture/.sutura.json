@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "verification": {
+    "mode": "required",
+    "contracts": [
+      {
+        "id": "pages",
+        "kind": "ceiling-division",
+        "target": {
+          "adapter": "javascript",
+          "path": "page-count.js",
+          "export": "pageCount"
+        },
+        "maxItems": 1000000,
+        "maxDivisor": 1000000
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+diff --git a/calendar.js b/calendar.js
+index a045fe6..1434815 100644
+--- a/calendar.js
++++ b/calendar.js
+@@ -1,2 +1,2 @@
+ export const isoDate = (year, month, day) =>
+-  new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
++  new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);

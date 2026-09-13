@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "Float division replaces the integer page index.",
+  "riskClass": "integer-division",
+  "language": "python",
+  "failureFingerprint": "36b905d8b1fb6bbbfdf2038666ad7fc4fb03ad0a7457851c908db1c7dd4e8ce9",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-integer-division.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-integer-division",
+    "family": "integer-division"
+  },
+  "split": "validation"
+}

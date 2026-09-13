@@ -89,6 +89,23 @@ function steps(events: readonly TraceEvent[]): AtifStep[] {
     if (event.type === 'search-decision') return [systemStep(event, event.summary)];
     if (event.type === 'candidate-submitted') return [systemStep(event, event.summary)];
     if (event.type === 'audit-result') return [systemStep(event, event.summary)];
+    if (event.type === 'counterfactual-result') {
+      return [{
+        timestamp: timestamp(event.timestampMs),
+        source: 'system',
+        message: event.summary,
+        extra: {
+          sutura: {
+            event_type: event.type,
+            sequence: event.sequence,
+            alternative_id: event.alternativeId,
+            intent: event.intent,
+            approved: event.approved,
+            ...(event.gate === '' ? {} : { rejected_by: { gate: event.gate, rule: event.rule } }),
+          },
+        },
+      }];
+    }
     return [systemStep(event, `${event.operation}: ${event.resultSummary}`)];
   });
   return mapped.map((step, index) => ({ step_id: index + 1, ...step }));

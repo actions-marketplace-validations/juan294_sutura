@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "Deduplicating through a set drops the original order.",
+  "riskClass": "deduplication-order",
+  "language": "python",
+  "failureFingerprint": "8f7476f8ba3077c1ae8df41b9d0dc872b5605c442260f752858fb8d0d8ba7221",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-dedupe-order.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-dedupe-order",
+    "family": "deduplication-order"
+  },
+  "split": "development"
+}

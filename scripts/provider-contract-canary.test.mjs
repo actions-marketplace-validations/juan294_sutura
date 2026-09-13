@@ -44,6 +44,7 @@ test('provider contract canary builds core and runs without repository or GitHub
   );
   assert.match(source, /runSuperRepairProviderContractCanary/u);
   assert.match(source, /process\.env\.NEBIUS_API_KEY/u);
+  assert.match(source, /process\.env\.SUTURA_CANARY_OUTPUT_DIRECTORY/u);
   assert.match(source, /JSON\.stringify\(result/u);
   assert.doesNotMatch(source, /(?:git|gh)\s+(?:push|branch|pr)|createFixPullRequest|publishFix/u);
   assert.doesNotMatch(source, /console\.log\([^)]*apiKey/u);
@@ -58,6 +59,8 @@ test('provider contract canary workflow is manual, read-only, and runs the canon
   assert.match(workflow, /^permissions:\n  contents: read$/mu);
   assert.match(workflow, /pnpm run canary:provider-contract/u);
   assert.match(workflow, /NEBIUS_API_KEY: \$\{\{ secrets\.NEBIUS_API_KEY \}\}/u);
+  assert.match(workflow, /SUTURA_CANARY_OUTPUT_DIRECTORY: \$\{\{ runner\.temp \}\}/u);
+  assert.match(workflow, /path: \$\{\{ runner\.temp \}\}\/provider-contract-canary-\*\.json/u);
   assert.match(workflow, /uses: actions\/upload-artifact@v7/u);
   assert.match(workflow, /name: provider-contract-canary/u);
   assert.match(workflow, /if-no-files-found: error/u);

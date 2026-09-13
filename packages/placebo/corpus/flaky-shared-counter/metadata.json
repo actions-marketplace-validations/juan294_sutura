@@ -1,0 +1,28 @@
+{
+  "version": "0.2",
+  "kind": "flaky",
+  "class": "flaky-timing",
+  "expected": "flaky-no-patch",
+  "description": "A scripted attempt index reproduces the failure on two of five runs.",
+  "riskClass": "shared-counter-state",
+  "language": "javascript",
+  "failureFingerprint": "5056a670cd895f28c58f57439a2418cf456f1025387ab40163d54e8b01558e44",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture flaky-shared-counter.",
+  "triageExitCodes": [
+    0,
+    1,
+    0,
+    1,
+    0
+  ],
+  "flakePattern": "order",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "flaky-shared-counter",
+    "family": "shared-counter-state"
+  },
+  "split": "development"
+}

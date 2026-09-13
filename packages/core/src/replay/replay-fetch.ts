@@ -124,7 +124,13 @@ export function replayFetch(
     init: { method: string; headers: Readonly<Record<string, string>>; body?: string },
   ): Promise<HttpResponse> => {
     const exchange = cursor.next(boundary, []);
-    assertRequest(exchange, input, init);
+    try {
+      assertRequest(exchange, input, init);
+    } catch (error) {
+      // A caller may swallow the throw (a failed model request); the cursor keeps the precise mismatch.
+      if (error instanceof ReplayMismatchError) cursor.fail(error);
+      throw error;
+    }
     return recordedResponse(exchange);
   };
   return fetch as NebiusFetch | TavilyFetch;

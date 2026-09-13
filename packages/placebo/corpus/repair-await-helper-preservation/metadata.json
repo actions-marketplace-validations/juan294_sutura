@@ -1,0 +1,21 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-bug",
+  "expected": "fixed",
+  "description": "Versioned recovery development control: repair-await-helper-preservation.",
+  "riskClass": "repair-await-helper-preservation",
+  "language": "javascript",
+  "failureFingerprint": "fb2f89b149fff05ccb1ee8c58e5fd558c08adda71eb01c32e8af7f092b70b5be",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic recovery development fixture repair-await-helper-preservation.",
+  "evaluationRevision": "recovery-v1",
+  "lineage": {
+    "rootCaseId": "repair-missing-await-setup",
+    "family": "await-recovery"
+  },
+  "split": "development",
+  "hiddenVerification": true
+}

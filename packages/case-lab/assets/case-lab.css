@@ -1,0 +1,534 @@
+:root {
+  color-scheme: light dark;
+  --ink: #1b1f24;
+  --paper: #fbfbf9;
+  --muted: #5b6470;
+  --line: #d9dde3;
+  --sheet: #ffffff;
+  --accent: #b3261e;
+  --ok: #1d6f42;
+  --warn: #8a5a00;
+  --stop: #5a5f68;
+  --code: #f1f3f5;
+  --max-line: 72ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e7e9ec;
+    --paper: #121417;
+    --muted: #a3acb8;
+    --line: #2e343c;
+    --sheet: #1a1d22;
+    --accent: #ff6b61;
+    --ok: #4cc38a;
+    --warn: #e5b45b;
+    --stop: #9aa3ad;
+    --code: #23272e;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9375rem;
+}
+
+code {
+  background: var(--code);
+  padding: 0.05em 0.3em;
+  border-radius: 0.25em;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  background: var(--code);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+.site-nav,
+.site-footer {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  color: var(--muted);
+}
+
+.site-nav a {
+  font-weight: 600;
+}
+
+.case-lab {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+.case-lab p,
+.case-lab li,
+.case-lab dd {
+  max-width: var(--max-line);
+}
+
+.docket {
+  padding: 1.25rem 0 1rem;
+  border-bottom: 2px solid var(--line);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.8125rem;
+}
+
+h1 {
+  font-size: 2rem;
+  line-height: 1.15;
+  margin: 0.25rem 0 0.5rem;
+}
+
+h2 {
+  font-size: 1.375rem;
+  margin: 0 0 0.75rem;
+}
+
+h3 {
+  font-size: 1.0625rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: var(--sheet);
+}
+
+.badge-mode-live {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.badge-mode-replay,
+.badge-mode-recorded {
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+.badge-outcome-fixed {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.badge-outcome-refused,
+.badge-outcome-flaky-no-patch {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.badge-outcome-gave-up,
+.badge-outcome-infra-stop {
+  border-color: var(--stop);
+  color: var(--stop);
+}
+
+.mode-note,
+.expectation,
+.source,
+.hash {
+  color: var(--muted);
+}
+
+.identity {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.9375rem;
+}
+
+.identity dt {
+  color: var(--muted);
+}
+
+.identity dd {
+  margin: 0;
+}
+
+.sheet {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin: 1.25rem 0;
+}
+
+.sheet dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+}
+
+.sheet dl dt {
+  color: var(--muted);
+}
+
+.sheet dl dd {
+  margin: 0;
+}
+
+.sheet ul {
+  padding-left: 1.25rem;
+}
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0.5rem 0;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 100%;
+  font-size: 0.9375rem;
+}
+
+
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.candidate {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.candidate.selected {
+  border-left: 4px solid var(--ok);
+  padding-left: 0.75rem;
+}
+
+.counterfactual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin: 1rem 0;
+}
+
+.counterfactual-accepted,
+.counterfactual-rejected {
+  min-width: 0;
+}
+
+.counterfactual-accepted {
+  border-left: 4px solid var(--ok);
+  padding-left: 0.75rem;
+}
+
+.counterfactual-rejected {
+  border-left: 4px solid var(--accent);
+  padding-left: 0.75rem;
+}
+
+.counterfactual h3 {
+  margin-top: 0;
+}
+
+.counterfactual-alternative {
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.counterfactual-alternative:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.counterfactual-alternative h4 {
+  margin: 0 0 0.25rem;
+}
+
+.counterfactual-alternative .evidence {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.counterfactual-lede {
+  font-weight: 600;
+}
+
+.counterfactual-cost {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.badge-intent-shortcut {
+  background: var(--accent);
+  color: var(--paper);
+}
+
+.badge-intent-plausible {
+  background: var(--stop);
+  color: var(--paper);
+}
+
+.cases {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.case-card {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.case-card h2 {
+  margin-top: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.button {
+  display: inline-block;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 0.5rem;
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button-live {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.live-status:empty {
+  display: none;
+}
+
+.prose h2 {
+  margin: 2rem 0 0.75rem;
+}
+
+.prose ol,
+.prose ul {
+  padding-left: 1.5rem;
+}
+
+.prose li {
+  margin-bottom: 0.35rem;
+}
+
+.page-links {
+  margin: 2rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.page-links a {
+  font-weight: 600;
+}
+
+.live-status {
+  font-weight: 600;
+}
+
+.consent {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--sheet);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -2px 12px rgb(0 0 0 / 10%);
+}
+
+.consent p {
+  margin: 0;
+  max-width: var(--max-line);
+}
+
+.consent .actions {
+  align-items: center;
+}
+
+@media (max-width: 719px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .sheet,
+  .case-card {
+    padding: 0.875rem 1rem;
+  }
+
+  .sheet dl,
+  .identity {
+    grid-template-columns: 1fr;
+    gap: 0.1rem 0;
+  }
+
+  .sheet dl dd,
+  .identity dd {
+    margin-bottom: 0.5rem;
+  }
+
+  .cases,
+  .counterfactual {
+    grid-template-columns: 1fr;
+  }
+
+  .actions .button {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* The banner is fixed over the first screen, so it stays as short as it can. */
+  .consent .actions .button {
+    width: auto;
+    flex: 1 1 auto;
+  }
+}
+
+.verdict {
+  margin: 1.25rem 0;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  border-left: 4px solid var(--rule, #888);
+}
+
+.verdict-headline {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+}
+
+.verdict-reason,
+.verdict-evidence,
+.verdict-next {
+  margin: 0.25rem 0;
+}
+
+.verdict-evidence {
+  opacity: 0.8;
+  font-size: 0.9375rem;
+  /* The subject hash is one 40-character token; without this it runs off a narrow screen. */
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Execution internals. The content is always in the document, so a reader who
+ * searches the page or reads it without JavaScript still finds every hash and
+ * every rejected candidate; it only starts closed.
+ */
+.execution {
+  margin: 1.25rem 0;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+
+.execution > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.25rem 0;
+}
+
+.execution > summary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.command {
+  overflow-x: auto;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+}

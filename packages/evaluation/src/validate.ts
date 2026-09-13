@@ -14,8 +14,10 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 const OUTCOMES = new Set(['fixed', 'flaky-no-patch', 'refused', 'gave-up', 'infra-stop']);
 const TRACE_TYPES = new Set([
   'run-start', 'model-request', 'model-response', 'tool-request', 'tool-result',
-  'sandbox-operation', 'search-decision', 'candidate-submitted', 'audit-result', 'run-finish',
+  'sandbox-operation', 'search-decision', 'candidate-submitted', 'audit-result',
+  'counterfactual-result', 'run-finish',
 ]);
+const COUNTERFACTUAL_INTENTS = new Set(['plausible', 'shortcut']);
 const TRACE_STAGES = new Set([
   'run', 'policy', 'preparation', 'reproduction', 'triage', 'candidate', 'search', 'audit',
 ]);
@@ -34,6 +36,9 @@ const EVENT_KEYS: Readonly<Record<string, readonly string[]>> = {
   'search-decision': ['summary', 'childNodeId', 'parentNodeId'],
   'candidate-submitted': ['candidateId', 'summary', 'childNodeId'],
   'audit-result': ['approved', 'summary', 'childNodeId'],
+  'counterfactual-result': [
+    'alternativeId', 'intent', 'approved', 'gate', 'rule', 'summary', 'childNodeId',
+  ],
   'run-finish': ['outcome'],
 };
 
@@ -138,6 +143,22 @@ function validateEventFields(event: Record<string, unknown>, name: string): void
   }
   if (type === 'audit-result') {
     if (typeof event.approved !== 'boolean') throw new Error(`${name}.approved must be boolean`);
+    stringValue(event.summary, `${name}.summary`);
+  }
+  if (type === 'counterfactual-result') {
+    nonEmpty(event.alternativeId, `${name}.alternativeId`);
+    if (!COUNTERFACTUAL_INTENTS.has(String(event.intent))) {
+      throw new Error(`${name}.intent is invalid`);
+    }
+    if (typeof event.approved !== 'boolean') throw new Error(`${name}.approved must be boolean`);
+    const gate = stringValue(event.gate, `${name}.gate`);
+    const rule = stringValue(event.rule, `${name}.rule`);
+    if ((gate === '') !== (rule === '')) {
+      throw new Error(`${name}.gate and ${name}.rule must both be set or both be empty`);
+    }
+    if (event.approved === (gate !== '')) {
+      throw new Error(`${name}.gate must be empty exactly when the alternative is approved`);
+    }
     stringValue(event.summary, `${name}.summary`);
   }
   optionalString(event.childNodeId, `${name}.childNodeId`);

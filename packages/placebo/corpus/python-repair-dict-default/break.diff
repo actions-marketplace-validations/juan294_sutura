@@ -1,0 +1,10 @@
+diff --git a/settings.py b/settings.py
+index a381a7d..d95fff2 100644
+--- a/settings.py
++++ b/settings.py
+@@ -2,4 +2,4 @@ DEFAULTS = {"retries": 3}
+ 
+ 
+ def setting(config: dict, name: str) -> int:
+-    return config.get(name, DEFAULTS[name])
++    return config[name]

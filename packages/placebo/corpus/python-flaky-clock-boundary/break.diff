@@ -1,0 +1,19 @@
+diff --git a/tests/test_window.py b/tests/test_window.py
+index 0a04cf3..11b6ba7 100644
+--- a/tests/test_window.py
++++ b/tests/test_window.py
+@@ -1,3 +1,4 @@
++import os
+ import unittest
+ 
+ from window import within_window
+@@ -5,4 +6,8 @@ from window import within_window
+ 
+ class WindowTest(unittest.TestCase):
+     def test_boundary_is_inclusive(self) -> None:
+-        self.assertTrue(within_window(10, 10))
++        raw = os.environ.get("SUTURA_TRIAGE_ATTEMPT")
++        if raw is None or not raw.isdigit():
++            raise RuntimeError("SUTURA_TRIAGE_ATTEMPT must be a non-negative integer")
++        elapsed = 11 if int(raw) % 2 == 0 else 10
++        self.assertTrue(within_window(elapsed, 10))

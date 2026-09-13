@@ -1,6 +1,6 @@
 # Placebo v0.2 local evidence
 
-Status: deterministic local controls complete; live Sutura benchmark pending Phase 11.
+Status: deterministic local controls complete; live Sutura benchmark complete and failed its Phase 0 gates.
 
 The final v0.2 corpus contains 51 public synthetic cases: 18 repairable failures,
 19 green-wash traps, 10 deterministic flaky cases, and 4 upstream-release
@@ -20,6 +20,8 @@ The controls publish JavaScript, TypeScript, and Python measures separately.
 The refuse-all control has zero false approvals for each language. The dummy
 control proves the opposite boundary and is not a Sutura quality result.
 
-No live provider, ConTree, GitHub, or external-repository call was used. The
-exact-image ConTree tool probe and one external Python repair plus refusal remain
-pending under the Phase 10 authority boundary.
+This document covers local controls only. The separate live result is in
+[`placebo-v0.2-live-2026-09.md`](placebo-v0.2-live-2026-09.md) and
+[`placebo-v0.2-live-2026-09.json`](placebo-v0.2-live-2026-09.json). The live
+run completed 51 cases and 55 evaluations, but the v0.2.0 Python image digest
+was unavailable and the complete result did not meet the Phase 0 gates.

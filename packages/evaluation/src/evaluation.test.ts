@@ -142,3 +142,105 @@ describe('evaluation exports', () => {
     expect(records.map(({ outcome }) => outcome)).toEqual(['fixed', 'refused']);
   });
 });
+
+function counterfactualTrace(runId: string): TraceEvent[] {
+  const base = trace(runId);
+  return [
+    ...base.slice(0, -1),
+    {
+      schemaVersion: 'sutura-trace-v1', runId, sequence: 5, timestampMs: 13,
+      type: 'counterfactual-result', stage: 'audit', alternativeId: 'loosen-type',
+      intent: 'shortcut', approved: false, gate: 'mechanical', rule: 'loosened-type',
+      summary: 'REFUSED: deterministic checks found green-washing (loosened-type).',
+      childNodeId: 'node-004',
+    },
+    {
+      schemaVersion: 'sutura-trace-v1', runId, sequence: 6, timestampMs: 14,
+      type: 'counterfactual-result', stage: 'audit', alternativeId: 'exact-boundary',
+      intent: 'plausible', approved: true, gate: '', rule: '',
+      summary: 'The patch repairs the diagnosed cause.', childNodeId: 'node-005',
+    },
+    {
+      schemaVersion: 'sutura-trace-v1', runId, sequence: 7, timestampMs: 15,
+      type: 'run-finish', stage: 'run', outcome: 'fixed',
+    },
+  ];
+}
+
+function counterfactualManifest(events = counterfactualTrace('run-counterfactual')) {
+  return createEvaluationManifest({
+    ...manifest(),
+    resultHash: undefined,
+    repositoryClean: true,
+    cases: [{ caseId: 'case-counterfactual', outcome: 'fixed', trace: events }],
+  });
+}
+
+describe('counterfactual evidence in the evaluation formats', () => {
+  it('validates a manifest carrying counterfactual results', () => {
+    const value = counterfactualManifest();
+
+    expect(validateEvaluationManifest(value)).toEqual(value);
+  });
+
+  it('refuses an unsupported field on a counterfactual event', () => {
+    const events = counterfactualTrace('run-counterfactual');
+    const tampered = events.map((event, index) =>
+      index === 4 ? { ...event, diff: 'diff --git a/x b/x' } : event) as TraceEvent[];
+
+    expect(() => counterfactualManifest(tampered)).not.toThrow();
+    expect(() => validateEvaluationManifest(counterfactualManifest(tampered)))
+      .toThrow('Unsupported field: diff');
+  });
+
+  it('refuses a gate without a rule and a rule that contradicts the verdict', () => {
+    const events = counterfactualTrace('run-counterfactual');
+    const noRule = events.map((event, index) =>
+      index === 4 ? { ...event, rule: '' } : event) as TraceEvent[];
+    expect(() => validateEvaluationManifest(counterfactualManifest(noRule)))
+      .toThrow(/gate and .*rule must both be set or both be empty/u);
+
+    const approvedWithGate = events.map((event, index) =>
+      index === 4 ? { ...event, approved: true } : event) as TraceEvent[];
+    expect(() => validateEvaluationManifest(counterfactualManifest(approvedWithGate)))
+      .toThrow(/must be empty exactly when the alternative is approved/u);
+  });
+
+  it('refuses an unknown intent', () => {
+    const events = counterfactualTrace('run-counterfactual');
+    const tampered = events.map((event, index) =>
+      index === 4 ? { ...event, intent: 'clever' } : event) as TraceEvent[];
+
+    expect(() => validateEvaluationManifest(counterfactualManifest(tampered)))
+      .toThrow(/intent is invalid/u);
+  });
+
+  it('exports each counterfactual result as an ATIF system step naming its gate and rule', () => {
+    const [item] = exportAtif(counterfactualManifest());
+    const steps = item!.trajectory.steps.filter((step) =>
+      (step.extra?.sutura as { event_type?: string } | undefined)?.event_type ===
+        'counterfactual-result');
+
+    expect(steps).toHaveLength(2);
+    expect(steps[0]!.extra).toEqual({
+      sutura: {
+        event_type: 'counterfactual-result',
+        sequence: 5,
+        alternative_id: 'loosen-type',
+        intent: 'shortcut',
+        approved: false,
+        rejected_by: { gate: 'mechanical', rule: 'loosened-type' },
+      },
+    });
+    expect(steps[1]!.extra).toEqual({
+      sutura: {
+        event_type: 'counterfactual-result',
+        sequence: 6,
+        alternative_id: 'exact-boundary',
+        intent: 'plausible',
+        approved: true,
+      },
+    });
+    expect(JSON.stringify(item!.trajectory)).not.toContain('diff --git');
+  });
+});

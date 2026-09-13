@@ -171,16 +171,18 @@ describe('recorded live repair failures at the serialized provider boundary', ()
 
   it('replays live run 6: invalid model patch calls cannot cross the one-field boundary', async () => {
     capturedLiveRun(6, '33244884596');
-    const value = provider([{ content: JSON.stringify({
+    const invalid = JSON.stringify({
       replacement: FIXED_SOURCE,
       tool: 'apply_patch',
       arguments: { path: 'packages/core/src/dogfood-add.ts' },
-    }) }]);
+    });
+    const value = provider([{ content: invalid }, { content: invalid }]);
     const sandbox = executor();
     await expect(attempt(value.client, sandbox)).resolves.toMatchObject({
       status: 'gave-up',
       failureKind: 'invalid',
     });
+    expect(value.fetch).toHaveBeenCalledTimes(2);
     expect(sandbox.calls).toHaveLength(0);
   });
 
@@ -205,23 +207,27 @@ describe('recorded live repair failures at the serialized provider boundary', ()
 
   it('replays live run 9: search-only output is invalid before sandbox work', async () => {
     capturedLiveRun(9, '33248388988');
-    const value = provider([{ content: JSON.stringify({ search_repo: 'dogfood-add' }) }]);
+    const invalid = JSON.stringify({ search_repo: 'dogfood-add' });
+    const value = provider([{ content: invalid }, { content: invalid }]);
     const sandbox = executor();
     await expect(attempt(value.client, sandbox)).resolves.toMatchObject({
       status: 'gave-up',
       failureKind: 'invalid',
     });
+    expect(value.fetch).toHaveBeenCalledTimes(2);
     expect(sandbox.calls).toHaveLength(0);
   });
 
   it('replays live run 11: provider acceptance cannot bypass the local replacement bound', async () => {
     capturedLiveRun(11, '33254012677');
-    const value = provider([{ content: JSON.stringify({ replacement: 'x'.repeat(1_001) }) }]);
+    const invalid = JSON.stringify({ replacement: 'x'.repeat(1_001) });
+    const value = provider([{ content: invalid }, { content: invalid }]);
     const sandbox = executor();
     await expect(attempt(value.client, sandbox)).resolves.toMatchObject({
       status: 'gave-up',
       failureKind: 'invalid',
     });
+    expect(value.fetch).toHaveBeenCalledTimes(2);
     expect(sandbox.calls).toHaveLength(0);
     expect(value.bodies[0]).toMatchObject({
       response_format: { json_schema: { schema: {
@@ -241,44 +247,51 @@ describe('recorded live repair failures at the serialized provider boundary', ()
 
   it('replays live run 13: out-of-range target metadata is structurally invalid', async () => {
     capturedLiveRun(13, '33258931783');
-    const value = provider([{ content: JSON.stringify({
+    const invalid = JSON.stringify({
       replacement: FIXED_SOURCE,
       startLine: 99,
       endLine: 99,
-    }) }]);
+    });
+    const value = provider([{ content: invalid }, { content: invalid }]);
     const sandbox = executor();
     await expect(attempt(value.client, sandbox)).resolves.toMatchObject({ failureKind: 'invalid' });
+    expect(value.fetch).toHaveBeenCalledTimes(2);
     expect(sandbox.calls).toHaveLength(0);
   });
 
   it('replays live run 14: provider-accepted target contradictions and wrong patches do not submit', async () => {
     capturedLiveRun(14, '33261605582');
+    const contradiction = JSON.stringify({
+      replacement: FIXED_SOURCE,
+      path: 'packages/core/src/dogfood-add.test.ts',
+    });
     const value = provider([
-      { content: JSON.stringify({
-        replacement: FIXED_SOURCE,
-        path: 'packages/core/src/dogfood-add.test.ts',
-      }) },
+      { content: contradiction },
+      { content: contradiction },
       { content: JSON.stringify({ replacement: WRONG_SOURCE }) },
     ]);
     const firstSandbox = executor();
     await expect(attempt(value.client, firstSandbox)).resolves.toMatchObject({ failureKind: 'invalid' });
     expect(firstSandbox.calls).toHaveLength(0);
     await expect(attempt(value.client, executor(1))).resolves.toMatchObject({ status: 'checkpoint' });
+    expect(value.fetch).toHaveBeenCalledTimes(3);
   });
 
   it('replays live run 15: legacy three-field replies fail under the compact thinking-off request', async () => {
     capturedLiveRun(15, '33265268595');
-    const value = provider([{ content: JSON.stringify({
+    const invalid = JSON.stringify({
       id: 'model-id',
       rationale: 'model rationale',
       replacement: FIXED_SOURCE,
-    }) }]);
+    });
+    const value = provider([{ content: invalid }, { content: invalid }]);
     const sandbox = executor();
     await expect(attempt(value.client, sandbox)).resolves.toMatchObject({ failureKind: 'invalid' });
+    expect(value.fetch).toHaveBeenCalledTimes(2);
     expect(sandbox.calls).toHaveLength(0);
     expect(value.bodies[0]).toMatchObject({
       max_tokens: 8_192,
-      chat_template_kwargs: { enable_thinking: false },
+      chat_template_kwargs: { enable_thinking: false, force_nonempty_content: true },
     });
     expect(value.bodies[0]).not.toHaveProperty('extra_body');
   });
@@ -291,7 +304,7 @@ describe('recorded live repair failures at the serialized provider boundary', ()
       model: DEFAULT_MODELS.super,
       temperature: 1,
       top_p: 0.95,
-      chat_template_kwargs: { enable_thinking: false },
+      chat_template_kwargs: { enable_thinking: false, force_nonempty_content: true },
     });
     expect(value.bodies[0]).not.toHaveProperty('extra_body');
     expect(value.bodies[0]).not.toHaveProperty('reasoning_effort');

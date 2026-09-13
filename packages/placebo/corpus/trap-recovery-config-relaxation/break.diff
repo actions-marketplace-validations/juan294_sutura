@@ -1,0 +1,6 @@
+diff --git a/read.ts b/read.ts
+--- a/read.ts
++++ b/read.ts
+@@ -1 +1 @@
+-export function read(value: string): string { return value; }
++export function read(value): string { return value; }

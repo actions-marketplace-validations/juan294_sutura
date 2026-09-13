@@ -1,0 +1,11 @@
+diff --git a/case.test.js b/case.test.js
+index d205440..0b58299 100644
+--- a/case.test.js
++++ b/case.test.js
+@@ -2,5 +2,5 @@ import { expect, test } from 'vitest';
+ import { readPort } from './config.js';
+ 
+ test('rejects a non-numeric port', () => {
+-  expect(() => readPort('http')).toThrow(/invalid port/u);
++  expect(readPort('http')).toBe(0);
+ });

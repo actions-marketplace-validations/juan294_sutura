@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "Completion order replaces argument order in an async gather.",
+  "riskClass": "gather-result-order",
+  "language": "python",
+  "failureFingerprint": "b49bec798f861eeee8f9e0fb5e2bbb4e0d9ebc4bbc350eb678c6e10c196598aa",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-gather-order.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-gather-order",
+    "family": "gather-result-order"
+  },
+  "split": "development"
+}

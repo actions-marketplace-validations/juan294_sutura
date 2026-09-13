@@ -7,6 +7,21 @@ coverage/
 .sutura/dogfood-artifacts/
 .sutura/dogfood-ledger.lock
 .sutura/dogfood-streak.lock
+.sutura/placebo-v0.2-live-ledger.json
+.sutura/placebo-v0.2-live.lock
+.sutura/placebo-v0.2-live-artifacts/
+.sutura/placebo-v0.2.1-live-ledger.json
+.sutura/placebo-v0.2.1-live.lock
+.sutura/placebo-v0.2.1-live.lock.recovery/
+.sutura/placebo-v0.2.1-live-artifacts/
+.sutura/placebo-v0.2.1-failed-runs/
+.sutura/external-matrix-candidate-ledger.json
+.sutura/external-matrix-candidate-artifacts/
+.sutura/external-matrix-candidate.lock
+.sutura/external-matrix-public-ledger.json
+.sutura/external-matrix-public-artifacts/
+.sutura/external-matrix-public.lock
+.sutura/external-matrix-cleanup-*.json
 
 # Environment: never commit secrets
 .env
@@ -20,6 +35,7 @@ CLAUDE.local.md
 
 # Agent operational output (gitignored on public repos, Rule #70)
 docs/agents/
+docs/adoption/records/
 logs/
 scripts/agents/
 
@@ -38,3 +54,8 @@ docs/research/2026-08-27-sutura-brief.md
 # Core plan: competitive playbook, local until after 2026-10-30 submission
 docs/plans/2026-08-27-sutura-core.md
 docs/plans/2026-08-27-sutura-core-phases/
+
+# Vercel CLI link and pulled environment (Case Lab deploy)
+.vercel/
+__pycache__/
+*.pyc

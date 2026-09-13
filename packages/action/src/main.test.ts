@@ -76,11 +76,21 @@ describe('action check failure safety', () => {
       async () => { throw new Error('provider failed'); },
       () => undefined,
       recorder,
+      {
+        actionRunId: '88', targetRunId: '77', repository: 'owner/repo', actionSha: SHA,
+      },
     )).rejects.toThrow('provider failed');
 
-    expect(uploads).toHaveLength(1);
-    expect(uploads[0]?.name).toBe('sutura-replay-77.json');
+    expect(uploads).toHaveLength(2);
+    expect(uploads[0]?.name).toBe('sutura-terminal-failure-77.json');
     expect(JSON.parse(uploads[0]?.json ?? '{}')).toMatchObject({
+      schemaVersion: 'sutura-terminal-failure-v1',
+      outcome: 'infra-stop',
+      costStatus: 'unavailable',
+      fixtureIdentity: { repository: 'owner/repo', targetRunId: '77' },
+    });
+    expect(uploads[1]?.name).toBe('sutura-replay-77.json');
+    expect(JSON.parse(uploads[1]?.json ?? '{}')).toMatchObject({
       schemaVersion: 'sutura-replay-v1',
       outcome: 'infra-stop',
     });
@@ -131,3 +141,9 @@ describe('runAction input guards', () => {
     expect(setFailed).toHaveBeenCalledWith('GITHUB_RUN_ID must be a positive decimal id');
   });
 });
+
+ it('dispatches verify mode without constructing repair orchestration',async()=>{
+ const verify=vi.fn(async()=>({status:'refused' as const}));const setFailed=vi.fn();
+ await runAction({readAction:()=>({mode:'verify',githubToken:'token',runId:'77',triageN:1,requireFixed:false,captureReplay:false,environment:{}}),loadConfiguration:()=>({contreeToken:'token',contreeProject:'project'} as never),repository:()=>({owner:'owner',repo:'repo'}),environment:{GITHUB_RUN_ID:'88'},readVerification:()=>({sourceSha:SHA,policyBaseSha:SHA,candidateDiff:'diff',failingCommandId:'diagnosed'}),verify,setFailed});
+ expect(verify).toHaveBeenCalledOnce();expect(setFailed).toHaveBeenCalledWith('Sutura verification: refused');
+ });

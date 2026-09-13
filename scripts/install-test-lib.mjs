@@ -5,8 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-export const RELEASE_VERSION = '0.2.0';
+import { workflowActionReferences } from './evidence-contract.mjs';
+
+export const RELEASE_VERSION = '0.2.1';
 const SHA_PATTERN = /^[a-f0-9]{40}$/iu;
+const EXACT_SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
 const execFileAsync = promisify(execFile);
 
 function exactSha(value, label) {
@@ -14,9 +17,23 @@ function exactSha(value, label) {
   return value.toLowerCase();
 }
 
-function packedFilename(output) {
+export function exactReleaseVersion(value) {
+  if (typeof value !== 'string' || !EXACT_SEMVER_PATTERN.test(value)) {
+    throw new Error('Public package release must be an exact semver');
+  }
+  return value;
+}
+
+export function packedFilename(output) {
   const parsed = JSON.parse(output);
-  const record = Array.isArray(parsed) ? parsed[0] : parsed;
+  const records = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && typeof parsed.filename === 'string'
+      ? [parsed]
+      : parsed && typeof parsed === 'object'
+        ? Object.values(parsed)
+        : [];
+  const record = records.length === 1 ? records[0] : undefined;
   if (!record || typeof record.filename !== 'string' || record.filename.length === 0) {
     throw new Error('npm pack did not return one filename');
   }
@@ -74,6 +91,8 @@ async function publicCommitDefault(version, cwd) {
   return peeled[0] ?? direct[0];
 }
 
+export const resolvePublicActionCommit = publicCommitDefault;
+
 async function createDoctorShim(directory) {
   const path = join(directory, 'gh');
   await writeFile(path, `#!/usr/bin/env node
@@ -86,11 +105,40 @@ else { process.stderr.write('unsupported read-only gh smoke command\\n'); proces
 }
 
 function cleanEnvironment(shimDirectory) {
-  const environment = { ...process.env, PATH: `${shimDirectory}:${process.env.PATH ?? ''}` };
-  for (const name of ['NEBIUS_API_KEY', 'CONTREE_TOKEN', 'CONTREE_PROJECT', 'TAVILY_API_KEY']) {
-    delete environment[name];
+  return {
+    PATH: `${shimDirectory}:${process.env.PATH ?? '/usr/bin:/bin'}`,
+    CI: 'true',
+    NO_COLOR: '1',
+  };
+}
+
+function validateGeneratedWorkflow(workflow, actionCommit) {
+  const activeReferences = workflowActionReferences(workflow, 'Generated Sutura workflow');
+  if (activeReferences.length !== 1 || activeReferences[0] !== `juan294/sutura@${actionCommit}`) {
+    throw new Error('Generated workflow must contain exactly one active Sutura step at the release commit');
   }
-  return environment;
+}
+
+function validateDoctorOutput(doctor, actionCommit) {
+  const required = [
+    'Sutura workflow exists.',
+    `Workflow uses juan294/sutura@${actionCommit}.`,
+    'Workflow grants checks: write.',
+    'Workflow wires github-token.',
+    'Workflow wires run-id.',
+    'Workflow wires runtime.',
+    'Workflow wires nebius-api-key.',
+    'Workflow wires contree-token.',
+    'Workflow wires contree-project.',
+    'GitHub secret NEBIUS_API_KEY is configured.',
+    'GitHub secret CONTREE_TOKEN is configured.',
+    'GitHub variable CONTREE_PROJECT is configured.',
+  ];
+  const lines = new Set(doctor.split(/\r?\n/u));
+  if (doctor.split(/\r?\n/u).some((line) => line.startsWith('[FAIL]')) ||
+      required.some((message) => !lines.has(`[PASS] ${message}`))) {
+    throw new Error('Installed CLI doctor did not report every required PASS check');
+  }
 }
 
 async function installedContentHash(packageRoot) {
@@ -128,9 +176,12 @@ export async function verifyInstall(options) {
   const invoke = dependencies.invoke ?? invokeDefault;
   const resolvePublicCommit = dependencies.resolvePublicCommit ?? publicCommitDefault;
   const now = options.now ?? (() => performance.now());
+  const releaseVersion = options.mode === 'public'
+    ? exactReleaseVersion(options.releaseVersion ?? RELEASE_VERSION)
+    : RELEASE_VERSION;
   const actionCommit = options.mode === 'candidate'
     ? exactSha(options.actionCommit, 'Candidate Action SHA')
-    : exactSha(await resolvePublicCommit(RELEASE_VERSION, options.root), 'Public Action SHA');
+    : exactSha(await resolvePublicCommit(releaseVersion, options.root), 'Public Action SHA');
   const temporary = await mkdtemp(join(tmpdir(), `sutura-${options.mode}-install-`));
   try {
     const packageDirectory = join(temporary, 'package');
@@ -145,14 +196,14 @@ export async function verifyInstall(options) {
 
     const source = options.mode === 'candidate'
       ? join(options.root, 'packages', 'cli')
-      : `sutura@${RELEASE_VERSION}`;
+      : `sutura@${releaseVersion}`;
     const tarball = await pack(source, packageDirectory);
     const packageIntegrity = createHash('sha256').update(await readFile(tarball)).digest('hex');
     await install(tarball, consumer);
     const installedRoot = join(consumer, 'node_modules', 'sutura');
     const installed = JSON.parse(await readFile(join(installedRoot, 'package.json'), 'utf8'));
-    if (installed.name !== 'sutura' || installed.version !== RELEASE_VERSION) {
-      throw new Error(`Installed package is not sutura@${RELEASE_VERSION}`);
+    if (installed.name !== 'sutura' || installed.version !== releaseVersion) {
+      throw new Error(`Installed package is not sutura@${releaseVersion}`);
     }
     if (installed.dependencies && Object.keys(installed.dependencies).length > 0) {
       throw new Error('Installed CLI contains runtime dependencies');
@@ -163,6 +214,10 @@ export async function verifyInstall(options) {
       throw new Error('Installed CLI license differs from the repository license');
     }
     const packageContentHash = await installedContentHash(installedRoot);
+    if (options.expectedPackageContentHash !== undefined &&
+        packageContentHash !== options.expectedPackageContentHash) {
+      throw new Error('Public package content differs from trusted candidate evidence');
+    }
 
     const binary = join(consumer, 'node_modules', '.bin', 'sutura');
     const environment = cleanEnvironment(shimDirectory);
@@ -173,28 +228,32 @@ export async function verifyInstall(options) {
     ], consumer, environment);
     const setupDurationMs = Math.max(0, now() - startedAt);
     const workflow = await readFile(join(consumer, '.github', 'workflows', 'sutura.yml'), 'utf8');
-    if (!workflow.includes(`uses: juan294/sutura@${actionCommit}`)) {
-      throw new Error('Generated workflow does not use release commit');
-    }
+    validateGeneratedWorkflow(workflow, actionCommit);
+    const doctorStartedAt = now();
     const doctor = await invoke(binary, [
       'doctor', '--repo', 'sutura/install-smoke', ...actionArgs,
     ], consumer, environment);
-    if (doctor.split(/\r?\n/u).some((line) => line.startsWith('[FAIL]'))) {
-      throw new Error('Installed CLI doctor reported a failure');
-    }
-    if ((await invoke(binary, ['--version'], consumer, environment)).trim() !== RELEASE_VERSION) {
+    const doctorDurationMs = Math.max(0, now() - doctorStartedAt);
+    validateDoctorOutput(doctor, actionCommit);
+    if ((await invoke(binary, ['--version'], consumer, environment)).trim() !== releaseVersion) {
       throw new Error('Installed CLI returned the wrong version');
     }
 
     return {
       schemaVersion: 'sutura-install-evidence-v1',
       mode: options.mode,
-      packageVersion: RELEASE_VERSION,
+      repository: 'sutura/install-smoke',
+      packageVersion: releaseVersion,
       packageSource: source,
       packageIntegrity,
       packageContentHash,
       actionCommit,
       setupDurationMs,
+      doctorDurationMs,
+      doctorOutcome: 'passed',
+      setupFailures: [],
+      unclearInstructions: [],
+      manualInterventions: [],
       outcome: 'passed',
     };
   } finally {

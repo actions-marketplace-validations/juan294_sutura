@@ -1,0 +1,298 @@
+name: Case Lab
+run-name: Case Lab ${{ inputs.request-id }} ${{ inputs.case-id }}
+
+# Source of truth: packages/case-lab/demo/case-lab.yml in juan294/sutura.
+# The copy in juan294/sutura-demo/.github/workflows/case-lab.yml must be byte-identical
+# (proved by `case-lab verify-pin`).
+
+on:
+  workflow_dispatch:
+    inputs:
+      case-id:
+        description: Server-defined Case Lab case
+        required: true
+        type: choice
+        options:
+          - javascript-repair
+          - python-repair
+          - flaky-failure
+          - greenwash-trap
+          - upstream-incident
+      request-id:
+        description: Bounded dispatcher request id
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  checks: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: case-lab
+  cancel-in-progress: false
+
+env:
+  # Must equal packages/case-lab/release.json actionSha and the literal in the Action step.
+  SUTURA_ACTION_SHA: a943ded4c734aed75c5c63f2b2dd63a2f44556c2
+  # A juan294/sutura commit that contains packages/case-lab. Updated by `case-lab verify-pin`.
+  SUTURA_CONTROLLER_SHA: f5c3056acc96597f1ae11f411a3b9cfe03ba990f
+  CASE_LAB_DAILY_RUN_CAP: '8'
+  RESULTS_BRANCH: case-lab-results
+
+jobs:
+  case:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Gate on the emergency switch
+        env:
+          CASE_LAB_ENABLED: ${{ vars.CASE_LAB_ENABLED }}
+        run: |
+          if [ "$CASE_LAB_ENABLED" != "true" ]; then
+            echo "Case Lab is disabled: set the repository variable CASE_LAB_ENABLED to true to enable live runs" >&2
+            exit 1
+          fi
+
+      - name: Validate bounded dispatch input
+        env:
+          CASE_ID: ${{ inputs.case-id }}
+          REQUEST_ID: ${{ inputs.request-id }}
+        run: |
+          [[ "$REQUEST_ID" =~ ^cl-[0-9]{13}-[a-f0-9]{8}$ ]] || { echo "request-id must match cl-<13 digits>-<8 hex>" >&2; exit 1; }
+          case "$CASE_ID" in
+            javascript-repair|python-repair|flaky-failure|greenwash-trap|upstream-incident) ;;
+            *) echo "case-id must be one of the five Case Lab cases" >&2; exit 1 ;;
+          esac
+          [[ "$SUTURA_ACTION_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$SUTURA_CONTROLLER_SHA" =~ ^[a-f0-9]{40}$ ]]
+
+      - name: Enforce the daily run cap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          since="$(date -u +%Y-%m-%dT00:00:00Z)"
+          count="$(gh run list -R "$GITHUB_REPOSITORY" --workflow case-lab.yml --created ">=$since" --limit 100 --json databaseId --jq length)"
+          echo "case-lab.yml runs today (including this one): $count"
+          if [ "$count" -gt "$CASE_LAB_DAILY_RUN_CAP" ]; then
+            echo "Case Lab daily run cap $CASE_LAB_DAILY_RUN_CAP reached; refusing before any provider call" >&2
+            exit 1
+          fi
+
+      - name: Check out the trusted demo default branch
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Check out the Case Lab tooling at the exact controller commit
+        uses: actions/checkout@v7
+        with:
+          repository: juan294/sutura
+          ref: ${{ env.SUTURA_CONTROLLER_SHA }}
+          path: .sutura
+          persist-credentials: false
+
+      - name: Record exact identities
+        id: identity
+        run: |
+          test "$(git -C .sutura rev-parse HEAD)" = "$SUTURA_CONTROLLER_SHA"
+          echo "demo-sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: pnpm/action-setup@v5
+        with:
+          # The demo repository pins pnpm 10 for itself; the Case Lab tooling is the Sutura workspace.
+          package_json_file: .sutura/package.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Build the Case Lab tooling
+        run: |
+          pnpm --dir .sutura install --frozen-lockfile
+          pnpm --dir .sutura --filter @sutura/core build
+          pnpm --dir .sutura --filter @sutura/case-lab build
+
+      - name: Install the released Sutura CLI for the exact release
+        id: release-cli
+        run: |
+          version="$(node -e 'process.stdout.write(require("./.sutura/packages/case-lab/release.json").version)')"
+          mkdir -p "$RUNNER_TEMP/release-cli"
+          npm install --prefix "$RUNNER_TEMP/release-cli" --ignore-scripts "sutura@${version}"
+          cli="$RUNNER_TEMP/release-cli/node_modules/.bin/sutura"
+          chmod +x "$cli"
+          echo "cli=$cli" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize the selected case
+        id: materialize
+        env:
+          CASE_ID: ${{ inputs.case-id }}
+        run: |
+          node scripts/materialize-case-lab-case.mjs "$CASE_ID" > "$RUNNER_TEMP/materialized.json"
+          echo "runtime=$(node -e 'process.stdout.write(require(process.env.RUNNER_TEMP + "/materialized.json").runtime)')" >> "$GITHUB_OUTPUT"
+
+      - name: Push the broken branch and open the broken pull request
+        id: fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CASE_ID: ${{ inputs.case-id }}
+          REQUEST_ID: ${{ inputs.request-id }}
+        run: |
+          branch="case-lab/${REQUEST_ID}/${CASE_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          gh auth setup-git
+          git switch -c "$branch"
+          # The Sutura checkout lives in .sutura; it must never enter the demo commit as a gitlink.
+          git add -A -- . ':(exclude).sutura'
+          git commit -m "case-lab(${REQUEST_ID}): materialize ${CASE_ID}"
+          git push --set-upstream origin "$branch"
+          pr_url="$(gh pr create --base main --head "$branch" --title "Case Lab ${CASE_ID} (${REQUEST_ID})" --body "Public Case Lab request \`${REQUEST_ID}\`: injected Placebo case for \`${CASE_ID}\`. Sutura reports on this pull request and never merges a repair.")"
+          {
+            echo "sha=$(git rev-parse HEAD)"
+            echo "branch=$branch"
+            echo "pr-url=$pr_url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch CI and prove it is red
+        id: failed-ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CASE_ID: ${{ inputs.case-id }}
+          BRANCH: ${{ steps.fixture.outputs.branch }}
+          RUNTIME: ${{ steps.materialize.outputs.runtime }}
+        run: |
+          if [ "$RUNTIME" = python ]; then
+            url="$(gh workflow run matrix-fixture-ci.yml --ref "$BRANCH" -f case-id=python-repair)"
+          else
+            url="$(gh workflow run ci.yml --ref "$BRANCH")"
+          fi
+          run_id="${url##*/}"
+          if gh run watch "$run_id" --exit-status; then
+            echo "Expected the injected ${CASE_ID} case to fail CI" >&2
+            exit 1
+          fi
+          test "$(gh run view "$run_id" --json conclusion --jq .conclusion)" = failure
+          echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "run-url=https://github.com/${GITHUB_REPOSITORY}/actions/runs/${run_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Run Sutura at the exact release
+        id: sutura
+        continue-on-error: true
+        uses: juan294/sutura/packages/action@a943ded4c734aed75c5c63f2b2dd63a2f44556c2
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.failed-ci.outputs.run-id }}
+          nebius-api-key: ${{ secrets.NEBIUS_API_KEY }}
+          tavily-api-key: ${{ secrets.TAVILY_API_KEY }}
+          contree-token: ${{ secrets.CONTREE_TOKEN }}
+          contree-project: ${{ vars.CONTREE_PROJECT }}
+          capture-replay: 'true'
+          runtime: ${{ steps.materialize.outputs.runtime }}
+
+      - name: Collect the public evidence links and the replay bundle
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_ID: ${{ steps.failed-ci.outputs.run-id }}
+          FIXTURE_SHA: ${{ steps.fixture.outputs.sha }}
+          PR_URL: ${{ steps.fixture.outputs.pr-url }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/replay"
+          for _ in $(seq 1 12); do
+            if gh run download "$GITHUB_RUN_ID" --name "sutura-replay-${CI_RUN_ID}.json" --dir "$RUNNER_TEMP/replay"; then break; fi
+            sleep 5
+          done
+          replay="$(find "$RUNNER_TEMP/replay" -type f -name '*.json' -print -quit || true)"
+          repair_pr="$(gh pr list --head "sutura/fix-${CI_RUN_ID}" --state all --json url --jq '.[0].url // ""')"
+          repair_paths=""
+          if [ -n "$repair_pr" ]; then repair_paths="$(gh pr diff "$repair_pr" --name-only)"; fi
+          check_url="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${FIXTURE_SHA}/check-runs" --jq ".check_runs[] | select(.external_id == \"sutura:${GITHUB_REPOSITORY}:workflow-run:${CI_RUN_ID}\") | .html_url" | head -n 1)"
+          pr_number="${PR_URL##*/}"
+          comment_url="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${pr_number}/comments" --jq '[.[] | select(.user.login == "github-actions[bot]")] | last | .html_url // ""')"
+          case_artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name == \"sutura-case-file-${CI_RUN_ID}.html\") | .id" | head -n 1)"
+          replay_artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" --jq ".artifacts[] | select(.name == \"sutura-replay-${CI_RUN_ID}.json\") | .id" | head -n 1)"
+          {
+            echo "replay=$replay"
+            echo "repair-pr=$repair_pr"
+            echo "repair-paths<<CASE_LAB_EOF"
+            echo "$repair_paths"
+            echo "CASE_LAB_EOF"
+            echo "check-url=$check_url"
+            echo "comment-url=$comment_url"
+            echo "case-artifact-url=${case_artifact_id:+https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts/${case_artifact_id}}"
+            echo "replay-artifact-url=${replay_artifact_id:+https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts/${replay_artifact_id}}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Reproduce the case file from the replay bundle with the released CLI
+        id: case-file
+        if: ${{ steps.collect.outputs.replay != '' }}
+        continue-on-error: true
+        env:
+          REPLAY: ${{ steps.collect.outputs.replay }}
+          RUNTIME: ${{ steps.materialize.outputs.runtime }}
+        run: |
+          "${{ steps.release-cli.outputs.cli }}" replay --bundle "$REPLAY" --format json --runtime "$RUNTIME" > "$RUNNER_TEMP/case-file.json"
+          echo "path=$RUNNER_TEMP/case-file.json" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the public-safe result document
+        env:
+          NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          CONTREE_TOKEN: ${{ secrets.CONTREE_TOKEN }}
+          REQUEST_ID: ${{ inputs.request-id }}
+          CASE_ID: ${{ inputs.case-id }}
+          OUTCOME: ${{ steps.sutura.outputs.outcome }}
+          DEMO_SHA: ${{ steps.identity.outputs.demo-sha }}
+          CASE_FILE: ${{ steps.case-file.outputs.path }}
+          REPLAY: ${{ steps.collect.outputs.replay }}
+          CI_RUN_URL: ${{ steps.failed-ci.outputs.run-url }}
+          PR_URL: ${{ steps.fixture.outputs.pr-url }}
+          REPAIR_PR_URL: ${{ steps.collect.outputs.repair-pr }}
+          REPAIR_PATHS: ${{ steps.collect.outputs.repair-paths }}
+          CHECK_URL: ${{ steps.collect.outputs.check-url }}
+          COMMENT_URL: ${{ steps.collect.outputs.comment-url }}
+          CASE_ARTIFACT_URL: ${{ steps.collect.outputs.case-artifact-url }}
+          REPLAY_ARTIFACT_URL: ${{ steps.collect.outputs.replay-artifact-url }}
+        run: |
+          node .sutura/packages/case-lab/bin/case-lab.js publish-result \
+            --request-id "$REQUEST_ID" --case "$CASE_ID" --outcome "$OUTCOME" \
+            --demo-sha "$DEMO_SHA" --controller-sha "$SUTURA_CONTROLLER_SHA" \
+            --workflow-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --ci-run-url "$CI_RUN_URL" --pull-request-url "$PR_URL" \
+            --repair-pull-request-url "$REPAIR_PR_URL" --check-url "$CHECK_URL" --refusal-comment-url "$COMMENT_URL" \
+            --case-file-artifact-url "$CASE_ARTIFACT_URL" --replay-artifact-url "$REPLAY_ARTIFACT_URL" \
+            --case-file "$CASE_FILE" --replay "$REPLAY" --repair-paths "$REPAIR_PATHS" \
+            --out "$RUNNER_TEMP/result.json"
+
+      - name: Commit the result to the public results branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_ID: ${{ inputs.request-id }}
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/results"
+          cd "$RUNNER_TEMP/results"
+          if git ls-remote --exit-code origin "refs/heads/${RESULTS_BRANCH}" >/dev/null; then
+            git fetch origin "${RESULTS_BRANCH}"
+            git checkout -B "${RESULTS_BRANCH}" "origin/${RESULTS_BRANCH}"
+          else
+            git checkout --orphan "${RESULTS_BRANCH}"
+            git rm -rf --quiet . || true
+            printf '# Case Lab results\n\nPublic-safe result documents written by the Case Lab workflow. Never edited by hand.\n' > README.md
+          fi
+          mkdir -p results
+          test ! -e "results/${REQUEST_ID}.json"
+          cp "$RUNNER_TEMP/result.json" "results/${REQUEST_ID}.json"
+          git add -A -- . ':(exclude).sutura'
+          git commit -m "case-lab: publish ${REQUEST_ID}"
+          git push origin "HEAD:${RESULTS_BRANCH}"
+
+      - name: Upload the result artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: sutura-case-lab-${{ inputs.request-id }}
+          path: ${{ runner.temp }}/result.json
+          if-no-files-found: error
+          retention-days: 90

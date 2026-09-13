@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "A naive timestamp is compared against an aware one.",
+  "riskClass": "timezone-aware-comparison",
+  "language": "python",
+  "failureFingerprint": "13f06578d056115aee6fe3268ff45a54d8d3ba8e8994bce9a1faf1a12431e43e",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-timezone-aware.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-timezone-aware",
+    "family": "timezone-aware-comparison"
+  },
+  "split": "development"
+}

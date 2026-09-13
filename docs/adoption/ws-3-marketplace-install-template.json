@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "sutura-marketplace-install-evidence-v1",
+  "listing": "https://github.com/marketplace/actions/sutura-verified-self-healing-ci",
+  "release": "v0.2.1",
+  "candidate": null,
+  "repositoryUrl": null,
+  "runUrl": null,
+  "installedFromMarketplace": false,
+  "publicReviewConfirmed": false,
+  "resultHash": null
+}

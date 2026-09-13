@@ -1,0 +1,11 @@
+diff --git a/money.py b/money.py
+index 9fed4dc..34c1120 100644
+--- a/money.py
++++ b/money.py
+@@ -1,2 +1,5 @@
++from decimal import Decimal
++
++
+ def total_cents(prices: list[str]) -> int:
+-    return int(sum(float(price) for price in prices) * 100)
++    return int(sum(Decimal(price) for price in prices) * 100)

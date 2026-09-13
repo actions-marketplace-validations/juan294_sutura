@@ -1,0 +1,8 @@
+diff --git a/shipping.py b/shipping.py
+index 7ead91b..d9d8052 100644
+--- a/shipping.py
++++ b/shipping.py
+@@ -1,2 +1,2 @@
+ def shipping_cost(weight_grams: int) -> int:
+-    return 500
++    return 500 + max(0, weight_grams - 1000) * 2

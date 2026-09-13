@@ -10,8 +10,9 @@ It reproduces real failures and races candidate repairs in isolated sandboxes.
 ## Context
 
 Entry for the Nebius x NVIDIA Global AI Hackathon (deadline 2026-10-30,
-track: Coding and Agentic Engineering; Tavily side prize targeted). Fit
-analysis and timeline: `docs/research/2026-08-26-nebius-hackathon-fit.md`.
+track: Coding and Agentic Engineering; Tavily side prize targeted).
+The [technical evaluation guide](docs/evaluation/README.md) maps the criteria to
+implementation, tests, dated evidence, and limitations.
 This repo is PUBLIC (MIT) from day 1 — never commit secrets, personal data,
 or anything from Juan's private fleet.
 
@@ -64,8 +65,10 @@ Run verification sequentially with `;` or `&&`, never as parallel Bash calls.
 
 ## Deployment
 
-No hosted deployment. The artifact is a GitHub Action + CLI; releases are
-tagged from `main`. Demo assets (video, sample runs) live in `docs/demo/`.
+The repair artifact is a GitHub Action + CLI; releases are tagged from `main`.
+The hosted [Case Lab](packages/case-lab/README.md) presents labeled demo results;
+live dispatch has a separate authorization gate. Demo assets (video, sample runs)
+live in `docs/demo/`. This overview does not record a fresh deployment check.
 
 Rules load from `.claude/rules/` and `.claude/skills/` automatically.
 
@@ -81,6 +84,9 @@ Go directly to these paths -- never search for them.
 
 | Topic    | Path                            | Notes                       |
 | -------- | ------------------------------- | --------------------------- |
+| Repository evaluation | [Technical evaluation guide](docs/evaluation/README.md) | Architecture, tests, evidence modes, and limitations |
+| Agent reports | `docs/agents/*-report.md` | Gitignored on public repos; tracked on private (Rule #70) |
+| Active hackathon roadmap | `docs/plans/2026-08-31-sutura-hackathon-winning-roadmap.md` | Remaining work through submission |
 | Research | `docs/research/YYYY-MM-DD-*.md` |                             |
 | Plans    | `docs/plans/YYYY-MM-DD-*.md`    | Phase files in `-phases/`   |
 | ADRs     | `docs/decisions/`               |                             |

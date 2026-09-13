@@ -1,0 +1,18 @@
+diff --git a/invoice.py b/invoice.py
+--- a/invoice.py
++++ b/invoice.py
+@@ -1,5 +1,5 @@
+ from pricing import line_total
+ 
+ 
+ def invoice_total(lines: list[dict[str, int]], discount: int) -> int:
+-    return sum(line_total(line["unit_price"], line["quantity"], discount) for line in lines)
++    return sum(line_total(line["unit_price"], line["quantity"]) for line in lines)
+diff --git a/pricing.py b/pricing.py
+--- a/pricing.py
++++ b/pricing.py
+@@ -1,2 +1,2 @@
+-def line_total(unit_price: int, quantity: int, discount: int) -> int:
+-    return unit_price * quantity - discount
++def line_total(unit_price: int, quantity: int) -> int:
++    return unit_price * quantity

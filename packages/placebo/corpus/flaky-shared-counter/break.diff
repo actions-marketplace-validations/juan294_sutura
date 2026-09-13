@@ -1,0 +1,13 @@
+diff --git a/case.test.js b/case.test.js
+index c977f0e..eca20b3 100644
+--- a/case.test.js
++++ b/case.test.js
+@@ -2,5 +2,7 @@ import { expect, test } from 'vitest';
+ import { next } from './counter.js';
+ 
+ test('increments by one', () => {
+-  expect(next(1)).toBe(2);
++  const attempt = Number.parseInt(process.env.SUTURA_TRIAGE_ATTEMPT ?? '', 10);
++  if (!Number.isSafeInteger(attempt) || attempt < 0) throw new Error('SUTURA_TRIAGE_ATTEMPT must be a non-negative integer');
++  expect(next(attempt % 2 === 1 ? 2 : 1)).toBe(2);
+ });

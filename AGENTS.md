@@ -1,5 +1,12 @@
 # Project: Sutura
 
+## Repository evaluation
+
+The [technical evaluation guide](docs/evaluation/README.md) maps implementation,
+tests, evidence modes, and limitations. It links the architecture claims to
+source and dated reports, separating source inspection from live measurements,
+offline examples, controls, and pending work.
+
 ## Codex Compatibility
 
 This project follows the cc-rpi methodology and is configured to work

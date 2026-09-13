@@ -2,6 +2,10 @@
 
 Date: 2026-08-28
 
+Post-release roadmap: `docs/plans/2026-08-31-sutura-hackathon-winning-roadmap.md`
+
+The implementation progress in this document records code completion. The post-release roadmap governs remaining benchmark, demo, external proof, submission, and final acceptance work.
+
 Research source: `docs/research/2026-08-28-sutura-two-month-opportunity-research.md`
 
 Target deadline: 2026-10-30 at 10:00 PT

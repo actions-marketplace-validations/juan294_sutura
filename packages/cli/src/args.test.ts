@@ -11,15 +11,21 @@ describe('parseArgs', () => {
       '--candidate-diff', 'diff --git a/a.js b/a.js\n',
       '--routing-profile', 'production-baseline-v1', '--no-tavily',
       '--runtime', 'python',
+      '--failing-command', " python3 -B -m unittest discover -s tests -p 'test_*.py' ",
     ])).toEqual({
       command: 'heal',
       caseDir: '/tmp/case',
       format: 'json',
       candidateDiff: 'diff --git a/a.js b/a.js\n',
+      failingCommand: "python3 -B -m unittest discover -s tests -p 'test_*.py'",
       routingProfile: 'production-baseline-v1',
       runtime: 'python',
       tavilyEnabled: false,
     });
+  });
+
+  it('leaves the failing command to the core default when the flag is absent', () => {
+    expect(parseArgs(['heal', '--case-dir', '/tmp/case', '--format', 'json'])).not.toHaveProperty('failingCommand');
   });
 
   it('parses external repository setup options', () => {
@@ -105,6 +111,11 @@ describe('parseArgs', () => {
     ['heal', '--case-dir', '/tmp/a', '--case-dir', '/tmp/b', '--format', 'json'],
     ['heal', '--case-dir', '/tmp/a', '--format', 'json', '--candidate-diff', ''],
     ['heal', '--case-dir', '/tmp/a', '--format', 'json', '--runtime', 'ruby'],
+    ['heal', '--case-dir', '/tmp/a', '--format', 'json', '--failing-command', '   '],
+    ['heal', '--case-dir', '/tmp/a', '--format', 'json', '--failing-command', 'pnpm test\npnpm lint'],
+    ['heal', '--case-dir', '/tmp/a', '--format', 'json', '--failing-command', 'pnpm t\u00e9st'],
+    ['heal', '--case-dir', '/tmp/a', '--format', 'json', '--failing-command', `pnpm test ${'-'.repeat(300)}`],
+    ['heal', '--case-dir', '/tmp/a', '--format', 'json', '--failing-command', 'pnpm test', '--failing-command', 'pnpm lint'],
     ['init', '--repo', 'invalid'],
     ['init', '--workflow', 'CI', '--workflow', 'Tests'],
     ['init', '--action-sha', 'main'],
@@ -127,5 +138,39 @@ describe('parseArgs', () => {
 
   it.each(invalidArguments.map((args) => [args] as const))('rejects malformed arguments: %j', (args) => {
     expect(() => parseArgs(args)).toThrow(CliUsageError);
+  });
+});
+
+describe('parseArgs counterfactual alternatives', () => {
+  it('parses --alternatives-file as a path', () => {
+    expect(parseArgs([
+      'heal', '--case-dir', '/tmp/case', '--format', 'json',
+      '--alternatives-file', '/tmp/alternatives.json',
+    ])).toEqual({
+      command: 'heal',
+      caseDir: '/tmp/case',
+      format: 'json',
+      alternativesFile: '/tmp/alternatives.json',
+      tavilyEnabled: true,
+    });
+  });
+
+  it('omits the field when the flag is absent', () => {
+    expect(parseArgs(['heal', '--case-dir', '/tmp/case', '--format', 'json']))
+      .not.toHaveProperty('alternativesFile');
+  });
+
+  it.each([
+    ['a missing value', ['heal', '--case-dir', '/tmp/case', '--format', 'json', '--alternatives-file']],
+    ['a flag as the value', ['heal', '--case-dir', '/tmp/case', '--format', 'json', '--alternatives-file', '--no-tavily']],
+    ['a duplicate flag', ['heal', '--case-dir', '/tmp/case', '--format', 'json', '--alternatives-file', '/a.json', '--alternatives-file', '/b.json']],
+  ])('refuses %s', (_case, args) => {
+    expect(() => parseArgs(args)).toThrow(CliUsageError);
+  });
+
+  it('documents the flag in the usage text', async () => {
+    const { USAGE } = await import('./args.js');
+
+    expect(USAGE).toContain('--alternatives-file <file>');
   });
 });

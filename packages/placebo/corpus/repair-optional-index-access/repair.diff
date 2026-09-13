@@ -1,0 +1,10 @@
+diff --git a/first-word.ts b/first-word.ts
+index 8603ce7..2fd9be3 100644
+--- a/first-word.ts
++++ b/first-word.ts
+@@ -1,4 +1,4 @@
+ export function firstWord(sentence: string): string {
+   const [word] = sentence.split(" ");
+-  return word.trim();
++  return word ?? "";
+ }

@@ -97,6 +97,58 @@ describe('Tavily grounding', () => {
     }]);
   });
 
+  it('retries one 403 with the exact same search request', async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(response('token=private-first-response', 403))
+      .mockResolvedValueOnce(response({
+        results: [{
+          title: 'Execa 6.0.0 release',
+          url: 'https://github.com/sindresorhus/execa/releases/tag/v6.0.0',
+          content: 'Execa 6 is pure ESM.',
+        }],
+      }));
+    const tavily = new TavilyClient('test-key', { fetch });
+
+    await expect(tavily.search(
+      'execa@6.0.0 TypeError: execa is not a function',
+      { maxResults: 5 },
+    )).resolves.toHaveLength(1);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1]).toEqual(fetch.mock.calls[0]);
+    expect(fetch.mock.calls[1]?.[0]).toBe(fetch.mock.calls[0]?.[0]);
+    expect(fetch.mock.calls[1]?.[1]).toBe(fetch.mock.calls[0]?.[1]);
+  });
+
+  it.each([401, 429, 500])('does not retry search status %s', async (status) => {
+    const fetch = vi.fn().mockResolvedValue(response({}, status));
+    const tavily = new TavilyClient('test-key', { fetch });
+
+    const error = await tavily.search('safe query').catch((cause: unknown) => cause);
+
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(error).toBeInstanceOf(TavilyRequestError);
+    expect(error).toMatchObject({ status });
+  });
+
+  it('stops after a second 403 without exposing either response body', async () => {
+    const privateBodies = ['token=private-first-response', 'token=private-second-response'];
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(response(privateBodies[0], 403))
+      .mockResolvedValueOnce(response(privateBodies[1], 403));
+    const tavily = new TavilyClient('test-key', { fetch });
+
+    const error = await tavily.search('safe query').catch((cause: unknown) => cause);
+
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1]).toEqual(fetch.mock.calls[0]);
+    expect(error).toBeInstanceOf(TavilyRequestError);
+    expect(error).toMatchObject({ status: 403 });
+    expect((error as Error).message).not.toContain(privateBodies[0]);
+    expect((error as Error).message).not.toContain(privateBodies[1]);
+    expect(error).not.toHaveProperty('body');
+  });
+
   it('rejects invalid extract inputs and missing credentials before transport', async () => {
     const fetch = vi.fn();
     const githubUrl = 'https://github.com/example/project';
@@ -280,6 +332,58 @@ describe('Tavily grounding', () => {
     }));
   });
 
+  it('rejects malicious, unrelated, empty, and oversized extracted citations', async () => {
+    const releaseUrl = 'https://github.com/chalk/chalk/releases/tag/v5.0.0';
+    const upgradeUrl = 'https://github.com/chalk/chalk/blob/main/docs/v5-UPGRADE-GUIDE.md';
+    const accepted = {
+      title: 'GitHub upgrade guide: v5',
+      url: upgradeUrl,
+      snippet: 'Migrate Chalk consumers to ESM imports.',
+    };
+    const extract = vi.fn().mockResolvedValue([
+      {
+        title: 'Unrelated release',
+        url: 'https://github.com/attacker/chalk/releases/tag/v5.0.0',
+        snippet: 'Malicious unrelated content.',
+      },
+      { title: 'Insecure release', url: releaseUrl.replace('https:', 'http:'), snippet: 'HTTP.' },
+      { title: ' ', url: releaseUrl, snippet: 'Missing title.' },
+      { title: 'x'.repeat(256), url: releaseUrl, snippet: 'Oversized title.' },
+      { title: 'Release', url: releaseUrl, snippet: ' ' },
+      { title: 'Release', url: releaseUrl, snippet: 'x'.repeat(2_001) },
+      accepted,
+    ]);
+
+    const result = await ground(
+      {
+        search: vi.fn().mockResolvedValue([]),
+        packageRepository: vi.fn().mockResolvedValue('https://github.com/chalk/chalk'),
+        extract,
+      },
+      { ...BUILD_DIAGNOSIS, errorExcerpt: 'TypeError: chalk.green is not a function' },
+      { tavilyEnabled: true, dependencyHints: ['chalk@5.0.0'] },
+    );
+
+    expect(result.citations).toEqual([accepted]);
+  });
+
+  it('rejects a non-public registry repository root before extraction', async () => {
+    const extract = vi.fn();
+
+    const result = await ground(
+      {
+        search: vi.fn().mockResolvedValue([]),
+        packageRepository: vi.fn().mockResolvedValue('https://github.com.evil.test/chalk/chalk'),
+        extract,
+      },
+      { ...BUILD_DIAGNOSIS, errorExcerpt: 'TypeError: chalk.green is not a function' },
+      { tavilyEnabled: true, dependencyHints: ['chalk@5.0.0'] },
+    );
+
+    expect(result.citations).toEqual([]);
+    expect(extract).not.toHaveBeenCalled();
+  });
+
   it('keeps primary citations when optional release extraction fails', async () => {
     const citation = {
       title: 'Chalk migration discussion',
@@ -298,6 +402,156 @@ describe('Tavily grounding', () => {
       { tavilyEnabled: true, dependencyHints: ['chalk@5.0.0'] },
     )).resolves.toMatchObject({ citations: [citation], skipped: false });
     expect(search).toHaveBeenCalledOnce();
+  });
+
+  it('recovers a repeated search 403 from one exact registry-verified release extraction', async () => {
+    const forbidden = new TavilyRequestError('Tavily search request failed with status 403', 403);
+    const search = vi.fn().mockRejectedValue(forbidden);
+    const packageRepository = vi.fn().mockResolvedValue('https://github.com/sindresorhus/execa');
+    const release = {
+      title: 'GitHub release: v6.0.0',
+      url: 'https://github.com/sindresorhus/execa/releases/tag/v6.0.0',
+      snippet: 'Execa 6 is pure ESM.',
+    };
+    const extract = vi.fn().mockResolvedValue([release]);
+
+    await expect(ground(
+      { search, packageRepository, extract },
+      { ...BUILD_DIAGNOSIS, errorExcerpt: 'TypeError: execa is not a function' },
+      {
+        tavilyEnabled: true,
+        dependencyHints: ['chalk@5.0.0', 'execa@6.0.0', 'invalid hint'],
+      },
+    )).resolves.toMatchObject({
+      query: 'execa@6.0.0 TypeError: execa is not a function',
+      citations: [release],
+      skipped: false,
+    });
+    expect(packageRepository).toHaveBeenCalledOnce();
+    expect(packageRepository).toHaveBeenCalledWith('execa', '6.0.0');
+    expect(extract).toHaveBeenCalledWith(
+      [
+        'https://github.com/sindresorhus/execa/releases/tag/v6.0.0',
+        'https://github.com/sindresorhus/execa/blob/main/docs/v6-UPGRADE-GUIDE.md',
+      ],
+      'execa 6.0.0 breaking changes migration',
+    );
+  });
+
+  it('recovers two TavilyClient search 403s through exact release extraction', async () => {
+    const releaseUrl = 'https://github.com/sindresorhus/execa/releases/tag/v6.0.0';
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(response('token=private-first-search-response', 403))
+      .mockResolvedValueOnce(response('token=private-second-search-response', 403))
+      .mockResolvedValueOnce(response({
+        name: 'execa',
+        version: '6.0.0',
+        repository: 'https://github.com/sindresorhus/execa',
+      }))
+      .mockResolvedValueOnce(response({
+        results: [{ url: releaseUrl, raw_content: 'Execa 6 is pure ESM.' }],
+      }));
+    const tavily = new TavilyClient('test-key', { fetch });
+
+    await expect(ground(
+      tavily,
+      { ...BUILD_DIAGNOSIS, errorExcerpt: 'TypeError: execa is not a function' },
+      { tavilyEnabled: true, dependencyHints: ['execa@6.0.0'] },
+    )).resolves.toMatchObject({
+      query: 'execa@6.0.0 TypeError: execa is not a function',
+      citations: [{ url: releaseUrl, snippet: 'Execa 6 is pure ESM.' }],
+      skipped: false,
+    });
+    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(fetch.mock.calls[1]?.[0]).toBe(fetch.mock.calls[0]?.[0]);
+    expect(fetch.mock.calls[1]?.[1]).toBe(fetch.mock.calls[0]?.[1]);
+  });
+
+  it('rethrows the original TavilyClient first-403 error when exact extraction is empty', async () => {
+    const privateBodies = ['token=private-first-search-response', 'token=private-second-search-response'];
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(response(privateBodies[0], 403))
+      .mockResolvedValueOnce(response(privateBodies[1], 403))
+      .mockResolvedValueOnce(response({
+        name: 'execa',
+        version: '6.0.0',
+        repository: 'https://github.com/sindresorhus/execa',
+      }))
+      .mockResolvedValueOnce(response({ results: [] }));
+    const tavily = new TavilyClient('test-key', { fetch });
+    const search = tavily.search.bind(tavily);
+    let originalForbidden: unknown;
+    vi.spyOn(tavily, 'search').mockImplementation(async (...args) => {
+      try {
+        return await search(...args);
+      } catch (error) {
+        originalForbidden = error;
+        throw error;
+      }
+    });
+
+    const error = await ground(
+      tavily,
+      { ...BUILD_DIAGNOSIS, errorExcerpt: 'TypeError: execa is not a function' },
+      { tavilyEnabled: true, dependencyHints: ['execa@6.0.0'] },
+    ).catch((cause: unknown) => cause);
+
+    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(error).toBe(originalForbidden);
+    expect(error).toBeInstanceOf(TavilyRequestError);
+    expect(error).toMatchObject({ status: 403 });
+    expect((error as Error).message).not.toContain(privateBodies[0]);
+    expect((error as Error).message).not.toContain(privateBodies[1]);
+    expect(error).not.toHaveProperty('body');
+  });
+
+  it('rethrows the original search 403 when exact release extraction is empty', async () => {
+    const forbidden = new TavilyRequestError('Tavily search request failed with status 403', 403);
+    const search = vi.fn().mockRejectedValue(forbidden);
+    const packageRepository = vi.fn().mockResolvedValue('https://github.com/sindresorhus/execa');
+    const extract = vi.fn().mockResolvedValue([]);
+
+    const error = await ground(
+      { search, packageRepository, extract },
+      { ...BUILD_DIAGNOSIS, errorExcerpt: 'TypeError: execa is not a function' },
+      { tavilyEnabled: true, dependencyHints: ['execa@6.0.0'] },
+    ).catch((cause: unknown) => cause);
+
+    expect(error).toBe(forbidden);
+    expect(packageRepository).toHaveBeenCalledOnce();
+    expect(extract).toHaveBeenCalledOnce();
+  });
+
+  it('rethrows the original search 403 without a relevant validated dependency', async () => {
+    const forbidden = new TavilyRequestError('Tavily search request failed with status 403', 403);
+    const packageRepository = vi.fn();
+    const extract = vi.fn();
+
+    const error = await ground(
+      { search: vi.fn().mockRejectedValue(forbidden), packageRepository, extract },
+      { ...BUILD_DIAGNOSIS, errorExcerpt: 'TypeError: execa is not a function' },
+      { tavilyEnabled: true, dependencyHints: ['chalk@5.0.0', 'invalid hint'] },
+    ).catch((cause: unknown) => cause);
+
+    expect(error).toBe(forbidden);
+    expect(packageRepository).not.toHaveBeenCalled();
+    expect(extract).not.toHaveBeenCalled();
+  });
+
+  it('does not use release extraction for a non-403 search failure', async () => {
+    const unavailable = new TavilyRequestError('Tavily search request failed with status 503', 503);
+    const packageRepository = vi.fn();
+    const extract = vi.fn();
+
+    const error = await ground(
+      { search: vi.fn().mockRejectedValue(unavailable), packageRepository, extract },
+      { ...BUILD_DIAGNOSIS, errorExcerpt: 'TypeError: execa is not a function' },
+      { tavilyEnabled: true, dependencyHints: ['execa@6.0.0'] },
+    ).catch((cause: unknown) => cause);
+
+    expect(error).toBe(unavailable);
+    expect(packageRepository).not.toHaveBeenCalled();
+    expect(extract).not.toHaveBeenCalled();
   });
 
   it('does not enrich an unrelated dependency on a substring match', async () => {

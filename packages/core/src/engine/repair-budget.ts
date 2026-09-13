@@ -61,6 +61,12 @@ export interface ModelTurnReservation {
   readonly reservedUsd: number;
 }
 
+const CAPACITY_KEYS = ['modelTurns', 'toolCalls', 'branches', 'sandboxOperations', 'inferenceCostUsd', 'elapsedTimeSec'] as const;
+type CapacityKey = typeof CAPACITY_KEYS[number];
+export type RepairCapacity = Partial<Pick<RepairBudgetLimits, CapacityKey>>;
+/** Capability valid only in the issuing budget; serialized lookalikes have no authority. */
+export interface RepairCapacityReservation { readonly id: number }
+
 export interface RepairBudgetSnapshot {
   modelTurns: number;
   toolCalls: number;
@@ -79,6 +85,7 @@ export class RepairBudget {
   private inferenceCostUsd = 0;
   private nextReservationId = 1;
   private readonly unsettled = new Map<number, number>();
+  private readonly held = new Map<RepairCapacityReservation, Record<CapacityKey, number>>();
   private readonly startedAt: number;
 
   constructor(
@@ -89,34 +96,79 @@ export class RepairBudget {
     this.startedAt = now();
   }
 
-  private assertElapsed(): void {
-    if ((this.now() - this.startedAt) / 1_000 >= this.limits.elapsedTimeSec) {
+  private assertElapsed(reservation?: RepairCapacityReservation): void {
+    if (this.remainingElapsedTimeSec(reservation) <= 0) {
       throw new BudgetExceededError('elapsedTimeSec');
     }
   }
 
   private reserveCount(
     key: 'toolCalls' | 'branches' | 'sandboxOperations',
+    reservation?: RepairCapacityReservation,
   ): void {
-    this.assertElapsed();
-    if (this[key] >= this.limits[key]) throw new BudgetExceededError(key);
+    this.assertElapsed(reservation);
+    if (reservation !== undefined) {
+      const remaining = this.capacityFor(reservation);
+      if (remaining[key] < 1) throw new BudgetExceededError(key);
+      remaining[key] -= 1;
+    } else if (this.committed(key) >= this.limits[key]) throw new BudgetExceededError(key);
     this[key] += 1;
   }
 
-  reserveToolCall(): void { this.reserveCount('toolCalls'); }
-  reserveBranch(): void { this.reserveCount('branches'); }
-  reserveSandboxOperation(): void { this.reserveCount('sandboxOperations'); }
+  private committed(key: CapacityKey): number {
+    const spent = key === 'elapsedTimeSec' ? Math.max(0, (this.now() - this.startedAt) / 1_000) : this[key];
+    return spent + [...this.held.values()].reduce((sum, capacity) => sum + capacity[key], 0);
+  }
 
-  reserveModelTurn(worstCaseUsd: number): ModelTurnReservation {
+  private capacityFor(reservation: RepairCapacityReservation): Record<CapacityKey, number> {
+    const remaining = this.held.get(reservation);
+    if (!remaining) throw new Error('Capacity reservation is not active in this run');
+    return remaining;
+  }
+
+  reserveCapacity(capacity: RepairCapacity): RepairCapacityReservation {
     this.assertElapsed();
+    if (Object.keys(capacity).some((key) => !CAPACITY_KEYS.includes(key as CapacityKey))) {
+      throw new RangeError('Capacity reservation contains an unknown resource');
+    }
+    const remaining = {} as Record<CapacityKey, number>;
+    for (const key of CAPACITY_KEYS) {
+      const value = capacity[key] ?? 0;
+      if (!Number.isFinite(value) || value < 0 || (key !== 'inferenceCostUsd' && !Number.isSafeInteger(value))) {
+        throw new RangeError('Capacity reservation must contain bounded nonnegative resources');
+      }
+      if (this.committed(key) + value > this.limits[key]) throw new BudgetExceededError(key);
+      remaining[key] = value;
+    }
+    const reservation = Object.freeze({ id: this.nextReservationId++ });
+    this.held.set(reservation, remaining);
+    return reservation;
+  }
+
+  releaseCapacity(reservation: RepairCapacityReservation): void {
+    this.capacityFor(reservation);
+    this.held.delete(reservation);
+  }
+
+  reserveToolCall(reservation?: RepairCapacityReservation): void { this.reserveCount('toolCalls', reservation); }
+  reserveBranch(reservation?: RepairCapacityReservation): void { this.reserveCount('branches', reservation); }
+  reserveSandboxOperation(reservation?: RepairCapacityReservation): void { this.reserveCount('sandboxOperations', reservation); }
+
+  reserveModelTurn(worstCaseUsd: number, capacity?: RepairCapacityReservation): ModelTurnReservation {
+    this.assertElapsed(capacity);
     if (!Number.isFinite(worstCaseUsd) || worstCaseUsd <= 0) {
       throw new RangeError('Worst-case model cost must be positive');
     }
-    if (this.modelTurns >= this.limits.modelTurns) {
+    const remaining = capacity === undefined ? undefined : this.capacityFor(capacity);
+    if (remaining ? remaining.modelTurns < 1 : this.committed('modelTurns') >= this.limits.modelTurns) {
       throw new BudgetExceededError('modelTurns');
     }
-    if (this.inferenceCostUsd + worstCaseUsd > this.limits.inferenceCostUsd) {
+    if (remaining ? worstCaseUsd > remaining.inferenceCostUsd + 1e-12 : this.committed('inferenceCostUsd') + worstCaseUsd > this.limits.inferenceCostUsd) {
       throw new BudgetExceededError('inferenceCostUsd');
+    }
+    if (remaining) {
+      remaining.modelTurns -= 1;
+      remaining.inferenceCostUsd = Math.max(0, remaining.inferenceCostUsd - worstCaseUsd);
     }
     this.modelTurns += 1;
     this.inferenceCostUsd += worstCaseUsd;
@@ -143,21 +195,23 @@ export class RepairBudget {
     }
   }
 
-  remainingElapsedTimeSec(): number {
+  remainingElapsedTimeSec(reservation?: RepairCapacityReservation): number {
+    if (reservation !== undefined) this.capacityFor(reservation);
+    const protectedTime = [...this.held].reduce((sum, [owner, capacity]) => sum + (owner === reservation ? 0 : capacity.elapsedTimeSec), 0);
     return Math.max(
       0,
-      this.limits.elapsedTimeSec - (this.now() - this.startedAt) / 1_000,
+      this.limits.elapsedTimeSec - (this.now() - this.startedAt) / 1_000 - protectedTime,
     );
   }
 
   snapshot(): RepairBudgetSnapshot {
     return {
-      modelTurns: this.modelTurns,
-      toolCalls: this.toolCalls,
-      branches: this.branches,
-      sandboxOperations: this.sandboxOperations,
+      modelTurns: this.committed('modelTurns'),
+      toolCalls: this.committed('toolCalls'),
+      branches: this.committed('branches'),
+      sandboxOperations: this.committed('sandboxOperations'),
       elapsedTimeSec: Math.max(0, (this.now() - this.startedAt) / 1_000),
-      inferenceCostUsd: this.inferenceCostUsd,
+      inferenceCostUsd: this.committed('inferenceCostUsd'),
     };
   }
 }

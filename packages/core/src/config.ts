@@ -4,7 +4,7 @@ import {
   type RepairBudgetLimits,
 } from './engine/repair-budget.js';
 import { DEFAULT_SEARCH_LIMITS } from './engine/search.js';
-import { DEFAULT_ROUTING_PROFILE_ID } from './llm/router.js';
+import { DEFAULT_ROUTING_PROFILE_ID, DEVELOPMENT_ROUTING_PROFILE_ID } from './llm/router.js';
 import type { RuntimeId } from './runtime/types.js';
 
 export const DEFAULT_MODELS = {
@@ -122,9 +122,9 @@ function boundedPositiveNumber(
 
 export function loadConfig(env: ConfigEnvironment): Config {
   const routingProfileId = optional(env, 'SUTURA_ROUTING_PROFILE') ?? DEFAULT_ROUTING_PROFILE_ID;
-  if (routingProfileId !== DEFAULT_ROUTING_PROFILE_ID) {
+  if (routingProfileId !== DEFAULT_ROUTING_PROFILE_ID && routingProfileId !== DEVELOPMENT_ROUTING_PROFILE_ID) {
     throw new ConfigError(
-      `SUTURA_ROUTING_PROFILE must be ${DEFAULT_ROUTING_PROFILE_ID} until a complete price-verified profile is shipped`,
+      `SUTURA_ROUTING_PROFILE must be ${DEFAULT_ROUTING_PROFILE_ID} or ${DEVELOPMENT_ROUTING_PROFILE_ID}`,
     );
   }
   const config: Config = {

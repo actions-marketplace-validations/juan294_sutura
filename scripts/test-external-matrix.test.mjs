@@ -8,6 +8,8 @@ import {
 } from './test-external-matrix.mjs';
 
 const SHA = 'a'.repeat(40);
+const DEMO_SHA = 'b'.repeat(40);
+const PACKAGE_HASH = '52d323125e48e88096ad74768516d259c5b25fcb6c0aa739b4b38f17185adfd4';
 
 function result(definition, overrides = {}) {
   return {
@@ -17,10 +19,17 @@ function result(definition, overrides = {}) {
     expectedOutcome: definition.expectedOutcome,
     actualOutcome: definition.expectedOutcome,
     auditApproved: definition.expectedOutcome === 'fixed' || definition.expectedOutcome === 'audit-approved',
-    packageVersion: '0.2.0',
+    packageVersion: '0.2.1',
+    packageMode: 'candidate',
+    packageContentHash: PACKAGE_HASH,
     actionCommit: SHA,
+    demoRunId: '12345',
+    demoCommit: DEMO_SHA,
+    controllerId: `matrix-${definition.caseId}`,
+    fixtureCommit: 'c'.repeat(40),
+    evidenceHash: 'd'.repeat(64),
     setupDurationMs: 100,
-    outcomeLinks: [`https://github.com/sutura-test/${definition.caseId}/actions/runs/1`],
+    outcomeLinks: [`https://github.com/juan294/sutura-demo/actions/runs/12345`],
     inferenceCostUsd: 0.01,
     sandboxCostUsd: 0.02,
     stages: [
@@ -53,11 +62,11 @@ test('runs all eight cases in canonical order and creates deterministic denomina
     return result(definition);
   };
   const first = await runExternalMatrix({
-    mode: 'candidate', packageVersion: '0.2.0', actionCommit: SHA, executeCase,
+    mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA, executeCase,
   });
   const second = createExternalMatrixManifest({
-    mode: 'candidate', packageVersion: '0.2.0', actionCommit: SHA,
-    results: [...first.cases].reverse(),
+    mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA,
+    results: [...first.cases].reverse().map((value) => ({ ...value, packageMode: 'candidate' })),
   });
 
   assert.deepEqual(seen, EXTERNAL_MATRIX_CASES.map(({ caseId }) => caseId));
@@ -79,10 +88,13 @@ test('fails closed for missing, duplicate, mismatched, unsafe, or invalid-operat
     valid.map((item, index) => index === 0 ? { ...item, inferenceCostUsd: -1 } : item),
     valid.map((item, index) => index === 0 ? { ...item, stages: [{ operationId: 7 }] } : item),
     valid.map((item, index) => index === 0 ? { ...item, outcomeLinks: ['file:///tmp/private'] } : item),
+    valid.map((item, index) => index === 0 ? { ...item, packageMode: 'public' } : item),
+    valid.map((item, index) => index === 0 ? { ...item, demoCommit: 'not-a-sha' } : item),
+    valid.map((item, index) => index === 0 ? { ...item, packageContentHash: 'e'.repeat(64) } : item),
   ];
   for (const results of invalidSets) {
     assert.throws(() => createExternalMatrixManifest({
-      mode: 'candidate', packageVersion: '0.2.0', actionCommit: SHA, results,
+      mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA, results,
     }));
   }
 });
@@ -92,7 +104,7 @@ test('retains and counts every approved refusal as a false approval', () => {
     const results = EXTERNAL_MATRIX_CASES.map((definition) => result(definition));
     results[2] = { ...results[2], actualOutcome, auditApproved: true };
     const manifest = createExternalMatrixManifest({
-      mode: 'candidate', packageVersion: '0.2.0', actionCommit: SHA, results,
+      mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA, results,
     });
     assert.equal(manifest.of, 8);
     assert.equal(manifest.falseApprovalCount, 1);
@@ -102,13 +114,28 @@ test('retains and counts every approved refusal as a false approval', () => {
 });
 
 test('retains every failed case in the denominator and blocks readiness', () => {
-  const results = EXTERNAL_MATRIX_CASES.map((definition) => result(definition));
+  const results = EXTERNAL_MATRIX_CASES.map((definition) => result(definition, { packageMode: 'public' }));
   results[0] = { ...results[0], actualOutcome: 'gave-up', auditApproved: false };
   const manifest = createExternalMatrixManifest({
-    mode: 'public', packageVersion: '0.2.0', actionCommit: SHA, results,
+    mode: 'public', packageVersion: '0.2.1', actionCommit: SHA, results,
   });
   assert.equal(manifest.passedCount, 7);
   assert.equal(manifest.of, 8);
   assert.equal(manifest.ready, false);
   assert.deepEqual(manifest.failedCaseIds, ['javascript-repair']);
+});
+
+test('retains a validated infra-stop with unavailable cost and no fabricated sandbox operation', () => {
+  const results = EXTERNAL_MATRIX_CASES.map((definition) => result(definition));
+  results[6] = result(EXTERNAL_MATRIX_CASES[6], {
+    actualOutcome: 'infra-stop', auditApproved: false, costStatus: 'unavailable',
+    inferenceCostUsd: null, sandboxCostUsd: null, stages: [],
+  });
+  const manifest = createExternalMatrixManifest({
+    mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA, results,
+  });
+  assert.equal(manifest.passedCount, 7);
+  assert.deepEqual(manifest.failedCaseIds, ['python-repair']);
+  assert.equal(manifest.cases[6].costStatus, 'unavailable');
+  assert.equal(manifest.cases[6].sandboxCostUsd, null);
 });

@@ -8,6 +8,8 @@ import { SNAPSHOT_CWD, type Executor, type RunResult } from '../executor/types.j
 import { boundedTail } from '../text/bounded-tail.js';
 import { adjudicate, type AdjudicationLlm } from './adjudicate.js';
 import { runMechanicalChecks } from './mechanical.js';
+import { vetPatch } from '../engine/patch-rules.js';
+import type { RepairAuthorizationContext } from '../engine/repair-authorization.js';
 
 export type AuditLlm = AdjudicationLlm;
 
@@ -15,6 +17,7 @@ export interface AuditContext {
   diagnosis: Diagnosis;
   beforeLog: string;
   suiteCommand: string;
+  authorization?: RepairAuthorizationContext;
 }
 
 const OUTPUT_STREAM_BOUNDS = {
@@ -80,6 +83,10 @@ export async function audit(
       ],
       reasoning: 'REFUSED: the selected candidate did not pass its repair race.',
     };
+  }
+  const authorization = vetPatch(winner.candidate.diff, context.diagnosis, context.authorization);
+  if (!authorization.ok) {
+    return { approved: false, checks: [...mechanical, { name: 'policy-patch', passed: false, evidence: authorization.violations.join('; ') }, skippedAdjudication('repair authorization refused the patch')], reasoning: `REFUSED: ${authorization.violations.join('; ')}` };
   }
   if (!context.suiteCommand.trim()) {
     return {

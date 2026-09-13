@@ -21,5 +21,18 @@
     "public-demo-enable",
     "devpost-update"
   ],
+  "ownerPhaseByEvidenceId": {
+    "benchmark": 0,
+    "candidate-matrix": 0,
+    "demo": 1,
+    "devpost": 7,
+    "dogfood": 0,
+    "feedback": 5,
+    "github-release": 0,
+    "local-gate": 0,
+    "marketplace": 4,
+    "npm": 0,
+    "public-matrix": 0
+  },
   "pendingMeansNotReleaseReady": true
 }

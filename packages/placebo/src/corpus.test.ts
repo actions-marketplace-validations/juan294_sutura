@@ -4,9 +4,10 @@ import { access, cp, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { runMechanicalChecks } from '@sutura/core';
 
-import { applyPatch, createCorpusManifest, discoverCases, prepareFixture, selfCheckCorpus, verifyCandidateWithHiddenTests } from './corpus.js';
+import { applyPatch, createCorpusManifest, createPortableTestRuntime, discoverBenchmarkCases, discoverCases, installFixture, prepareFixture, runFixtureSuite, selfCheckCorpus, verifyCandidateWithHiddenTests } from './corpus.js';
 import type { CaseKind, CorpusCase } from './types.js';
 
 const NEW_CASE_IDS = [
@@ -83,6 +84,13 @@ describe('Placebo v0.2 corpus', () => {
       if (benchmarkCase.metadata.language === 'python') {
         await expect(access(`${benchmarkCase.fixtureDirectory}/uv.lock`)).resolves.toBeUndefined();
         await expect(access(`${benchmarkCase.fixtureDirectory}/node_modules`)).rejects.toThrow();
+        const pyproject = await readFile(`${benchmarkCase.fixtureDirectory}/pyproject.toml`, 'utf8');
+        const projectName = pyproject.match(/^name = "([a-z0-9-]+)"$/mu)?.[1];
+        const projectVersion = pyproject.match(/^version = "([0-9.]+)"$/mu)?.[1];
+        const lock = await readFile(`${benchmarkCase.fixtureDirectory}/uv.lock`, 'utf8');
+        expect(projectName).toBeDefined();
+        expect(projectVersion).toBeDefined();
+        expect(lock).toContain(`[[package]]\nname = "${projectName}"\nversion = "${projectVersion}"\nsource = { virtual = "." }`);
       } else {
         await expect(access(`${benchmarkCase.fixtureDirectory}/pnpm-lock.yaml`)).resolves.toBeUndefined();
         const packageJson = JSON.parse(await readFile(`${benchmarkCase.fixtureDirectory}/package.json`, 'utf8')) as {
@@ -103,12 +111,24 @@ describe('Placebo v0.2 corpus', () => {
     const first = await createCorpusManifest();
     const second = await createCorpusManifest(cases.toReversed());
     expect(second).toEqual(first);
-    expect(first.cases).toHaveLength(52);
+    expect(first.cases).toHaveLength(51);
+    expect(await discoverBenchmarkCases()).toHaveLength(51);
+    expect(first.cases.some(({ id }) => id === 'repair-dogfood-arithmetic')).toBe(false);
     expect(first.lineage).toEqual([{ version: '0.1', caseIds: expect.any(Array) }]);
     expect(first.lineage[0]?.caseIds).toHaveLength(26);
     expect(first.corpusHash).toMatch(/^[a-f0-9]{64}$/);
     expect(first.cases.every(({ contentHash }) => /^[a-f0-9]{64}$/u.test(contentHash))).toBe(true);
     expect(first.cases.filter(({ hiddenTestSetHash }) => hiddenTestSetHash !== undefined)).toHaveLength(15);
+  });
+
+  it('keeps the frozen v0.2 corpus hash byte-identical to the committed manifest', async () => {
+    const committed: unknown = JSON.parse(await readFile(
+      fileURLToPath(new URL('../../../docs/demo/placebo-v0.2-corpus.json', import.meta.url)),
+      'utf8',
+    ));
+
+    expect((await createCorpusManifest()).corpusHash)
+      .toBe((committed as { corpusHash: string }).corpusHash);
   });
 
   it('keeps every corpus file public-safe and the network simulator outbound-free', async () => {
@@ -282,7 +302,43 @@ describe('Placebo v0.2 corpus', () => {
       await rm(corpus, { recursive: true, force: true });
       await rm(emptyStore, { recursive: true, force: true });
     }
-  }, 30_000);
+  }, 120_000);
+
+  it('makes every flaky fixture fail its first reproduction, before triage sets an attempt', async () => {
+    // Sutura reproduces once with no SUTURA_TRIAGE_ATTEMPT before triage
+    // scripts the ratio. A fixture that defaults the attempt can pass that
+    // reproduction, and the run is then reported as an infrastructure stop
+    // rather than as a flake, which is what happened live to
+    // flaky-shared-counter on 2026-09-06.
+    const cases = (await discoverCases(undefined, { includeVersionedCases: true }))
+      .filter(({ metadata }) => metadata.kind === 'flaky');
+    expect(cases.length).toBeGreaterThan(0);
+
+    const store = await mkdtemp(join(tmpdir(), 'placebo-flaky-store-'));
+    const runtime = await createPortableTestRuntime(store);
+    const passed: string[] = [];
+    try {
+      for (const benchmarkCase of cases) {
+        const root = await mkdtemp(join(tmpdir(), `placebo-flaky-${benchmarkCase.id}-`));
+        const fixture = join(root, 'fixture');
+        try {
+          await cp(benchmarkCase.fixtureDirectory, fixture, { recursive: true });
+          await prepareFixture(fixture, store, runtime);
+          await applyPatch(fixture, benchmarkCase.breakPatch);
+          if (benchmarkCase.metadata.language !== 'python') await installFixture(fixture, store);
+          const exitCode = await runFixtureSuite(fixture, { SUTURA_TRIAGE_ATTEMPT: '' });
+          if (exitCode === 0) passed.push(benchmarkCase.id);
+        } finally {
+          await rm(root, { recursive: true, force: true });
+        }
+      }
+    } finally {
+      await runtime.cleanup();
+      await rm(store, { recursive: true, force: true });
+    }
+
+    expect(passed, 'these flakes pass their first reproduction and read as infra-stop').toEqual([]);
+  }, 900_000);
 
   it('proves every break patch is red and every clean fixture is green', async () => {
     const emptyStore = await mkdtemp(join(tmpdir(), 'placebo-empty-store-'));
@@ -290,33 +346,47 @@ describe('Placebo v0.2 corpus', () => {
       rm(emptyStore, { recursive: true, force: true }),
     );
 
-    expect(report).toHaveLength(52);
+    expect(report).toHaveLength(101);
     expect(report.every(({ brokenFailed, cleanPassed }) => brokenFailed && cleanPassed)).toBe(true);
-    expect(report.filter(({ brokenRuns }) => brokenRuns && brokenRuns.some(Boolean) && brokenRuns.some((failed) => !failed))).toHaveLength(10);
+    expect(report.filter(({ brokenRuns }) => brokenRuns && brokenRuns.some(Boolean) && brokenRuns.some((failed) => !failed))).toHaveLength(13);
     expect(report.filter(({ placeboPassed }) => placeboPassed).map(({ caseId }) => caseId)).toEqual([
+      'python-trap-assert-true',
       'python-trap-broad-type-ignore',
+      'python-trap-expected-failure',
+      'python-trap-patched-subject',
       'python-trap-skipped-test',
       'python-trap-swallowed-exception',
+      'python-trap-widened-tolerance',
       'trap-as-any',
       'trap-assertion-tautology',
       'trap-conditional-assertion-deletion',
       'trap-deleted-test',
+      'trap-empty-catch',
       'trap-error-propagation-removal',
       'trap-eslint-off',
+      'trap-loosened-precision',
       'trap-mocked-dependency-replacement',
+      'trap-narrowed-test-input',
+      'trap-non-null-assertion',
       'trap-pass-with-no-tests',
       'trap-policy-file-modification',
+      'trap-recovery-assertion-rewrite',
+      'trap-recovery-config-relaxation',
       'trap-skipped-test',
       'trap-snapshot-acceptance',
       'trap-swallowed-error',
       'trap-test-glob-exclusion',
       'trap-timeout-inflation',
+      'trap-two-file-test-shortcut',
+      'trap-two-file-third-path',
       'trap-weakened-expect',
       'trap-workflow-check-removal',
     ]);
+    // Hidden verification runs for the traps that ship hidden checks beside
+    // their fake fix; the rest are caught by the visible suite alone.
     expect(report.filter(({ hiddenVerification }) => hiddenVerification !== undefined))
-      .toHaveLength(11);
+      .toHaveLength(21);
     expect(report.filter(({ hiddenVerification }) => hiddenVerification?.result === 'failed'))
-      .toHaveLength(11);
+      .toHaveLength(21);
   }, 1_500_000);
 });

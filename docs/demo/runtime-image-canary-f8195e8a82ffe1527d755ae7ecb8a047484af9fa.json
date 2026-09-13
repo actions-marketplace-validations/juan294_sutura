@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "sutura-runtime-image-canary-v2",
+  "headSha": "f8195e8a82ffe1527d755ae7ecb8a047484af9fa",
+  "capturedAt": "2026-09-04T14:33:05.155Z",
+  "registryResolution": {
+    "imageRef": "astral/uv:0.9.30-python3.13-bookworm",
+    "indexDigest": "sha256:47965cdc9d53a515f68f78241161c901e70051ce428f12e791bd7fe19f6a631a",
+    "linuxAmd64Digest": "sha256:35b0aa516fbcf6f18624919cfc38fa02ab3458e0ffcd3c03e932051b37f315db"
+  },
+  "proof": {
+    "schemaVersion": "sutura-python-image-proof-v2",
+    "imageRef": "astral/uv:0.9.30-python3.13-bookworm",
+    "expectedIndexDigest": "sha256:47965cdc9d53a515f68f78241161c901e70051ce428f12e791bd7fe19f6a631a",
+    "expectedLinuxAmd64Digest": "sha256:35b0aa516fbcf6f18624919cfc38fa02ab3458e0ffcd3c03e932051b37f315db",
+    "importedImageId": "16f9b64e-3bdc-302c-b4c8-a194ed5483cd",
+    "requiredTools": [
+      "Python 3.13.11",
+      "uv 0.9.30",
+      "git version 2.39.5",
+      "tar (GNU tar) 1.34"
+    ],
+    "operationId": "sutura-python-runtime-image-proof"
+  }
+}

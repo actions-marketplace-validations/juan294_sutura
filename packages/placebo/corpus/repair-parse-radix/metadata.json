@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "A leading zero makes the parsed value depend on an implicit radix.",
+  "riskClass": "parse-radix",
+  "language": "javascript",
+  "failureFingerprint": "e91b7543d61ffdb57778bc12a0fb4bf88e9cead12ac752af277a05f9c5c6ceb1",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-parse-radix.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-parse-radix",
+    "family": "parse-radix"
+  },
+  "split": "development"
+}

@@ -96,10 +96,10 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...REQUIRED_ENV, SUTURA_RUNTIME: 'ruby' })).toThrow(/SUTURA_RUNTIME/iu);
   });
 
-  it('rejects a routing profile until complete price-verified evidence ships', () => {
+  it('rejects an unknown routing profile', () => {
     expect(() => loadConfig({
       ...REQUIRED_ENV, SUTURA_ROUTING_PROFILE: 'partial-ablation',
-    })).toThrow(/complete price-verified profile/u);
+    })).toThrow(/SUTURA_ROUTING_PROFILE must be/u);
   });
 
   it.each(['SUTURA_TRIAGE_N', 'SUTURA_RACE_K', 'SUTURA_MAX_OPS'])(
@@ -122,4 +122,9 @@ describe('loadConfig', () => {
       new RegExp(name),
     );
   });
+});
+
+it('permits the explicit development adaptive profile', () => {
+  expect(loadConfig({ ...REQUIRED_ENV, SUTURA_ROUTING_PROFILE: 'development-adaptive-v1' }).routingProfileId)
+    .toBe('development-adaptive-v1');
 });

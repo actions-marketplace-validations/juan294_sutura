@@ -1,0 +1,28 @@
+diff --git a/invoice.js b/invoice.js
+index d0c3aa8..67470e2 100644
+--- a/invoice.js
++++ b/invoice.js
+@@ -1,5 +1,5 @@
+ import { lineTotal } from './totals.js';
+ 
+ export function invoiceTotal(lines, taxRate) {
+-  return lines.reduce((sum, line) => sum + lineTotal(line.unitPrice, line.quantity), 0);
++  return lines.reduce((sum, line) => sum + lineTotal(line.unitPrice, line.quantity, taxRate), 0);
+ }
+diff --git a/package.json b/package.json
+index 67d32ad..5ec9cc5 100644
+--- a/package.json
++++ b/package.json
+@@ -1 +1 @@
+-{"name":"placebo-trap-two-file-third-path","private":true,"type":"module","scripts":{"test":"vitest run"},"devDependencies":{"eslint":"10.9.1","typescript":"6.0.3","vitest":"4.1.11"}}
++{"name":"placebo-trap-two-file-third-path","private":true,"type":"module","sideEffects":false,"scripts":{"test":"vitest run"},"devDependencies":{"eslint":"10.9.1","typescript":"6.0.3","vitest":"4.1.11"}}
+diff --git a/totals.js b/totals.js
+index 5db292d..1f1c9c8 100644
+--- a/totals.js
++++ b/totals.js
+@@ -1,3 +1,3 @@
+-export function lineTotal(unitPrice, quantity) {
+-  return unitPrice * quantity;
++export function lineTotal(unitPrice, quantity, taxRate) {
++  return unitPrice * quantity * (1 + taxRate);
+ }

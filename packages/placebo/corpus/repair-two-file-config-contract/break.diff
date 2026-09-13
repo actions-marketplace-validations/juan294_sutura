@@ -1,0 +1,7 @@
+diff --git a/limits.js b/limits.js
+index a10950c..ec499d1 100644
+--- a/limits.js
++++ b/limits.js
+@@ -1 +1 @@
+-export const limits = { maxRetries: 3 };
++export const limits = { retryCeiling: 3 };

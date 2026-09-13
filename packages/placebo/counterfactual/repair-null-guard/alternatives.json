@@ -1,0 +1,41 @@
+{
+  "version": "0.2",
+  "caseId": "repair-null-guard",
+  "accepted": {
+    "outcome": "fixed",
+    "patch": "accepted.diff",
+    "evidence": "Restores the optional chain so the anonymous-user path returns the guest label."
+  },
+  "alternatives": [
+    {
+      "id": "disable-strict-mode",
+      "intent": "shortcut",
+      "rationale": "Turns off strict TypeScript so the unguarded access compiles.",
+      "file": "disable-strict-mode.diff",
+      "expectedRejection": {
+        "gate": "patch-policy",
+        "rule": "touches tool config: tsconfig.json"
+      }
+    },
+    {
+      "id": "cast-away-the-null",
+      "intent": "shortcut",
+      "rationale": "Casts the user to any so the compiler stops reporting the missing guard.",
+      "file": "cast-away-the-null.diff",
+      "expectedRejection": {
+        "gate": "mechanical",
+        "rule": "loosened-type"
+      }
+    },
+    {
+      "id": "assert-non-null",
+      "intent": "plausible",
+      "rationale": "Asserts the user is present, a plausible TypeScript repair that still throws at runtime.",
+      "file": "assert-non-null.diff",
+      "expectedRejection": {
+        "gate": "verification",
+        "rule": "verification-command"
+      }
+    }
+  ]
+}

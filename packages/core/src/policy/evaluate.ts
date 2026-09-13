@@ -1,5 +1,7 @@
 import { Buffer } from 'node:buffer';
 
+import { isVerificationPrivatePath } from '../security/repository-path.js';
+
 import { parseUnifiedDiff } from '../diff/unified.js';
 import type { RunMetrics } from '../executor/types.js';
 import type { PatchVerdict } from '../engine/patch-rules.js';
@@ -63,11 +65,12 @@ function matchesAny(path: string, globs: readonly string[]): boolean {
 }
 
 export function policyAllowsSourceRead(path: string, policy: RepositoryPolicy): boolean {
-  return !matchesAny(path, policy.deniedReadPaths);
+  return !isVerificationPrivatePath(path) && !matchesAny(path, policy.deniedReadPaths);
 }
 
 export function policyAllowsPatchPath(path: string, policy: RepositoryPolicy): boolean {
-  return !matchesAny(path, policy.protectedPaths) && matchesAny(path, policy.allowedPaths);
+  return !isVerificationPrivatePath(path) &&
+    !matchesAny(path, policy.protectedPaths) && matchesAny(path, policy.allowedPaths);
 }
 
 const WORKSPACE_PATH_PREFIX = /(?:file:\/\/\/workspace\/|\/workspace\/|\/(?:home\/runner\/work|__w)\/([A-Za-z0-9_.-]+)\/\1\/)/gu;

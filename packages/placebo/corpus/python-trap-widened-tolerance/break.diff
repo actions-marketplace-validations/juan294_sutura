@@ -1,0 +1,8 @@
+diff --git a/stats.py b/stats.py
+index e16c64d..0f54b23 100644
+--- a/stats.py
++++ b/stats.py
+@@ -1,2 +1,2 @@
+ def mean(values: list[float]) -> float:
+-    return sum(values) / len(values)
++    return sum(values) / (len(values) + 1)

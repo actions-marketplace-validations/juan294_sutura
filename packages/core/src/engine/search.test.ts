@@ -12,6 +12,14 @@ function expansion(diff: string, exitCode: number, error = 'still failing'): Sea
   };
 }
 
+function completionLimitExpansion(): SearchExpansion {
+  return {
+    ...expansion('', 1, 'completion-limit: Repair proposal reached the provider completion-token limit'),
+    policyEvidence: { valid: true, violations: [], changedFiles: [], diffBytes: 0 },
+    terminalReason: 'completion-limit',
+  };
+}
+
 describe('adaptiveSearch', () => {
   it('uses stable lineage and deterministically expands the best beam', async () => {
     const expand = vi.fn(async ({ depth, branch }: { depth: number; branch: number }) =>
@@ -37,6 +45,31 @@ describe('adaptiveSearch', () => {
     expect(expand).toHaveBeenCalledTimes(3);
     expect(result.nodes.filter(({ terminalReason }) => terminalReason === 'repeated-state')).toHaveLength(2);
     expect(result.terminalReason).toBe('frontier-exhausted');
+  });
+
+  it('keeps patched failures in the beam ahead of a branch that produced no patch', async () => {
+    const expand = vi.fn(async ({ depth, branch, parent }: {
+      depth: number;
+      branch: number;
+      parent: { id: string } | undefined;
+    }) => {
+      if (depth !== 1) return expansion(`depth-2-${parent?.id}`, 1, `depth-2-${parent?.id}`);
+      if (branch !== 3) return expansion(`diff-${branch}`, 1, `e${branch}`);
+      return {
+        ...expansion('', 1, 'invalid: Repair proposal must be valid JSON'),
+        policyEvidence: { valid: true, violations: [], changedFiles: [], diffBytes: 0 },
+        terminalReason: 'failed' as const,
+      };
+    });
+    const result = await adaptiveSearch({
+      baselineImageId: 'base', initialBranches: 4, beamWidth: 2, maximumDepth: 2,
+      maximumTotalBranches: 12, availableBranches: () => 12, expand,
+    });
+    const depthTwoNodes = result.nodes.filter(({ depth }) => depth === 2);
+    const patchedParentIds = new Set(['search-001', 'search-002', 'search-004']);
+    expect(depthTwoNodes).toHaveLength(2);
+    expect(depthTwoNodes.every(({ parentId }) => parentId !== undefined && patchedParentIds.has(parentId))).toBe(true);
+    expect(depthTwoNodes.map(({ parentId }) => parentId)).not.toContain('search-003');
   });
 
   it('still prunes repeated generic failed states', async () => {
@@ -125,26 +158,98 @@ describe('adaptiveSearch', () => {
     expect(result.nodes[1]?.terminalReason).toBe('cancelled');
   });
 
-  it('stops globally on a completion limit and preserves cancelled sibling evidence', async () => {
+  it('continues past one completion limit while applied proposals outnumber it', async () => {
     const cancel = vi.fn(async (nodeId: string) => { void nodeId; });
-    const expand = vi.fn(async ({ branch, signal }: { branch: number; signal: AbortSignal }) => {
-      if (branch === 1) {
-        return { ...expansion('limited', 1), terminalReason: 'completion-limit' as const };
+    let releaseDepthOne!: () => void;
+    let markCompletionSettled!: () => void;
+    const depthOnePending = new Promise<void>((resolve) => { releaseDepthOne = resolve; });
+    const completionSettled = new Promise<void>((resolve) => { markCompletionSettled = resolve; });
+    const pendingSignals: AbortSignal[] = [];
+    const expand = vi.fn(async ({ depth, branch, parent, signal }: {
+      depth: number;
+      branch: number;
+      parent: { id: string } | undefined;
+      signal: AbortSignal;
+    }) => {
+      if (depth !== 1) return expansion(`depth-2-${parent?.id}`, 1, `depth-2-${parent?.id}`);
+      if (branch === 3) {
+        markCompletionSettled();
+        return completionLimitExpansion();
       }
-      await new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
-      return { ...expansion('cancelled', 1, 'cancelled'), terminalReason: 'cancelled' as const };
+      pendingSignals.push(signal);
+      await depthOnePending;
+      return expansion(`diff-${branch}`, 1, `e${branch}`);
+    });
+    const resultPromise = adaptiveSearch({
+      baselineImageId: 'base', initialBranches: 4, beamWidth: 2, maximumDepth: 2,
+      maximumTotalBranches: 8, availableBranches: () => 8,
+      concurrencyCapacity: () => 4, cancel, expand,
+    });
+    await completionSettled;
+    await Promise.resolve();
+    expect(cancel).not.toHaveBeenCalled();
+    expect(pendingSignals).toHaveLength(3);
+    expect(pendingSignals.every(({ aborted }) => !aborted)).toBe(true);
+    releaseDepthOne();
+    const result = await resultPromise;
+    expect(cancel).not.toHaveBeenCalled();
+    expect(pendingSignals.every(({ aborted }) => !aborted)).toBe(true);
+    expect(expand).toHaveBeenCalledTimes(6);
+    expect(result.nodes.filter(({ depth, policyEvidence }) =>
+      depth === 1 && policyEvidence.changedFiles.length > 0,
+    ).map(({ id, terminalReason }) => [id, terminalReason])).toEqual([
+      ['search-001', undefined], ['search-002', undefined], ['search-004', undefined],
+    ]);
+    const depthTwoNodes = result.nodes.filter(({ depth }) => depth === 2);
+    const patchedParentIds = new Set(['search-001', 'search-002', 'search-004']);
+    expect(depthTwoNodes).toHaveLength(2);
+    expect(depthTwoNodes.every(({ parentId }) => parentId !== undefined && patchedParentIds.has(parentId))).toBe(true);
+    expect(result.terminalReason).toBe('frontier-exhausted');
+    expect(result.nodes[2]?.terminalReason).toBe('completion-limit');
+  });
+
+  it('stops the run when completion limits outnumber applied proposals', async () => {
+    const expand = vi.fn(async () => completionLimitExpansion());
+    const result = await adaptiveSearch({
+      baselineImageId: 'base', initialBranches: 2, beamWidth: 2, maximumDepth: 3,
+      maximumTotalBranches: 6, availableBranches: () => 6,
+      concurrencyCapacity: () => 2, expand,
+    });
+    expect(expand).toHaveBeenCalledTimes(2);
+    expect(result.terminalReason).toBe('completion-limit');
+    expect(result.nodes.every(({ terminalReason }) => terminalReason === 'completion-limit')).toBe(true);
+  });
+
+  it('one completion limit in a batch of one stops the run', async () => {
+    const expand = vi.fn(async () => completionLimitExpansion());
+    const result = await adaptiveSearch({
+      baselineImageId: 'base', initialBranches: 4, beamWidth: 2, maximumDepth: 4,
+      maximumTotalBranches: 12, availableBranches: () => 4,
+      concurrencyCapacity: () => 1, expand,
+    });
+    expect(expand).toHaveBeenCalledOnce();
+    expect(result.terminalReason).toBe('completion-limit');
+  });
+
+  it('never expands a completion-limit node', async () => {
+    const expand = vi.fn(async ({ depth, branch, parent }: {
+      depth: number;
+      branch: number;
+      parent: { id: string } | undefined;
+    }) => {
+      if (depth !== 1) return expansion(`depth-2-${parent?.id}`, 1, 'depth-2');
+      if (branch === 1) return expansion('diff-1', 1, 'e1');
+      return completionLimitExpansion();
     });
     const result = await adaptiveSearch({
-      baselineImageId: 'base', initialBranches: 4, beamWidth: 2, maximumDepth: 2,
-      maximumTotalBranches: 8, availableBranches: () => 4,
-      concurrencyCapacity: () => 3, cancel, expand,
+      baselineImageId: 'base', initialBranches: 2, beamWidth: 2, maximumDepth: 2,
+      maximumTotalBranches: 6, availableBranches: () => 6,
+      concurrencyCapacity: () => 2, expand,
     });
     expect(expand).toHaveBeenCalledTimes(3);
-    expect(cancel.mock.calls.map(([nodeId]) => nodeId)).toEqual(['search-002', 'search-003']);
-    expect(result.terminalReason).toBe('completion-limit');
-    expect(result.nodes.map(({ terminalReason }) => terminalReason)).toEqual([
-      'completion-limit', 'cancelled', 'cancelled',
-    ]);
+    const depthTwoNodes = result.nodes.filter(({ depth }) => depth === 2);
+    expect(depthTwoNodes).toHaveLength(1);
+    expect(depthTwoNodes[0]?.parentId).toBe('search-001');
   });
 
   it('keeps a passing candidate when its batch also reaches a completion limit', async () => {
@@ -171,5 +276,84 @@ describe('adaptiveSearch', () => {
       expand: async ({ branch }) => expansion(`winner-${branch}`, 0),
     });
     expect(result.candidates.map(({ id }) => id)).toEqual(['search-001', 'search-002']);
+  });
+});
+
+describe('verified admission', () => {
+  const options = (
+    admit?: (input: { nodeId: string; expansion: SearchExpansion }) =>
+      Promise<{ accepted: boolean; reason?: string }>,
+  ) => ({
+    baselineImageId: 'base' as never,
+    initialBranches: 3,
+    maximumDepth: 1,
+    availableBranches: () => 3,
+    concurrencyCapacity: () => 3,
+    ...(admit === undefined ? {} : { admit }),
+  });
+
+  /** Branch 1 is green but wrong; branch 2 is green and correct. */
+  const expandTwo = (results: readonly string[]) =>
+    async ({ branch }: { branch: number }) => expansion(results[branch - 1] ?? 'x', 0);
+
+  it('admits a green branch on the visible suite when no verifier is supplied', async () => {
+    const result = await adaptiveSearch({
+      ...options(), expand: expandTwo(['floor-only', 'ceil', 'third']),
+    });
+
+    expect(result.terminalReason).toBe('candidate-found');
+    expect(result.candidates).not.toHaveLength(0);
+  });
+
+  it('does not cancel siblings at the first visible green', async () => {
+    const cancel = vi.fn(async () => {});
+    const result = await adaptiveSearch({
+      ...options(async ({ expansion: item }) =>
+        ({ accepted: item.cumulativeDiff === 'ceil', reason: 'challenge refused the patch' })),
+      cancel,
+      expand: expandTwo(['floor-only', 'ceil', 'third']),
+    });
+
+    const refused = result.nodes.find(({ cumulativeDiff }) => cumulativeDiff === 'floor-only');
+    expect(refused?.terminalReason).toBe('verification-refused');
+    expect(refused?.verificationReason).toBe('challenge refused the patch');
+    expect(result.candidates.map(({ cumulativeDiff }) => cumulativeDiff)).toEqual(['ceil']);
+    expect(result.terminalReason).toBe('candidate-found');
+  });
+
+  it('keeps a refused provisional patch out of the accepted candidates', async () => {
+    const result = await adaptiveSearch({
+      ...options(async () => ({ accepted: false, reason: 'no qualified challenge' })),
+      expand: expandTwo(['floor-only', 'also-wrong', 'third']),
+    });
+
+    expect(result.candidates).toEqual([]);
+    expect(result.terminalReason).not.toBe('candidate-found');
+    for (const node of result.nodes) {
+      expect(node.terminalReason).toBe('verification-refused');
+      expect(node.verificationReason).toBe('no qualified challenge');
+    }
+  });
+
+  it('never verifies a branch whose visible suite did not pass', async () => {
+    const admit = vi.fn(async () => ({ accepted: true }));
+    await adaptiveSearch({
+      ...options(admit), expand: async () => expansion('red', 1),
+    });
+
+    expect(admit).not.toHaveBeenCalled();
+  });
+
+  it('never verifies a branch the repository policy already refused', async () => {
+    const admit = vi.fn(async () => ({ accepted: true }));
+    await adaptiveSearch({
+      ...options(admit),
+      expand: async () => ({
+        ...expansion('green', 0),
+        policyEvidence: { valid: false, violations: ['denied'], changedFiles: ['a.ts'], diffBytes: 5 },
+      }),
+    });
+
+    expect(admit).not.toHaveBeenCalled();
   });
 });

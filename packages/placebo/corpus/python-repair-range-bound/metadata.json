@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "An inclusive range loses its final value.",
+  "riskClass": "range-exclusive-bound",
+  "language": "python",
+  "failureFingerprint": "2d5146716297298d01746957d51faa7222a1c9644aa4f3371d1dfad6f13b3315",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-range-bound.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-range-bound",
+    "family": "range-exclusive-bound"
+  },
+  "split": "development"
+}

@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "A shallow copy lets an update reach the original nested object.",
+  "riskClass": "shallow-copy-mutation",
+  "language": "javascript",
+  "failureFingerprint": "c4ef4c60469e924ca97018515dbe5a8f5e33778cbd3ef85954298f7f952427d1",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-shallow-copy-mutation.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-shallow-copy-mutation",
+    "family": "shallow-copy-mutation"
+  },
+  "split": "held-out"
+}

@@ -277,3 +277,10 @@
 - No further paid attempt was dispatched before the new live bundle had a named replay regression, focused tests, dynamic guard coverage, captured-fixture validation, and the local acceptance gate.
 - Candidate `c6ec76d3eb3f5c61bccc7cfaad777d766f0ef46d` passed exact-SHA CI run `33325295547`, provider canary run `33325881533`, and all six dogfood gate checks. Live Sutura run `33326031664` then produced the canonical one-line repair and passed the scoped Core test, but refused the candidate before publication because the Ultra response included valid approval JSON with `tool_calls: null`. The provider parser rejected `null` before reading the content. The complete refused bundle is fixture `33325938237`; attempt spend was USD 1.058483 and cumulative spend was USD 2.711514.
 - The provider parser now treats omitted and null `tool_calls` as the same empty list, while still rejecting null content without valid calls. The exact Ultra response is a named live regression test. Dogfood automation now promotes both `gave-up` and `refused` complete bundles, so all non-fixed model or audit evidence survives candidate replacement.
+
+### Phase 5 total-cap extension
+
+- Plan said: Stop all Phase 5 live work at USD 10.00 and compute streak spend from the trailing fixed entries for the current candidate.
+- Found: Three repaired non-fixed candidates had already spent USD 2.711514, and six fixed samples on candidate `a99e231` brought total Phase 5 spend to USD 9.153422. The reserve correctly stopped attempt 7, but four samples remained.
+- Chose: After the user's 2026-08-31 authorization, raise the total Phase 5 cap to USD 14.00 and make the runner count every scratch-ledger entry against it. Preserve exact candidate `a99e231` by resuming attempts 7-10 with the existing `dogfood run` subcommand and the same total-ledger reserve check before each dispatch; land the controller correction only after the live streak.
+- Why: This directly enforces the authorized total across candidate replacements, leaves enough reserved headroom for attempts 7 through 10, and does not reset the six existing samples by changing their exact candidate SHA.

@@ -1,0 +1,10 @@
+diff --git a/tests/test_profile.py b/tests/test_profile.py
+--- a/tests/test_profile.py
++++ b/tests/test_profile.py
+@@ -3,5 +3,5 @@
+ 
+ class ProfileTest(unittest.IsolatedAsyncioTestCase):
+     async def test_profile(self):
+-        result = await fetch_profile(" Ada ")
++        result = fetch_profile(" Ada ")
+         self.assertEqual(result["name"], "ADA")

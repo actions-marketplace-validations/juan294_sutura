@@ -576,7 +576,7 @@ describe('prepareRepair', () => {
 
 describe('race and selectWinner', () => {
   it('races all candidates from one parent and selects the smallest held diff', async () => {
-    const exits = [1, 0, 0];
+    const exits = [1, 0, 0, 0, 0];
     const executor = new InMemoryExecutor((_cmd, _parent, callIndex) => ({
       exitCode: exits[callIndex] ?? 1,
       stdout: '',
@@ -595,8 +595,9 @@ describe('race and selectWinner', () => {
     expect(results.map(({ held }) => held)).toEqual([false, true, true]);
     expect(selectWinner(results)?.candidate.id).toBe('small');
     const runCalls = executor.calls.filter((call) => call.kind === 'run');
-    expect(runCalls).toHaveLength(3);
-    expect(runCalls.every(({ parent }) => parent === 'failure-image')).toBe(true);
+    expect(runCalls).toHaveLength(5);
+    expect(runCalls.slice(0, 3).every(({ parent }) => parent === 'failure-image')).toBe(true);
+    expect(runCalls.slice(3).map(({ parent }) => parent)).toEqual(results.slice(1).map(result => result.imageId));
     expect(runCalls.every(({ opts }) => opts?.cwd === '/workspace')).toBe(true);
   });
 
@@ -658,6 +659,16 @@ describe('race and selectWinner', () => {
     expect(call.cmd).not.toContain(hostileDiff);
     expect(call.cmd).not.toContain('<<');
     expect(call.cmd).toContain(Buffer.from(hostileDiff).toString('base64'));
-    expect(call.cmd).toContain("sh -lc 'pnpm test; touch /tmp/injected && echo $(secret)'");
+    expect(executor.calls.filter(call => call.kind === 'run')[1]!.cmd).toBe("sh -lc 'pnpm test; touch /tmp/injected && echo $(secret)'");
   });
+});
+
+it('keeps the applied image as the audit subject even when visible tests mutate their child', async () => {
+  const executor = new InMemoryExecutor(() => ({ exitCode: 0, stdout: '', stderr: '', truncated: false, metrics: {} }));
+  const [result] = await race(executor, 'baseline', [candidate('one', 'patch')], 'pnpm test');
+  const calls = executor.calls.filter(call => call.kind === 'run');
+  expect(calls).toHaveLength(2);
+  expect(calls[0]!.cmd).not.toContain('pnpm test');
+  expect(calls[1]!.parent).toBe(result!.imageId);
+  expect(calls[1]!.parent).not.toBe('baseline');
 });

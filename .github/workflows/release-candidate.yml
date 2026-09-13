@@ -25,7 +25,7 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           version: 11.22.0
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -33,10 +33,21 @@ jobs:
       - run: pnpm run test:release-contracts
       - run: pnpm run build
       - run: git diff --exit-code -- packages/action/dist/index.cjs
+      - name: Prove immutable Python runtime image in ConTree
+        run: pnpm run canary:runtime-image
+        env:
+          CONTREE_TOKEN: ${{ secrets.CONTREE_TOKEN }}
+          CONTREE_PROJECT: ${{ vars.CONTREE_PROJECT }}
+          SUTURA_CANARY_OUTPUT_DIRECTORY: ${{ runner.temp }}
       - name: Verify candidate package and immutable Action
         run: node scripts/test-candidate-install.mjs "${{ inputs.action-sha }}" > "$RUNNER_TEMP/candidate-install-evidence.json"
       - uses: actions/upload-artifact@v7
         with:
           name: candidate-install-evidence
           path: ${{ runner.temp }}/candidate-install-evidence.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: runtime-image-canary
+          path: ${{ runner.temp }}/runtime-image-canary-*.json
           if-no-files-found: error

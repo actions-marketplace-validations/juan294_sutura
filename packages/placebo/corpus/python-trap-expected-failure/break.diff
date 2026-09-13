@@ -1,0 +1,11 @@
+diff --git a/parser.py b/parser.py
+index 75c2cb5..6495c44 100644
+--- a/parser.py
++++ b/parser.py
+@@ -1,5 +1,2 @@
+ def parse_port(value: str) -> int:
+-    port = int(value)
+-    if not 1 <= port <= 65535:
+-        raise ValueError("port out of range")
+-    return port
++    return int(value)

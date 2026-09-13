@@ -8,6 +8,7 @@ import {
 export type InputReader = (name: string) => string;
 
 export interface ActionConfiguration {
+  mode?: 'verify';
   githubToken: string;
   runId: string;
   triageN: number;
@@ -80,6 +81,10 @@ function booleanInput(value: string, fallback: boolean, name: string): boolean {
 }
 
 export function mapActionInputs(read: InputReader): ActionConfiguration {
+  const mode = read('mode').trim() || 'heal';
+  if (mode !== 'heal' && mode !== 'verify') {
+    throw new ActionInputError('mode must be heal or verify');
+  }
   const runId = required(read, 'run-id');
   if (!/^[1-9]\d*$/.test(runId)) {
     throw new ActionInputError('run-id must be a positive decimal id');
@@ -111,6 +116,7 @@ export function mapActionInputs(read: InputReader): ActionConfiguration {
   if (runtime !== undefined) environment.SUTURA_RUNTIME = runtime;
 
   return {
+    ...(mode === 'verify' ? { mode: 'verify' as const } : {}),
     githubToken: required(read, 'github-token'),
     runId,
     triageN,

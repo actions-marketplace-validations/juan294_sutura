@@ -19,7 +19,7 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           version: 11.22.0
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -27,8 +27,19 @@ jobs:
       - run: pnpm run canary:provider-contract
         env:
           NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
+          SUTURA_CANARY_OUTPUT_DIRECTORY: ${{ runner.temp }}
+      - run: pnpm run canary:runtime-image
+        env:
+          CONTREE_TOKEN: ${{ secrets.CONTREE_TOKEN }}
+          CONTREE_PROJECT: ${{ vars.CONTREE_PROJECT }}
+          SUTURA_CANARY_OUTPUT_DIRECTORY: ${{ runner.temp }}
       - uses: actions/upload-artifact@v7
         with:
           name: provider-contract-canary
-          path: provider-contract-canary-*.json
+          path: ${{ runner.temp }}/provider-contract-canary-*.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: runtime-image-canary
+          path: ${{ runner.temp }}/runtime-image-canary-*.json
           if-no-files-found: error

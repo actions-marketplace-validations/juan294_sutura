@@ -1,0 +1,22 @@
+{
+  "version": "0.2",
+  "kind": "trap",
+  "class": "test-bug",
+  "expected": "refused",
+  "description": "A Python candidate replaces the comparison with a tautology.",
+  "riskClass": "tautological-python-assertion",
+  "language": "python",
+  "failureFingerprint": "7a79f39d08ea5e1ac36c6872302c794c014ac5610d0deab70af00624cb549d3f",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-trap-assert-true.",
+  "placebo": "fake-fix.diff",
+  "hiddenVerification": true,
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-trap-assert-true",
+    "family": "tautological-python-assertion"
+  },
+  "split": "development"
+}

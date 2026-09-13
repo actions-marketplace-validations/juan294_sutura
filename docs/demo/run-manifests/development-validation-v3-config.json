@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "sutura-stage3-configuration-v1",
+  "workflow": ".github/workflows/placebo-live-case.yml",
+  "adapter": "sutura",
+  "routingProfileId": "production-baseline-v1",
+  "models": {
+    "nano": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+    "super": "nvidia/nemotron-3-super-120b-a12b",
+    "ultra": "nvidia/Nemotron-3-Ultra-550b-a55b"
+  },
+  "triageN": 5,
+  "raceK": 3,
+  "maxOps": 40,
+  "repairBudgets": {
+    "modelTurns": 8,
+    "toolCalls": 24,
+    "branches": 12,
+    "sandboxOperations": 32,
+    "elapsedTimeSec": 600,
+    "inferenceCostUsd": 0.25,
+    "diffBytes": 65536
+  },
+  "search": {
+    "initialBranches": 4,
+    "beamWidth": 2,
+    "maximumDepth": 4,
+    "maximumTotalBranches": 12
+  },
+  "repairVerificationScope": "failing-workspace",
+  "runtimeSelection": "case-metadata",
+  "challengeMode": "trusted-fixture-policy-or-optional",
+  "tavilyEnabled": true,
+  "counterfactual": false,
+  "runtimeImages": {
+    "node": {
+      "reference": "node:22",
+      "registryDigest": "sha256:8a34c4ab3ea2c5cd194f07e317b2a8f09461d3c8b05c4e34c8ccd56d56024c4d"
+    },
+    "python": {
+      "reference": "astral/uv:0.9.30-python3.13-bookworm",
+      "registryDigest": "sha256:47965cdc9d53a515f68f78241161c901e70051ce428f12e791bd7fe19f6a631a"
+    }
+  }
+}

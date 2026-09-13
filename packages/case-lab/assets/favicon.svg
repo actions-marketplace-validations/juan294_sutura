@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sutura">
+  <rect width="64" height="64" rx="12" fill="#1b1f24"/>
+  <path d="M14 40 L50 24" stroke="#b3261e" stroke-width="3" stroke-linecap="round"/>
+  <g stroke="#fbfbf9" stroke-width="4" stroke-linecap="round">
+    <path d="M20 26 L26 44"/>
+    <path d="M29 24 L35 42"/>
+    <path d="M38 22 L44 40"/>
+  </g>
+</svg>

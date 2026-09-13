@@ -1,0 +1,7 @@
+diff --git a/rate.js b/rate.js
+index 8e7a275..6340e4d 100644
+--- a/rate.js
++++ b/rate.js
+@@ -1 +1 @@
+-export const perSecond = (count, ms) => (count * 1000) / ms;
++export const perSecond = (count, ms) => (count * 1000) / (ms + 500);

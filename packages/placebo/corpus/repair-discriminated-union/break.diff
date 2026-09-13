@@ -1,0 +1,11 @@
+diff --git a/outcome.ts b/outcome.ts
+index 9e3245f..fb1b7e2 100644
+--- a/outcome.ts
++++ b/outcome.ts
+@@ -1,5 +1,5 @@
+ type Outcome = { kind: 'ok'; value: number } | { kind: 'error'; message: string };
+ 
+ export function describe(outcome: Outcome): string {
+-  return outcome.kind === 'ok' ? String(outcome.value) : outcome.message;
++  return outcome.message;
+ }

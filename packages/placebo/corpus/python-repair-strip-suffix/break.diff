@@ -1,0 +1,8 @@
+diff --git a/names.py b/names.py
+index c50791f..051d861 100644
+--- a/names.py
++++ b/names.py
+@@ -1,2 +1,2 @@
+ def without_suffix(name: str, suffix: str) -> str:
+-    return name[: -len(suffix)] if suffix and name.endswith(suffix) else name
++    return name.rstrip(suffix)

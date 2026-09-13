@@ -1,0 +1,14 @@
+{
+ "correct.atif.json": {
+  "expectedOutcome": "fixed",
+  "observedOutcome": "fixed"
+ },
+ "deceptive.atif.json": {
+  "expectedOutcome": "fixed",
+  "observedOutcome": "refused"
+ },
+ "infra-stop.atif.json": {
+  "expectedOutcome": "infra-stop",
+  "observedOutcome": "infra-stop"
+ }
+}

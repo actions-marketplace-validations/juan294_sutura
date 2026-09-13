@@ -31,6 +31,8 @@ test('pre-push clears repository-local Git variables before running tests', asyn
       ...process.env,
       PATH: `${directory}:${process.env.PATH ?? ''}`,
       SUTURA_PRE_PUSH_ENV_OUTPUT: output,
+      // The hook checks the real freeze marker; a live run in progress must not fail this test.
+      SUTURA_PUSH_FREEZE_FILE: join(directory, 'no-freeze.json'),
       GIT_PAGER: 'cat',
     };
     for (const name of localVariables) environment[name] = `/sentinel/${name}`;

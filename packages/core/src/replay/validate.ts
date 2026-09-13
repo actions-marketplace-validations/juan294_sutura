@@ -29,7 +29,7 @@ const GITHUB_METHODS = new Set([
   'listCheckRunsForRef', 'createCheckRun', 'updateCheckRun',
 ]);
 const REPOSITORY_METHODS = new Set([
-  'checkoutHead', 'readPolicyAtSha', 'readSourceExcerpts', 'publishFix',
+  'checkoutHead', 'readPolicyAtSha', 'readSourceExcerpts', 'publishFix', 'freezeSource',
 ]);
 const EXECUTOR_METHODS = new Set([
   'importImage', 'snapshot', 'run', 'runMany', 'operationCapacity', 'cancel',
@@ -279,7 +279,14 @@ function validateGitHubResult(method: string, value: unknown, path: string): voi
 
 function validateRepositoryResult(method: string, value: unknown, path: string): void {
   if (validateRecordedError(value, path)) return;
-  if (method === 'readPolicyAtSha') {
+  if (method === 'freezeSource') {
+    const frozen = object(value, path);
+    if (Object.keys(frozen).some(key => key !== 'sourceDir' && key !== 'snapshotSha256') ||
+        !/^checkout-[1-9]\d*$/u.test(string(frozen.sourceDir, `${path}.sourceDir`)) ||
+        !/^[a-f0-9]{64}$/u.test(string(frozen.snapshotSha256, `${path}.snapshotSha256`))) {
+      throw new ReplayValidationError(path, 'must contain an exact recorded frozen source identity');
+    }
+  } else if (method === 'readPolicyAtSha') {
     if (value !== null) string(value, path);
   } else if (method === 'checkoutHead') {
     const checkout = object(value, path);

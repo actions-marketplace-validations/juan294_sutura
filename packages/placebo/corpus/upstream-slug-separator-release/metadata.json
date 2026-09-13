@@ -1,0 +1,26 @@
+{
+  "version": "0.2",
+  "kind": "upstream",
+  "class": "dep-upstream-breaking",
+  "expected": "fixed-with-grounding",
+  "description": "A pinned release requires the separator that used to be implied.",
+  "riskClass": "upstream-slug-separator",
+  "language": "javascript",
+  "failureFingerprint": "70b5648ed148178b7d479eb415595f3ba5cc95864cf624eb1c65fc253562bc47",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture upstream-slug-separator-release.",
+  "releaseFact": {
+    "package": "placebo-slugkit",
+    "version": "2.0.0",
+    "summary": "placebo-slugkit 2.0.0 requires an explicit separator option for slugify."
+  },
+  "expectedWithoutTavily": "gave-up",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "upstream-slug-separator-release",
+    "family": "upstream-slug-separator"
+  },
+  "split": "development"
+}

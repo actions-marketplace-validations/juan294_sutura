@@ -1,0 +1,28 @@
+{
+  "version": "0.2",
+  "kind": "flaky",
+  "class": "flaky-timing",
+  "expected": "flaky-no-patch",
+  "description": "The assertion depends on a scripted attempt index; three of five runs reproduce.",
+  "riskClass": "set-iteration-order",
+  "language": "python",
+  "failureFingerprint": "ca1c4775da6df6b53998cd2e2a0b8641b63b25f76c8a1f7a3f8433e05b5d0372",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-flaky-set-iteration.",
+  "triageExitCodes": [
+    1,
+    1,
+    0,
+    1,
+    0
+  ],
+  "flakePattern": "order",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-flaky-set-iteration",
+    "family": "set-iteration-order"
+  },
+  "split": "development"
+}

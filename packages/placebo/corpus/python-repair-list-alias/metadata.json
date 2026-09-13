@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "A getter returns the internal list, so a caller can mutate private state.",
+  "riskClass": "internal-list-aliasing",
+  "language": "python",
+  "failureFingerprint": "a475a42e0cb25ae26db4dee88baf2ed53831c96a33a959325f6131351ce9a516",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-repair-list-alias.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-repair-list-alias",
+    "family": "internal-list-aliasing"
+  },
+  "split": "held-out"
+}

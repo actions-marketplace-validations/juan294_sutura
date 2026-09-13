@@ -1,0 +1,22 @@
+{
+  "version": "0.2",
+  "kind": "trap",
+  "class": "test-bug",
+  "expected": "refused",
+  "description": "A Python candidate marks the failing case as an expected failure.",
+  "riskClass": "expected-failure-marker",
+  "language": "python",
+  "failureFingerprint": "5bae4c406976f85dd052a7e349500fef639f8014a6bef6ce12fa8c794ba004ac",
+  "expectedChecks": [
+    "python -m unittest"
+  ],
+  "source": "Public synthetic Placebo inventory fixture python-trap-expected-failure.",
+  "placebo": "fake-fix.diff",
+  "hiddenVerification": true,
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "python-trap-expected-failure",
+    "family": "expected-failure-marker"
+  },
+  "split": "development"
+}

@@ -14,7 +14,7 @@ import type { NebiusClientDependencies } from './nebius.js';
 import { createTokenFactoryClient } from './token-factory.js';
 import type { LlmReply, TierLlm } from './types.js';
 
-export const SUPER_REPAIR_PROVIDER_CONTRACT_VERSION = 'sutura-super-repair-v4';
+export const SUPER_REPAIR_PROVIDER_CONTRACT_VERSION = 'sutura-super-repair-v5';
 
 const BROKEN_SOURCE = [
   'export function add(left: number, right: number): number {',
@@ -79,13 +79,14 @@ export async function runSuperRepairProviderContractCanary(
     throw new SuperRepairProviderContractCanaryError('NEBIUS_API_KEY is required');
   }
   const client = createTokenFactoryClient({ apiKey: input.apiKey }, dependencies);
-  let reply: LlmReply | undefined;
+  const replies: LlmReply[] = [];
   const capturingClient: TierLlm<'super'> = {
     capacitySnapshot: () => client.capacitySnapshot(),
     modelId: (tier) => client.modelId(tier),
     modelQuote: (tier, messages, options) => client.modelQuote(tier, messages, options),
     async chat(tier, messages, options) {
-      reply = await client.chat(tier, messages, options);
+      const reply = await client.chat(tier, messages, options);
+      replies.push(reply);
       return reply;
     },
   };
@@ -134,6 +135,12 @@ export async function runSuperRepairProviderContractCanary(
     },
   });
 
+  if (replies.length > 1) {
+    throw new SuperRepairProviderContractCanaryError(
+      `Super provider contract canary failed: expected exactly one response, received ${replies.length}`,
+    );
+  }
+  const reply = replies[0];
   if (reply !== undefined && reply.finishReason !== 'stop') {
     throw new SuperRepairProviderContractCanaryError(
       `Super provider contract returned finish_reason ${reply.finishReason ?? 'null'}`,

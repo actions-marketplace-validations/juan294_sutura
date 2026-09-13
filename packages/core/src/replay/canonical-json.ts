@@ -53,7 +53,9 @@ export function firstJsonDifference(
       const difference = firstJsonDifference(expected[index], actual[index], `${path}[${index}]`);
       if (difference) return difference;
     }
+    return null;
   } else if (
+    !Array.isArray(expected) && !Array.isArray(actual) &&
     typeof expected === 'object' && expected !== null &&
     typeof actual === 'object' && actual !== null
   ) {
@@ -66,6 +68,7 @@ export function firstJsonDifference(
       );
       if (difference) return difference;
     }
+    return null;
   }
   return { path, expected, actual };
 }

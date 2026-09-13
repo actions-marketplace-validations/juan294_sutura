@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "verification": {
+    "mode": "optional",
+    "contracts": [
+      {
+        "id": "positive",
+        "kind": "exact",
+        "target": {
+          "adapter": "javascript",
+          "path": "positive.js",
+          "export": "positive"
+        },
+        "examples": [
+          {
+            "args": [
+              0
+            ],
+            "expected": false
+          }
+        ]
+      }
+    ]
+  }
+}

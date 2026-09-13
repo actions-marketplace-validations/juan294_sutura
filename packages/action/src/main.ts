@@ -1,3 +1,5 @@
+import { runActionVerification, type ActionVerificationContext, type ActionVerificationOutcome } from './verify-execution.js';
+import { mapVerifyInputs, type ActionVerifyInputs } from './verify.js';
 import { DefaultArtifactClient } from '@actions/artifact';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
@@ -30,6 +32,8 @@ import { recordingRepositoryPort } from './replay-repository.js';
 
 export interface RunActionDependencies {
   readAction(): ActionConfiguration;
+  readVerification(): ActionVerifyInputs;
+  verify(inputs: ActionVerifyInputs, context: ActionVerificationContext): Promise<ActionVerificationOutcome>;
   loadConfiguration(environment: ConfigEnvironment): Config;
   repository(): { owner: string; repo: string };
   environment: Readonly<Record<string, string | undefined>>;
@@ -38,6 +42,8 @@ export interface RunActionDependencies {
 
 const DEFAULT_DEPENDENCIES: RunActionDependencies = {
   readAction: () => mapActionInputs((name) => core.getInput(name)),
+  readVerification: () => mapVerifyInputs((name) => core.getInput(name)),
+  verify: runActionVerification,
   loadConfiguration: loadConfig,
   repository: () => github.context.repo,
   environment: process.env,
@@ -60,6 +66,15 @@ export async function runAction(
     const actionRunId = dependencies.environment.GITHUB_RUN_ID;
     if (!actionRunId || !/^[1-9]\d*$/.test(actionRunId)) {
       throw new Error('GITHUB_RUN_ID must be a positive decimal id');
+    }
+    if (action.mode === 'verify') {
+      const result = await dependencies.verify(dependencies.readVerification(), {
+        owner, repo, runId: action.runId, githubToken: action.githubToken, config,
+      });
+      if (result.status !== 'verified-supplied-patch') {
+        dependencies.setFailed(`Sutura verification: ${result.status}`);
+      }
+      return;
     }
     const octokit = github.getOctokit(action.githubToken);
     const orchestrationOptions = {
@@ -147,6 +162,7 @@ export async function runAction(
       : undefined;
 
     const result = await withFailureSafeCheck(adapter, () => orchestrate({
+      evidenceMode: 'live',
       runId: action.runId,
       github: adapter,
       repository,
@@ -156,7 +172,12 @@ export async function runAction(
       ...orchestrationOptions,
       ...(tavily ? { tavily } : {}),
       ...(recorder ? { replay: recorder } : {}),
-    }), (message) => core.warning(message), recorder);
+    }), (message) => core.warning(message), recorder, {
+      actionRunId,
+      targetRunId: action.runId,
+      repository: `${owner}/${repo}`,
+      actionSha: dependencies.environment.GITHUB_SHA ?? '',
+    });
     reportOutcome(result.outcome, action.requireFixed, core);
     for (const evidence of runtimeEvidence(result)) core.info(evidence);
     core.info(`Sutura outcome: ${result.outcome}`);

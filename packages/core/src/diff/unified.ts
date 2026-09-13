@@ -25,11 +25,22 @@ interface ParsedPath {
   valid: boolean;
 }
 
-const CONVENTIONAL_TEST_PATH =
-  /(?:^|\/)(?:(?:__)?tests?(?:__)?|specs?|e2e|cypress)(?:\/|$)|(?:^|\/)[^/]+\.(?:test|spec)\.[^/]+$|(?:^|\/)(?:test_[^/]+|[^/]+_test)\.py$/;
+const TEST_DIRECTORY_SEGMENT = /^(?:(?:__)?tests?(?:__)?|specs?|e2e|cypress)$/u;
+const TEST_FILE_INFIXES = ['.test.', '.spec.'] as const;
+const PYTHON_TEST_FILE_SEGMENT = /^(?:test_[^/]+|[^/]+_test)\.py$/u;
+
+function hasTestInfix(file: string): boolean {
+  return TEST_FILE_INFIXES.some((infix) => {
+    const index = file.indexOf(infix);
+    return index > 0 && index + infix.length < file.length;
+  });
+}
 
 export function isConventionalTestPath(path: string): boolean {
-  return CONVENTIONAL_TEST_PATH.test(path);
+  const segments = path.split('/');
+  if (segments.some((segment) => TEST_DIRECTORY_SEGMENT.test(segment))) return true;
+  const file = segments[segments.length - 1] ?? '';
+  return hasTestInfix(file) || PYTHON_TEST_FILE_SEGMENT.test(file);
 }
 
 function decodeQuotedToken(value: string): { value: string; rest: string } | null {

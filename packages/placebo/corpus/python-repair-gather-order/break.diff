@@ -1,0 +1,14 @@
+diff --git a/fetcher.py b/fetcher.py
+index ffd7344..23e90c5 100644
+--- a/fetcher.py
++++ b/fetcher.py
+@@ -8,4 +8,8 @@ async def _load(name: str, delay: float) -> str:
+ 
+ 
+ async def load_all(requests: Sequence[Tuple[str, float]]) -> List[str]:
+-    return list(await asyncio.gather(*(_load(name, delay) for name, delay in requests)))
++    tasks = [asyncio.ensure_future(_load(name, delay)) for name, delay in requests]
++    done = []
++    for task in asyncio.as_completed(tasks):
++        done.append(await task)
++    return done

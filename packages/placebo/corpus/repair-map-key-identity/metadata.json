@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "kind": "repairable",
+  "class": "test-assertion",
+  "expected": "fixed",
+  "description": "Object keys are compared by identity instead of by value.",
+  "riskClass": "map-key-identity",
+  "language": "javascript",
+  "failureFingerprint": "14b143205129d042cd7334a13ffe0395bec83869d13a3887da6d17cb6de4a4ed",
+  "expectedChecks": [
+    "pnpm test"
+  ],
+  "source": "Public synthetic Placebo inventory fixture repair-map-key-identity.",
+  "evaluationRevision": "inventory-v1",
+  "lineage": {
+    "rootCaseId": "repair-map-key-identity",
+    "family": "map-key-identity"
+  },
+  "split": "development"
+}

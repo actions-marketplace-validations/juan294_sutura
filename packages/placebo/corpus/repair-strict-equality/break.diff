@@ -1,0 +1,7 @@
+diff --git a/flags.js b/flags.js
+index 01fee19..4506cd7 100644
+--- a/flags.js
++++ b/flags.js
+@@ -1 +1 @@
+-export const isEnabled = (value) => value === true || value === "true";
++export const isEnabled = (value) => value == true || value === "true";

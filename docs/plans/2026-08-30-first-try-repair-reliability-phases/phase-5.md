@@ -26,8 +26,14 @@ named replay test before the next candidate.
    `gh workflow run provider-contract-canary.yml --ref develop`; wait; the
    `provider-contract-canary` artifact must exist and bind to the SHA.
 3. `pnpm run dogfood gate` — all conditions PASS.
-4. `pnpm run dogfood streak --sha <sha> --authorize --cap-usd 10
+4. `pnpm run dogfood streak --sha <sha> --authorize --cap-usd 14
    --initial-reserve-usd 1.50`.
+   When an already-started exact-SHA streak is resumed after the cap extension,
+   keep that candidate immutable: before each remaining attempt, prove that
+   total scratch-ledger spend plus the highest observed attempt cost is at most
+   USD 14.00, then run `pnpm run dogfood run --sha <sha> --attempt <n>`.
+   Stop on the first non-`fixed`. After 10/10, run the updated `streak` command
+   with the same evidence SHA; it performs no dispatch and promotes the ledger.
 5. On the first non-`fixed`:
    a. the script has stored `sutura-replay-<ci>.json` under
       `packages/action/src/__fixtures__/captured/<ci>/`; commit it with a
@@ -58,7 +64,7 @@ named replay test before the next candidate.
 
 - Ledger: 10 trailing entries with `outcome: 'fixed'`, one shared
   `packagesTreeHash`, ten distinct `ciRunId`/`suturaRunId`/`prUrl` values,
-  total USD ≤ 10.00 for the streak.
+  and total Phase 5 ledger spend ≤ USD 14.00.
 - For each entry: repair commit parent equals the dogfood SHA; the diff
   touches only `packages/core/src/dogfood-add.ts`; the repair PR CI run is
   `success`.
@@ -164,3 +170,38 @@ name created for each.
   Phase 3c already replaced those inventories with the run-time AST and v8
   `guards:verify` gate. Both obsolete tests were deleted as Phase 3c required;
   guard coverage is no longer invalidated by unrelated line movement.
+- The original USD 10.00 authorization stopped candidate `a99e231` after six
+  consecutive fixed entries. Total Phase 5 live spend was USD 9.153422, so the
+  reserve correctly prevented attempt 7. On 2026-08-31, the user authorized
+  completion under a new total Phase 5 cap of USD 14.00. The runner counts all
+  scratch-ledger entries against that cap before each remaining dispatch.
+- Candidate `a99e23199a80ae6ee51fe1680afb74188416160c` passed develop CI run
+  `33328273318`, provider canary run `33328878512`, and all six dogfood gates.
+  Ten consecutive live repairs were fixed on its unchanged packages tree.
+  The streak cost USD 10.738999; total Phase 5 live spend was USD 13.450513.
+  The ledger result hash is
+  `42ddbff67eeb8f7ded9e59aa3da1ef91ec5c3733f0737260d0058e4a0e3dcd5f`,
+  and release evidence reports `dogfood: passed`.
+
+| Attempt | Dogfood SHA | CI | Sutura | PR | Repair commit | Repair CI | Sandbox USD | Inference USD |
+| ---: | --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| 1 | `f694d2f849da9a4a5051742f005eed42d87f08f4` | `33328936605` | `33329038396` | `29` | `a8d95345efc6c9c6ae1c8b787c45c03499af56d1` | `33329236146` | 1.058764 | 0.025359 |
+| 2 | `a9afdd80017489c18e5e8e400a7b0ce8e951f739` | `33329785241` | `33329903829` | `30` | `208172e723f108b47c5c072ae9e30fdf60495f5c` | `33330058748` | 1.037273 | 0.022742 |
+| 3 | `ea9790f39418aa8fe296d1216c2c3db7cff91b61` | `33330650649` | `33330743263` | `31` | `3936a2f9f82b753a94ff731fbb78bb8a5c667561` | `33330892295` | 1.064426 | 0.027296 |
+| 4 | `39f4d65ce43aa06944d8c643202db42d145dafa7` | `33331501530` | `33331587624` | `32` | `0c3817a12d8a5849872d350041e559f52b009bec` | `33331727181` | 1.039250 | 0.023734 |
+| 5 | `f2efee4c26e02521d1a7394cc302a7dc3c1db1bd` | `33332287700` | `33332369139` | `33` | `cdc920958bc892d8e262a5b98fd1dad3f556dd24` | `33332507698` | 1.044618 | 0.025819 |
+| 6 | `e9218d9d0435ecf71355667953d3041fc3fa6990` | `33332976946` | `33333076543` | `34` | `cbf12f7702b3703eb00151dddb88abde478b5e14` | `33333205967` | 1.049383 | 0.023244 |
+| 7 | `3db606b5910ed336c588e0da373536ccd55f96ee` | `33358648166` | `33358764843` | `35` | `d5a53c68442cc962c4dfbf94c937c2e654371303` | `33358916002` | 1.053883 | 0.025032 |
+| 8 | `1177466f344927c6a25c7952e7b4fdedaf36f23a` | `33359429381` | `33359560180` | `36` | `69854df34d53d8afea68d34e77cc00489112bbbf` | `33359745314` | 1.045351 | 0.023675 |
+| 9 | `c1c0a074a09e541c859745b50e5452b759a258c8` | `33360533338` | `33360643739` | `37` | `4efc81d16b09eaa8453a43736d025fcc193eab9c` | `33360809830` | 1.046538 | 0.026701 |
+| 10 | `0bda676826a5793d5c85c1bfd3bdf476eb5255c8` | `33361548920` | `33361668533` | `38` | `cb99824dc9de6d287f82c7f2c045aa8026ffa4e7` | `33361827072` | 1.050303 | 0.025608 |
+
+- Every repair commit is the only child commit in its PR, has the matching
+  dogfood SHA as its direct parent, changes only
+  `packages/core/src/dogfood-add.ts`, and has a successful independent CI run.
+- Three non-fixed candidates preceded the successful streak: two `gave-up`
+  outcomes and one `refused` outcome. Their named replay tests are `replays
+  live run 33321172589: source-limit gave-up with seven search nodes`, `replays
+  live run 33323856253: recursive trusted test outlived the repaired
+  workspace`, and `replays live run 33326031664: accepts null tool_calls with
+  audit content`.

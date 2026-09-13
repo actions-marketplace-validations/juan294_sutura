@@ -1,0 +1,7 @@
+diff --git a/ports.js b/ports.js
+index e7bcaaf..92c116c 100644
+--- a/ports.js
++++ b/ports.js
+@@ -1 +1 @@
+-export const parsePort = (value) => Number.parseInt(value);
++export const parsePort = (value) => Number.parseInt(value, 10);

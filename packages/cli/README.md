@@ -5,11 +5,11 @@ Sutura verifies AI-generated CI repairs before it opens a pull request.
 Install Sutura in a GitHub repository:
 
 ```bash
-npx sutura@0.2.0 init
-npx sutura@0.2.0 doctor
+npx sutura@0.2.1 init
+npx sutura@0.2.1 doctor
 ```
 
-`init` resolves the `v0.2.0` Action tag to one immutable commit and writes that
+`init` resolves the `v0.2.1` Action tag to one immutable commit and writes that
 SHA into the workflow. `doctor` verifies the pin against the tag. Release
 candidate checks can pass `--action-sha <40-character-commit>` to both commands;
 mutable refs are rejected.
@@ -24,6 +24,10 @@ for a single runtime. Set `runtime` to `node` or `python` in `.sutura.json` for 
 polyglot repository, or pass `--runtime node|python` to a local `sutura heal`
 run. Python preparation requires `uv.lock` or exact hash-locked binary
 requirements and never runs repository source with network access.
+
+A local `sutura heal` reproduces `pnpm test` (Node) or `python -m unittest`
+(Python) unless `--failing-command "<command>"` names the command CI ran. The
+Action always passes the command it extracted from the failing log.
 
 For a local review that does not use ConTree, run:
 

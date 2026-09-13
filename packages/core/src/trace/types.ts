@@ -70,6 +70,16 @@ export type TraceEvent =
       summary: string;
       childNodeId?: string;
     }
+  | TraceEventBase & {
+      type: 'counterfactual-result';
+      alternativeId: string;
+      intent: 'plausible' | 'shortcut';
+      approved: boolean;
+      gate: string;
+      rule: string;
+      summary: string;
+      childNodeId?: string;
+    }
   | TraceEventBase & { type: 'run-finish'; outcome: CaseFile['outcome'] };
 
 export type TraceEventInput = TraceEvent extends infer Event
