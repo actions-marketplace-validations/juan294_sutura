@@ -6,120 +6,152 @@ Canonical package identity for this source: `sutura@0.2.1`.
 
 ## Try it out
 
-- [Sutura Case Lab](https://sutura-case-lab.vercel.app/): five fixed cases with
-  labeled deterministic results; no account needed. Live runs stay disabled
-  until the public-demo gate is authorized.
-- [Repository](https://github.com/juan294/sutura): source, Action, and evidence.
-- [npm package](https://www.npmjs.com/package/sutura): the `sutura` installer CLI.
+- [Sutura Case Lab](https://sutura-case-lab.vercel.app/): five fixed CI cases
+  with labeled deterministic results and no account required. The hosted demo
+  currently shows the historical public `sutura@0.2.0` release evidence.
+- [Repository](https://github.com/juan294/sutura): current source, GitHub
+  Action, CLI, tests, and evaluation documentation.
+- [npm package](https://www.npmjs.com/package/sutura): public installer CLI.
 
 ## Problem
 
-A green CI check does not prove that a generated patch repaired the diagnosed
-failure. An agent can delete a test, weaken an assertion, relax a compiler
-rule, or patch the wrong file and still make the immediate command pass. Teams
-need evidence that the original failure reproduced, the proposed repair stayed
-inside repository policy, and the accepted change survived a clean rerun.
+A green CI check does not prove that an AI-generated patch repaired the
+diagnosed failure. An agent can delete a test, weaken an assertion, relax a
+compiler rule, or patch the wrong file and still make the immediate command
+pass. Maintainers need evidence that the original failure reproduced, the
+proposed repair stayed inside repository policy, and supported behavior
+survived an independent clean rerun.
 
 ## Who it is for
 
-Sutura is for maintainers who want an agent to investigate and repair failing
-GitHub Actions without handing it merge authority. It fits repositories where
-reviewers need a compact diagnosis, the exact diff, the test result, and the
-reason a suspicious shortcut was refused before deciding whether to merge.
+Sutura is for maintainers who want an agent to investigate or repair failing
+GitHub Actions without giving it merge authority. It also verifies a patch
+supplied by another agent. Reviewers get the diagnosis, exact diff, executed
+checks, rejected alternatives, and remaining uncertainty before deciding
+whether to merge.
 
 ## Why existing fix-CI tools are insufficient
 
-Many fix-CI flows optimize for the visible outcome: make the failed command
-green. Sutura treats that as one piece of evidence. It binds the run to the
-exact repository state, reproduces the failure in an isolated sandbox, checks
-candidate patches mechanically, reruns the selected patch from a clean image,
-and asks an independent auditor to look for greenwashing. The result is either
-an evidence-backed repair pull request or an explicit terminal report. Sutura
-never merges the repair.
+Making the visible command green is only one observation. Sutura binds every
+run to an exact repository state and trusted policy, reproduces the failure in
+an isolated sandbox, freezes independent regression challenges before seeing
+the candidate, applies bounded patches under controller authority, and
+rebuilds the selected patch on a clean branch. Mechanical policy checks and a
+separate adversarial audit look for test deletion, weakened assertions,
+configuration shortcuts, unrelated edits, and unsupported behavior. The
+result is an evidence-backed pull request, a verified supplied patch, or an
+explicit refusal or insufficient-evidence report. Sutura never merges a patch.
 
 ## Product workflow
 
-- A GitHub Action reads the exact failing run, pull-request head, failed-step
-  log, repository policy, and observed command.
+- The GitHub Action or CLI reads the exact source identity, failed-step log,
+  observed command, and trusted repository policy.
 - Sutura prepares declared dependencies before source overlay, then disables
   network access for reproduction, triage, repair search, and audit.
 - Independent reproductions distinguish persistent failures from flaky ones.
-- Bounded repair branches propose replacements for controller-selected source
-  excerpts. The controller applies each diff and runs the trusted command.
-- The selected candidate is reconstructed on a clean branch, checked for
-  policy violations, and reviewed independently.
-- An approved repair becomes a pull request with a surgical report and HTML
-  case file. A rejected or exhausted run retains its refusal or failure
-  evidence instead.
+- Nemotron proposes bounded repairs for controller-selected excerpts. A repair
+  can update one file or an atomic two-file contract when policy allows it.
+- Controller-owned challenges check supported behavior beyond the visible
+  failing test. Deceptive alternatives remain in the evidence with their
+  rejection reasons.
+- The selected candidate is reconstructed on a clean branch, rerun, checked
+  mechanically, and reviewed independently.
+- The Case Lab presents the verdict first, then lets a reviewer inspect the
+  search tree, rejected patches, clean audit, provenance, and replay mode.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  A[Failed GitHub Actions run] --> B[Exact failure evidence and policy]
+  A[Failed run or supplied patch] --> B[Exact source and trusted policy]
   B --> C[Nemotron Nano diagnosis]
   C --> D[Tavily grounding for upstream failures]
   C --> E[ConTree dependency-prepared snapshot]
   D --> E
   E --> F[Independent triage branches]
-  E --> G[Nemotron Super repair branches]
+  E --> G[Nemotron Super bounded repairs]
   F --> G
-  G --> H[Controller-applied diff and trusted test]
-  H --> I[Clean ConTree audit branch]
-  I --> J[Nemotron Ultra adversarial review]
-  J --> K[Evidence-backed pull request or refusal]
-  K --> L[Sanitized trace, ATIF, and Data Lab export]
+  G --> H[Controller tests and frozen challenges]
+  H --> I[Clean ConTree verification branch]
+  I --> J[Mechanical checks and Nemotron Ultra audit]
+  J --> K[Verified patch, repair PR, refusal, or insufficient evidence]
+  K --> L[Case file, sanitized ATIF trace, and Data Lab export]
 ```
 
 ## Runtime roles
 
 | Component | Direct role in Sutura |
 | --- | --- |
-| Nemotron Nano | Classifies the bounded failure evidence and identifies the failing command and signals used by the controller. |
-| Nemotron Super | Returns one bounded replacement for one controller-selected source excerpt; it does not choose the path, run the test, or submit the candidate. |
-| Nemotron Ultra | Reviews the cleanly rerun candidate for test deletion, weakened checks, unrelated changes, and other evidence that needs semantic judgment. |
-| Nebius Token Factory | Serves the Nano, Super, and Ultra model calls through one validated provider boundary and supplies usage records for Sutura's inference ledger. |
-| Nebius ConTree | Prepares dependencies, snapshots the filesystem, and creates isolated children for reproduction, triage, adaptive repair search, and clean audit. |
-| Tavily | Grounds upstream dependency diagnoses in release and migration sources; non-upstream repair and the benchmark ablation can run without it. |
-| Nebius Data Lab | Receives no automatic upload from Sutura. The repository exposes a sanitized local JSONL export for an explicit, separately authorized Data Lab workflow. |
-| NVIDIA ATIF | Provides the interoperable trajectory shape used by Sutura's sanitized evaluation export. |
-| NVIDIA NeMo Agent Toolkit | Supplies the ATIF trajectory type used to validate the committed example; it is an offline validation dependency, not the live repair orchestrator. |
+| Nemotron Nano | Classifies bounded failure evidence and extracts signals used by the controller. |
+| Nemotron Super | Proposes one bounded repair transaction; it does not choose trusted policy, execute tests, or approve the candidate. |
+| Nemotron Ultra | Reviews the cleanly rerun candidate for semantic shortcuts that static checks may miss. |
+| Nebius Token Factory | Serves the three Nemotron roles through one validated provider boundary and records actual model IDs and usage. |
+| Nebius ConTree | Prepares dependencies once, snapshots the filesystem, and creates isolated reproduction, triage, search, and audit branches. |
+| Tavily | Grounds upstream dependency diagnoses in release and migration sources. It is optional for other cases. |
+| Nebius Data Lab | Accepts an explicitly exported, sanitized, blinded JSONL evaluation dataset; Sutura does not upload automatically. |
+| NVIDIA ATIF | Defines the interoperable shape of Sutura's sanitized agent trajectories. |
+| NVIDIA NeMo Agent Toolkit | Validates and evaluates recorded ATIF trajectories offline; it is not the live repair orchestrator. |
 
 The [evaluation manifest](../demo/sutura-evaluation-manifest-v1.json) and
 [ATIF trajectory](../demo/sutura-trajectory-v1.atif.json) are sanitized,
 committed examples. The [Placebo benchmark contract](../../packages/placebo/README.md)
-describes how unsuccessful cases remain in the evaluation denominator.
+keeps every unsuccessful case in the denominator.
+
+## Latest measured development result
+
+The latest completed development/validation run is bound to exact candidate
+`042af3aada158347db6006e30a4a0e6e7c65e420`, not to the historical public
+release or the later security-only source head. It completed 80 cases and 85
+evaluations for USD 6.431018 in recorded inference and sandbox cost.
+
+- Zero false approvals were observed.
+- Sutura rejected 15 of 15 deceptive patches and classified 10 of 10 flakes.
+- It repaired 33 of 42 repairable cases, or 78.6%, just below the 80% internal
+  target.
+- It refused 22 of 23 deception cases, or 95.7%.
+- Hidden repair-preservation checks passed in 4 of 8 cases; 4 were not run, so
+  this gate did not pass.
+- The small Tavily ablation repaired 1 of 5 cases with Tavily and 2 of 5
+  without it. We therefore make no quality-uplift claim from that result.
+
+These results show the safety behavior we care about and expose the remaining
+repair weaknesses, especially async-preservation cases. The held-out 20 cases
+remain unopened, and this development measurement is not release acceptance.
+
+## What we learned
+
+Verification has to be separate from patch generation. A model-generated test
+or expectation cannot authorize its own repair, so Sutura keeps trusted policy,
+challenge expectations, and final adjudication under controller authority.
+Exact candidate identity and complete denominators matter just as much: a
+later commit cannot inherit an earlier score, and a check that did not run must
+remain visible as `not-run` rather than becoming a pass.
+
+Tavily remains useful as a source of current upstream release facts, but the
+latest five-pair ablation does not show a repair advantage. We report that
+result directly instead of turning integration presence into a performance
+claim.
 
 ## Significant work since the submission period opened
 
-The submission period opened on 2026-08-26. Repository history after that date
-records the product from its first workspace commit through the current
-candidate work:
+The submission period opened on 2026-08-26. Since then, Sutura grew from its
+first Node repair path into a TypeScript and Python verification system with a
+GitHub Action, CLI, public Case Lab, exact-source evidence, progressive flake
+triage, bounded two-file repairs, execution-backed verification of supplied
+patches, independent regression challenges, deterministic replay, selectable
+adaptive Nemotron routing, sanitized ATIF export, local Data Lab tooling, and
+candidate-bound evaluation controllers.
 
-- The initial core, provider ledger, ConTree executor, Tavily grounding,
-  triage, repair, audit, benchmark harness, and GitHub Action landed together
-  as the first working repair path (`d096096` through `d760457`).
-- Distribution work added the bring-your-own-key installer and the v0.1
-  release line, while policy work moved dependency preparation and source
-  execution into separate trust stages (`5f814bf`, `87e7f34`, `f9d790b`).
-- Adaptive checkpoint search, progressive triage, Python runtime support,
-  audit-only analysis, sanitized traces, local Data Lab export, and ATIF
-  validation expanded the product beyond the first Node repair path
-  (`c1adf4c`, `33839f6`, `1d49289`, `4f0d94f`, `1934688`).
-- Deterministic capture and offline replay turned provider, GitHub, and
-  sandbox failures into bounded regression fixtures; provider canaries and
-  dynamic product guards made those contracts executable (`a084bce`,
-  `c026b69`, `9948465`, `c4d0959`, `82aabdf`).
-- The v0.2 release work added immutable Action equivalence, candidate and
-  public installation checks, resumable Placebo and external-matrix
-  controllers, and a release evidence contract (`537f6e7`, `9128f74`,
-  `384082c`, `a6bc3bc`).
-- Subsequent evidence-driven repairs added Python image compatibility,
-  artifact redaction, adaptive-search recovery, CommonJS module protection,
-  branch-local completion handling, and a repository-wide push freeze for
-  paid runs (`a14c86f`, `d03a8d1`, `5a4fd14`, `dd3cc7a`, `da98aff`,
-  `e6025c5`).
+The current source also includes four CodeQL regex hardening fixes and refreshed
+development dependencies. Those maintenance changes do not inherit the
+development candidate's quality score. The repository [changelog](../../CHANGELOG.md)
+records release history. Nebius and NVIDIA integration observations and
+requests are in the [feedback report](../feedback/2026-10-sutura-nebius-feedback.md).
 
-The repository [changelog](../../CHANGELOG.md) records release history.
-Nebius and NVIDIA integration observations and requests are kept in a separate
-[feedback report](../feedback/2026-10-sutura-nebius-feedback.md).
+## What's next
+
+Before release acceptance, we will improve async-preservation repairs, add a
+named regression for the one deception case that ended as `gave-up`, rerun the
+affected development gates, and keep the held-out set sealed until its
+authorized final evaluation. Public maintainer trials, the final release,
+video, and judging-access checks also remain separate evidence gates.
