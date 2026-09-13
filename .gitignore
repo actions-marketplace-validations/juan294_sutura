@@ -22,6 +22,8 @@ coverage/
 .sutura/external-matrix-public-artifacts/
 .sutura/external-matrix-public.lock
 .sutura/external-matrix-cleanup-*.json
+.sutura/fleet-dogfood-config.json
+.sutura/fleet-dogfood-metrics/
 
 # Environment: never commit secrets
 .env

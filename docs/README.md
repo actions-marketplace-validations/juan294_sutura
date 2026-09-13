@@ -15,6 +15,8 @@
 - [CLI](../packages/cli/README.md): installation, audit, and replay commands.
 - [Case Lab](../packages/case-lab/README.md): fixed cases, result modes, and dispatch boundaries.
 - [Placebo](../packages/placebo/README.md): benchmark corpus, scoring, and execution.
+- [Fleet dogfood metrics](adoption/fleet-dogfood-metrics.md): rebuild daily usage,
+  outcome, duration, and cost evidence across multiple repositories.
 
 ## Evidence and security
 

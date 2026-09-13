@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "sutura-fleet-config-v1",
+  "owner": "example",
+  "repositories": [
+    "project-one",
+    "project-two"
+  ],
+  "startedAt": "2026-09-13T00:00:00.000Z",
+  "actionCommit": "5fe16498dfbd5a682f444cc249e4d096dce6c8d8"
+}
