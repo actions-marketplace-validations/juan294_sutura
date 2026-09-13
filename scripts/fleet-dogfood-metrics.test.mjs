@@ -44,7 +44,7 @@ test('terminal failure parser preserves an infrastructure stop without inventing
 test('collector keeps every monitor run and distinguishes skipped CI from repair attempts', async () => {
   const client = {
     async listWorkflowRuns(repository) {
-      if (repository === 'missing') {
+      if (repository === 'other-owner/missing') {
         const error = new Error('not found');
         error.status = 404;
         throw error;
@@ -72,7 +72,7 @@ test('collector keeps every monitor run and distinguishes skipped CI from repair
   const result = await collectFleetMetrics({
     schemaVersion: 'sutura-fleet-config-v1',
     owner: 'juan294',
-    repositories: ['alpha', 'missing'],
+    repositories: ['alpha', 'other-owner/missing'],
     startedAt: '2026-09-13T00:00:00.000Z',
     actionCommit: 'a'.repeat(40),
   }, client, new Date('2026-09-13T12:00:00.000Z'));
@@ -90,6 +90,32 @@ test('collector keeps every monitor run and distinguishes skipped CI from repair
   assert.equal(result.summary.totalCostUsd, 0.5);
   assert.equal(result.summary.medianAttemptDurationSec, 90);
   assert.equal(result.events.length, 4);
+});
+
+test('collector accepts mixed-owner repositories and rejects duplicate identities', async () => {
+  const seen = [];
+  const client = {
+    async listWorkflowRuns(repository) {
+      seen.push(repository);
+      return [];
+    },
+  };
+  await collectFleetMetrics({
+    schemaVersion: 'sutura-fleet-config-v1',
+    owner: 'juan294',
+    repositories: ['alpha', 'frivas/roots'],
+    startedAt: '2026-09-13T00:00:00.000Z',
+    actionCommit: 'a'.repeat(40),
+  }, client, new Date('2026-09-13T12:00:00.000Z'));
+  assert.deepEqual(seen, ['alpha', 'frivas/roots']);
+
+  await assert.rejects(() => collectFleetMetrics({
+    schemaVersion: 'sutura-fleet-config-v1',
+    owner: 'juan294',
+    repositories: ['alpha', 'juan294/alpha'],
+    startedAt: '2026-09-13T00:00:00.000Z',
+    actionCommit: 'a'.repeat(40),
+  }, client, new Date('2026-09-13T12:00:00.000Z')), /unique/u);
 });
 
 test('public summary removes repository identities and daily snapshots are idempotent', async () => {

@@ -7,10 +7,10 @@ where no repair was needed separately from actual repair attempts and from
 cancelled or otherwise non-repairable CI conclusions.
 
 Copy `fleet-dogfood-config.example.json` to the gitignored
-`.sutura/fleet-dogfood-config.json`. Set the owner, repository names, exact
+`.sutura/fleet-dogfood-config.json`. Set the default owner, repository names, exact
 Sutura Action commit, and the UTC instant when measurement starts. Repository
-names can include private repositories because the config and detailed output
-stay gitignored.
+entries can use `owner/name` for collaborator projects. They can include private
+repositories because the config and detailed output stay gitignored.
 
 Run:
 

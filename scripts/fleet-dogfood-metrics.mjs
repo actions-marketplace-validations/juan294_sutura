@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const execFile = promisify(execFileCallback);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPOSITORY = /^[A-Za-z0-9_.-]+$/u;
+const FULL_REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u;
 const SHA = /^[a-f0-9]{40}$/u;
 const DEFAULT_CONFIG = resolve(ROOT, '.sutura/fleet-dogfood-config.json');
 const DEFAULT_OUTPUT = resolve(ROOT, '.sutura/fleet-dogfood-metrics');
@@ -30,16 +31,20 @@ function validateConfig(input, now) {
   if (input.schemaVersion !== 'sutura-fleet-config-v1') throw new Error('Fleet config schemaVersion is invalid');
   if (!REPOSITORY.test(input.owner ?? '')) throw new Error('Fleet config owner is invalid');
   if (!Array.isArray(input.repositories) || input.repositories.length === 0 || input.repositories.length > 100 ||
-      input.repositories.some((value) => !REPOSITORY.test(value))) {
-    throw new Error('Fleet config repositories must contain 1 to 100 GitHub repository names');
+      input.repositories.some((value) => !REPOSITORY.test(value) && !FULL_REPOSITORY.test(value))) {
+    throw new Error('Fleet config repositories must contain 1 to 100 GitHub repository names or owner/name identities');
   }
-  if (new Set(input.repositories.map((value) => value.toLowerCase())).size !== input.repositories.length) {
+  if (new Set(input.repositories.map((value) => repositoryIdentity(input.owner, value).toLowerCase())).size !== input.repositories.length) {
     throw new Error('Fleet config repositories must be unique');
   }
   isoInstant(input.startedAt, 'Fleet config startedAt');
   if (Date.parse(input.startedAt) > now.getTime()) throw new Error('Fleet config startedAt cannot be in the future');
   if (!SHA.test(input.actionCommit ?? '')) throw new Error('Fleet config actionCommit must be an exact commit');
   return input;
+}
+
+function repositoryIdentity(defaultOwner, repository) {
+  return repository.includes('/') ? repository : `${defaultOwner}/${repository}`;
 }
 
 function exactNumber(pattern, html, label) {
@@ -249,22 +254,25 @@ class GhFleetClient {
   }
 
   async listWorkflowRuns(repository, since) {
+    const identity = repositoryIdentity(this.owner, repository);
     const pages = await this.api(
-      `repos/${this.owner}/${repository}/actions/workflows/sutura.yml/runs?per_page=100&created=>=${encodeURIComponent(since)}`,
+      `repos/${identity}/actions/workflows/sutura.yml/runs?per_page=100&created=>=${encodeURIComponent(since)}`,
       ['--paginate', '--slurp'],
     );
     return pages.flatMap(({ workflow_runs: runs = [] }) => runs);
   }
 
   async listArtifacts(repository, runId) {
-    const value = await this.api(`repos/${this.owner}/${repository}/actions/runs/${runId}/artifacts?per_page=100`);
+    const identity = repositoryIdentity(this.owner, repository);
+    const value = await this.api(`repos/${identity}/actions/runs/${runId}/artifacts?per_page=100`);
     return value.artifacts ?? [];
   }
 
   async downloadArtifact(repository, runId, artifact) {
+    const identity = repositoryIdentity(this.owner, repository);
     const directory = await mkdtemp(join(tmpdir(), 'sutura-fleet-artifact-'));
     try {
-      await execFile(this.gh, ['run', 'download', String(runId), '--repo', `${this.owner}/${repository}`, '--name', artifact.name, '--dir', directory], { maxBuffer: 8 * 1024 * 1024 });
+      await execFile(this.gh, ['run', 'download', String(runId), '--repo', identity, '--name', artifact.name, '--dir', directory], { maxBuffer: 8 * 1024 * 1024 });
       const files = await readdir(directory, { recursive: true });
       if (files.length !== 1) throw new Error('Sutura evidence artifact must contain exactly one file');
       return readFile(join(directory, files[0]), 'utf8');
