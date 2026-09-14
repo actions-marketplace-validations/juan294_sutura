@@ -29,7 +29,7 @@ function participant(index, language, classification) {
     schemaVersion: 'sutura-adoption-participant-v1', participantId: `participant-a1b2c3d${index}`,
     participantBuiltSutura: false, participationConsent: true,
     repository: { url: repository, familiarToParticipant: true, familiarToSuturaBuilders: false, language },
-    artifact: { packageVersion: '0.2.1', actionCommit: SHA, installSource: 'public-npm-and-immutable-action' },
+    artifact: { packageVersion: '0.3.0', actionCommit: SHA, installSource: 'public-npm-and-immutable-action' },
     measurements: {
       sessionStartedAt: `2026-09-0${index}T10:00:00.000Z`, timeToFirstValidResultMs: index * 1000,
       setupFailures: [], unclearInstructions: [], manualInterventions: [],
@@ -50,7 +50,7 @@ function adoptionEvidence() {
   const records = [participant(1, 'javascript', 'repair'), participant(2, 'python', 'refusal'), participant(3, 'typescript', 'flake')];
   const base = {
     schemaVersion: 'sutura-external-adoption-evidence-v1', candidateCommit: SHA,
-    packageVersion: '0.2.1', ready: true, participantCount: 3, repositoryCount: 3,
+    packageVersion: '0.3.0', ready: true, participantCount: 3, repositoryCount: 3,
     languages: ['javascript', 'python', 'typescript'], classifications: { flake: 1, refusal: 1, repair: 1 },
     measurements: {
       timeToFirstValidResultMs: [1000, 2000, 3000], setupFailureCount: 0,
@@ -65,7 +65,7 @@ function marketplaceInstallEvidence() {
   const base = {
     schemaVersion: 'sutura-marketplace-install-evidence-v1',
     listing: 'https://github.com/marketplace/actions/sutura-verified-self-healing-ci',
-    release: 'v0.2.1', candidate: SHA,
+    release: 'v0.3.0', candidate: SHA,
     repositoryUrl: 'https://github.com/example/marketplace-install',
     runUrl: 'https://github.com/example/marketplace-install/actions/runs/42',
     installedFromMarketplace: true, publicReviewConfirmed: true,
@@ -73,11 +73,11 @@ function marketplaceInstallEvidence() {
   return { ...base, resultHash: contentHash(base) };
 }
 
-const PUBLIC_RELEASE = async () => ({ status: 200, body: { tag_name: 'v0.2.1', draft: false } });
+const PUBLIC_RELEASE = async () => ({ status: 200, body: { tag_name: 'v0.3.0', draft: false } });
 
 test('Marketplace install record requires the literal human confirmation', async () => {
   const request = {
-    candidate: SHA, release: 'v0.2.1',
+    candidate: SHA, release: 'v0.3.0',
     repositoryUrl: 'https://github.com/example/marketplace-install',
     runUrl: 'https://github.com/example/marketplace-install/actions/runs/42',
   };
@@ -140,7 +140,7 @@ test('post-publication evidence binds listing, release commit, and adoption evid
     await writeFile(marketplaceInstall, JSON.stringify(marketplaceInstallEvidence()));
     const result = await verifyMarketplaceEvidence({
       candidate: SHA,
-      release: 'v0.2.1',
+      release: 'v0.3.0',
       listing: 'https://github.com/marketplace/actions/sutura-verified-self-healing-ci',
       installEvidence,
       marketplaceInstallEvidence: marketplaceInstall,
@@ -157,7 +157,7 @@ test('post-publication evidence binds listing, release commit, and adoption evid
 
     assert.equal(result.ready, true);
     assert.equal(result.candidate, SHA);
-    assert.equal(result.release, 'v0.2.1');
+    assert.equal(result.release, 'v0.3.0');
     assert.match(result.installEvidenceHash, /^[a-f0-9]{64}$/u);
     assert.match(result.resultHash, /^[a-f0-9]{64}$/u);
   } finally {
@@ -176,7 +176,7 @@ test('post-publication evidence rejects missing listings and candidate drift', a
       ready: true, resultHash: 'b'.repeat(64),
     }));
     const request = {
-      candidate: SHA, release: 'v0.2.1',
+      candidate: SHA, release: 'v0.3.0',
       listing: 'https://github.com/marketplace/actions/sutura-verified-self-healing-ci',
       installEvidence,
       marketplaceInstallEvidence: marketplaceInstall,

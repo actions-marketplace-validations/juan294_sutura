@@ -130,7 +130,7 @@ test('video script has six contiguous sections and ends before 180 seconds', asy
 });
 
 test('version contract rejects drift in bare, npm, tag, Action, and release-link forms', () => {
-  const current = '0.2.1';
+  const current = '0.3.0';
   const canonical = `Canonical package identity: sutura@${current}.`;
   for (const reference of [
     'Release 9.9.9',

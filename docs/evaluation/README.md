@@ -104,7 +104,7 @@ remain separate identities.
 | [Historical v0.2.0 baseline and matrices](../demo/sutura-v0.2.0-phase-0-evidence.md?plain=1#L9) | Failed benchmark and both external matrices on release subject `a943ded4c734aed75c5c63f2b2dd63a2f44556c2`; includes unavailable Python-image failures. |
 | [Counterfactual report](../demo/sutura-counterfactual-v0.2.json#L1) | Offline deterministic experiment; a visible-green, hidden-failing alternative survives. See [gate omissions](architecture.md#counterfactual-verification). |
 | [Arena report](../demo/sutura-arena-v0.2.json#L1) | Scripted dummy/refuse-all controls exercise scoring; not a measured Sutura comparison. |
-| [Demo identity](../../packages/case-lab/release.json#L1) | Action remains v0.2.0 at `a943ded4c734aed75c5c63f2b2dd63a2f44556c2`, separate from current source package v0.2.1 and later benchmark subjects. |
+| [Demo identity](../../packages/case-lab/release.json#L1) | Action remains v0.2.0 at `a943ded4c734aed75c5c63f2b2dd63a2f44556c2`, separate from current source package v0.3.0 and later benchmark subjects. |
 
 <a id="limitations"></a>
 ## Limitations and reproducing the review
@@ -120,7 +120,7 @@ Follow [contributor setup](../../README.md?plain=1#L235) and the existing
 [offline replay commands](../../README.md?plain=1#L262). The documentation check
 is `node --test scripts/submission-contract.test.mjs`; run project typecheck,
 lint, tests, and build sequentially. These local checks do not measure live
-repair quality. Final acceptance follows the [release evidence contract](../demo/sutura-v0.2.1-release-evidence-requirements.json#L1).
+repair quality. Final acceptance follows the [release evidence contract](../demo/sutura-v0.3.0-release-evidence-requirements.json#L1).
 
 On refresh, review changed source bytes and update inspected references. Keep
 reviewed source, historical benchmark subject, and demo Action identity separate;

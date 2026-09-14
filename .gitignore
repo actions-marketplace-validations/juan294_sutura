@@ -15,6 +15,11 @@ coverage/
 .sutura/placebo-v0.2.1-live.lock.recovery/
 .sutura/placebo-v0.2.1-live-artifacts/
 .sutura/placebo-v0.2.1-failed-runs/
+.sutura/placebo-v0.3.0-live-ledger.json
+.sutura/placebo-v0.3.0-live.lock
+.sutura/placebo-v0.3.0-live.lock.recovery/
+.sutura/placebo-v0.3.0-live-artifacts/
+.sutura/placebo-v0.3.0-failed-runs/
 .sutura/external-matrix-candidate-ledger.json
 .sutura/external-matrix-candidate-artifacts/
 .sutura/external-matrix-candidate.lock

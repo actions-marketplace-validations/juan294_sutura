@@ -5,11 +5,11 @@ Sutura verifies AI-generated CI repairs before it opens a pull request.
 Install Sutura in a GitHub repository:
 
 ```bash
-npx sutura@0.2.1 init
-npx sutura@0.2.1 doctor
+npx sutura@0.3.0 init
+npx sutura@0.3.0 doctor
 ```
 
-`init` resolves the `v0.2.1` Action tag to one immutable commit and writes that
+`init` resolves the `v0.3.0` Action tag to one immutable commit and writes that
 SHA into the workflow. `doctor` verifies the pin against the tag. Release
 candidate checks can pass `--action-sha <40-character-commit>` to both commands;
 mutable refs are rejected.

@@ -1,6 +1,6 @@
 {
   "name": "@sutura/case-lab",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "Public Sutura Case Lab: server-defined cases, fail-closed dispatcher, deterministic replays, and the signed-out result site.",
   "type": "module",

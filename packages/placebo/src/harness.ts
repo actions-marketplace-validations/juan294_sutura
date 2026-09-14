@@ -170,7 +170,7 @@ export async function runBenchmark(adapter: Adapter, options: BenchmarkOptions =
         corpusName: 'placebo',
         corpusVersion: CORPUS_VERSION,
         corpusHash: (await createCorpusManifest()).corpusHash,
-        adapterVersion: '0.2.1',
+        adapterVersion: '0.3.0',
         modelCatalogSnapshot: [...new Set(results.flatMap(({ caseFile }) =>
           caseFile.trace?.flatMap((event) =>
             event.type === 'model-response' ? [event.model] : []) ?? []))],
