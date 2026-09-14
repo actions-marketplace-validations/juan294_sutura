@@ -14,6 +14,8 @@ const STAGE3_V8_REPLAYS = JSON.parse(await readFile(new URL('./__fixtures__/stag
   manifestHash: string;
   records: Array<{
     caseId: string;
+    githubRunId: string;
+    resultHash: string;
     observedOutcome: 'gave-up';
     expectedReplayOutcome: 'fixed' | 'gave-up';
     observedErrorExcerpt: string;
@@ -21,6 +23,7 @@ const STAGE3_V8_REPLAYS = JSON.parse(await readFile(new URL('./__fixtures__/stag
   }>;
 };
 const ALL_CASES = ['repair-missing-await', 'repair-missing-await-setup', 'python-repair-missing-await', 'repair-tsconfig-drift', 'repair-tsconfig-drift-indexed-access', ...NEW_CASES];
+const CONTROLLER_CASES = [...new Set([...ALL_CASES, ...STAGE3_V8_REPLAYS.records.map(({ caseId }) => caseId)])];
 
 describe('recovery fixture execution with immutable local branches', () => {
   it('keeps the legacy corpus immutable and gives every new control development lineage', async () => {
@@ -85,63 +88,63 @@ describe('recovery fixture execution with immutable local branches', () => {
 
 
 describe('real repairFailure diagnosis recovery', () => {
-  it('binds the Stage 3 V8 gave-up replays to their retained source evidence', () => {
+  it('retains the declared Stage 3 V8 evidence identity for every replay', async () => {
     expect(STAGE3_V8_REPLAYS).toMatchObject({
       sourceFile: 'docs/agents/stage3-v8/quality-summary.json',
       sourceSha256: '079eb4bc10e242d540a0ff142bc556e6df09d6ada933104782d5ee16b61d6e5f',
       candidateSha: '042af3aada158347db6006e30a4a0e6e7c65e420',
       manifestHash: 'c4db4b99d20004ec5aea5f7598991f03dccb0a14674fbb000b2bab1bc8e6bbfe',
     });
-    expect(STAGE3_V8_REPLAYS.records.every(({ observedOutcome, observedErrorExcerpt }) =>
-      observedOutcome === 'gave-up' && observedErrorExcerpt.length > 0)).toBe(true);
+    const evidence = await readFile(new URL('../../../docs/demo/run-manifests/development-validation-v8-evidence.md', import.meta.url), 'utf8');
+    for (const { caseId, githubRunId, resultHash, observedOutcome, observedErrorExcerpt } of STAGE3_V8_REPLAYS.records) {
+      expect(observedOutcome).toBe('gave-up');
+      expect(observedErrorExcerpt.length).toBeGreaterThan(0);
+      expect(resultHash).toMatch(/^[a-f0-9]{64}$/u);
+      expect(evidence).toContain(`| \`${caseId}\` | [${githubRunId}]`);
+      expect(evidence).toContain(`\`${resultHash}\``);
+    }
   });
 
-  it.each(ALL_CASES)('verifies controller recovery for %s', async (caseId) => {
+  it.each(CONTROLLER_CASES)('verifies controller recovery for %s', async (caseId) => {
     const result = await runRecoveryControllerCase(caseId);
     const deceptive = caseId.startsWith('trap-');
-    expect(result.caseFile.outcome, JSON.stringify(result.caseFile.recovery)).toBe(deceptive ? 'gave-up' : 'fixed');
+    const replay = STAGE3_V8_REPLAYS.records.find((record) => record.caseId === caseId);
+    expect(result.caseFile.outcome, JSON.stringify(result.caseFile.recovery)).toBe(replay?.expectedReplayOutcome ?? (deceptive ? 'gave-up' : 'fixed'));
     expect(result.baselineExitCode).not.toBe(0);
     expect(result.caseFile.diagnosis.failingCmd).toBe(result.observedCommand);
     expect(result.baselineAfterExitCode).not.toBe(0);
     if (!deceptive) {
       expect(result.caseFile.audit?.approved).toBe(true);
-      if (caseId.endsWith('-preservation')) {
-        expect(result.inferenceCalls.filter((purpose) => purpose === 'challenge-generation')).toHaveLength(1);
-        expect(result.inferenceCalls.indexOf('challenge-generation')).toBeLessThan(result.inferenceCalls.indexOf('repair'));
-        const verification = result.caseFile.verificationRuns?.find((record) => record.verification.status === 'passed');
-        expect(verification?.verification.challengeAssurance).toBe(true);
-        expect(verification?.subjects.filter((subject) => subject.subject === 'baseline')).toHaveLength(2);
-        expect(verification?.subjects.filter((subject) => subject.subject === 'candidate')).toHaveLength(2);
-        expect(verification?.subjects.every((subject) => subject.status === 'passed' && /^[a-f0-9]{64}$/u.test(subject.observationSha256 ?? ''))).toBe(true);
-      }
+      if (ALL_CASES.includes(caseId)) {
+        if (caseId.endsWith('-preservation')) {
+          expect(result.inferenceCalls.filter((purpose) => purpose === 'challenge-generation')).toHaveLength(1);
+          expect(result.inferenceCalls.indexOf('challenge-generation')).toBeLessThan(result.inferenceCalls.indexOf('repair'));
+          const verification = result.caseFile.verificationRuns?.find((record) => record.verification.status === 'passed');
+          expect(verification?.verification.challengeAssurance).toBe(true);
+          expect(verification?.subjects.filter((subject) => subject.subject === 'baseline')).toHaveLength(2);
+          expect(verification?.subjects.filter((subject) => subject.subject === 'candidate')).toHaveLength(2);
+          expect(verification?.subjects.every((subject) => subject.status === 'passed' && /^[a-f0-9]{64}$/u.test(subject.observationSha256 ?? ''))).toBe(true);
+        }
 
-      expect(result.caseFile.stages.some((stage) => stage.note === 'Fresh suite rerun')).toBe(true);
-      expect(result.selectedDiff).toBeDefined();
-      if (caseId.includes('indexed-access')) {
-        expect(result.selectedDiff).toContain('string | undefined');
-        expect(result.selectedDiff).not.toContain('tsconfig.json');
-      } else {
-        expect(result.caseFile.recovery?.authorizations).not.toHaveLength(0);
-        expect(result.proofCount).toBeGreaterThan(0);
+        expect(result.caseFile.stages.some((stage) => stage.note === 'Fresh suite rerun')).toBe(true);
+        expect(result.selectedDiff).toBeDefined();
+        if (caseId.includes('indexed-access')) {
+          expect(result.selectedDiff).toContain('string | undefined');
+          expect(result.selectedDiff).not.toContain('tsconfig.json');
+        } else {
+          expect(result.caseFile.recovery?.authorizations).not.toHaveLength(0);
+          expect(result.proofCount).toBeGreaterThan(0);
+        }
       }
     } else {
       expect(result.selectedDiff).toBeUndefined();
       expect(result.appliedDiffs).not.toContain(result.deceptiveDiff);
     }
-  }, 180_000);
-
-  it.each(STAGE3_V8_REPLAYS.records)(
-    'replays Stage 3 V8 gave-up case $caseId with the explicit local outcome',
-    async ({ caseId, expectedReplayOutcome, replaySignal }) => {
-      const result = await runRecoveryControllerCase(caseId);
-      expect(result.caseFile.outcome).toBe(expectedReplayOutcome);
+    if (replay) {
       expect(`${result.caseFile.diagnosis.errorExcerpt}\n${result.caseFile.diagnosis.signals.join('\n')}`)
-        .toContain(replaySignal);
-      expect(result.baselineExitCode).not.toBe(0);
-      expect(result.baselineAfterExitCode).not.toBe(0);
-    },
-    180_000,
-  );
+        .toContain(replay.replaySignal);
+    }
+  }, 180_000);
 
   it('refuses a generated expected-value rewrite despite a valid await grant', async () => {
     const result = await runRecoveryControllerCase('repair-missing-await', { rewriteAssertion: true });

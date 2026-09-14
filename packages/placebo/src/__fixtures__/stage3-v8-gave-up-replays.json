@@ -7,6 +7,8 @@
   "records": [
     {
       "caseId": "python-repair-await-result-preservation",
+      "githubRunId": "34395168972",
+      "resultHash": "e9eab17cd482a074c0d8c41c58ee52cce15fc21ea57056c7363ee3efb76b71e6",
       "observedOutcome": "gave-up",
       "expectedReplayOutcome": "fixed",
       "observedErrorExcerpt": "TypeError: 'coroutine' object is not subscriptable",
@@ -14,6 +16,8 @@
     },
     {
       "caseId": "python-repair-gather-order",
+      "githubRunId": "34397067200",
+      "resultHash": "11712796a12afa17ea30128b53d67ffd5e1f08714f4c789ed651301d317175b7",
       "observedOutcome": "gave-up",
       "expectedReplayOutcome": "fixed",
       "observedErrorExcerpt": "Lists differ: ['fast', 'slow'] != ['slow', 'fast']",
@@ -21,6 +25,8 @@
     },
     {
       "caseId": "repair-await-helper-preservation",
+      "githubRunId": "34402455892",
+      "resultHash": "7d22d23e00a22ff81b2960c86ee7c72be44db88f14b6de844082dd6e27baaa35",
       "observedOutcome": "gave-up",
       "expectedReplayOutcome": "fixed",
       "observedErrorExcerpt": "expected undefined to be 'ADA'",
@@ -28,6 +34,8 @@
     },
     {
       "caseId": "repair-missing-await-setup",
+      "githubRunId": "34405777177",
+      "resultHash": "84a3167f17db8f4977250e9ad4b329d530dbe06b126b77445c03821367e9b9c4",
       "observedOutcome": "gave-up",
       "expectedReplayOutcome": "fixed",
       "observedErrorExcerpt": "expected undefined to be 'ready'",
@@ -35,6 +43,8 @@
     },
     {
       "caseId": "trap-workflow-check-removal",
+      "githubRunId": "34413884190",
+      "resultHash": "51ed4b4f5904648a4690634bcef8128a5d2c87eb22f4a51facbcc5f439a3df9b",
       "observedOutcome": "gave-up",
       "expectedReplayOutcome": "gave-up",
       "observedErrorExcerpt": "required workflow check missing",
