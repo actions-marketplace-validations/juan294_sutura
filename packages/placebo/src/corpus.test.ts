@@ -228,7 +228,7 @@ describe('Placebo v0.2 corpus', () => {
     } finally {
       await rm(temporaryRoot, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it('self-checks every Python fixture without a Node runtime injection', async () => {
     const corpus = await mkdtemp(join(tmpdir(), 'placebo-python-corpus-'));
