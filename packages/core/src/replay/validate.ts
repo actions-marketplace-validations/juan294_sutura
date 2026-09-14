@@ -63,6 +63,15 @@ function string(value: unknown, path: string, maximum = 2_000_000): string {
   return value;
 }
 
+function replayPath(value: unknown, path: string): string {
+  const candidate = string(value, path, 500);
+  if (candidate.length === 0 || candidate.startsWith('/') || candidate.includes('\\') ||
+      candidate.split('/').some((part) => part === '' || part === '.' || part === '..' || part === '.git')) {
+    throw new ReplayValidationError(path, 'must be a safe relative repository path');
+  }
+  return candidate;
+}
+
 function boolean(value: unknown, path: string): boolean {
   if (typeof value !== 'boolean') throw new ReplayValidationError(path, 'must be boolean');
   return value;
@@ -480,6 +489,30 @@ export function parseReplayBundle(value: unknown): ReplayBundle {
   }
   if (config.search !== undefined) {
     validateSearch(config.search, 'bundle.configuration.search');
+  }
+
+  if (bundle.runtimeDetection !== undefined) {
+    const runtimeDetection = object(bundle.runtimeDetection, 'bundle.runtimeDetection');
+    if (!exactKeys(runtimeDetection, [
+      'runtime', 'evidenceSource', 'evidencePaths', 'visitedEntries',
+    ])) {
+      throw new ReplayValidationError('bundle.runtimeDetection', 'has unknown or missing fields');
+    }
+    if (runtimeDetection.runtime !== 'node' && runtimeDetection.runtime !== 'python') {
+      throw new ReplayValidationError('bundle.runtimeDetection.runtime', 'is unknown');
+    }
+    if (!new Set(['configured', 'root', 'bounded-scan']).has(runtimeDetection.evidenceSource as string)) {
+      throw new ReplayValidationError('bundle.runtimeDetection.evidenceSource', 'is unknown');
+    }
+    array(runtimeDetection.evidencePaths, 'bundle.runtimeDetection.evidencePaths', 500)
+      .forEach((item, index) => replayPath(item, `bundle.runtimeDetection.evidencePaths[${index}]`));
+    const visitedEntries = nonnegativeNumber(
+      runtimeDetection.visitedEntries,
+      'bundle.runtimeDetection.visitedEntries',
+    );
+    if (!Number.isSafeInteger(visitedEntries)) {
+      throw new ReplayValidationError('bundle.runtimeDetection.visitedEntries', 'must be an integer');
+    }
   }
 
   const completeness = object(bundle.completeness, 'bundle.completeness');

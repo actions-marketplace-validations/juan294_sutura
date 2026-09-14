@@ -17,6 +17,7 @@ describe('action check failure safety', () => {
   it('completes the same created check when orchestration throws', async () => {
     const checks: Array<{ id: number; headSha: string; externalId: string; name: string; status: string; conclusion: string | null }> = [];
     const updates: Array<Record<string, unknown>> = [];
+    const commentUpdates: Array<{ commentId: number; body: string }> = [];
     const api = {
       getWorkflowRun: async () => ({ id: 77, headSha: SHA, repository: 'owner/repo', event: 'pull_request', conclusion: 'failure', pullRequests: [{ number: 9 }] }),
       listCheckRunsForRef: async () => checks.map((check) => ({ ...check })),
@@ -28,6 +29,7 @@ describe('action check failure safety', () => {
         return { id: 91 };
       },
       createIssueComment: async () => ({ id: 44 }),
+      updateIssueComment: async (commentId: number, body: string) => { commentUpdates.push({ commentId, body }); },
       updateCheckRun: async (input: Record<string, unknown>) => { updates.push(input); },
     } as unknown as GitHubApi;
     const adapter = new GitHubAdapter(api, { owner: 'owner', repo: 'repo', runId: '77' });
@@ -47,6 +49,10 @@ describe('action check failure safety', () => {
       status: 'completed',
       conclusion: 'action_required',
     })]);
+    expect(commentUpdates).toEqual([{
+      commentId: 44,
+      body: expect.stringContaining('Sutura stopped unexpectedly'),
+    }]);
   });
 
   it('preserves the orchestration failure when terminal check completion also fails', async () => {
@@ -84,7 +90,7 @@ describe('action check failure safety', () => {
     expect(uploads).toHaveLength(2);
     expect(uploads[0]?.name).toBe('sutura-terminal-failure-77.json');
     expect(JSON.parse(uploads[0]?.json ?? '{}')).toMatchObject({
-      schemaVersion: 'sutura-terminal-failure-v1',
+      schemaVersion: 'sutura-terminal-failure-v2',
       outcome: 'infra-stop',
       costStatus: 'unavailable',
       fixtureIdentity: { repository: 'owner/repo', targetRunId: '77' },
@@ -139,6 +145,26 @@ describe('runAction input guards', () => {
     });
 
     expect(setFailed).toHaveBeenCalledWith('GITHUB_RUN_ID must be a positive decimal id');
+  });
+
+  it('fails closed when replay capture cannot identify the executed Action commit', async () => {
+    const setFailed = vi.fn();
+
+    await runAction({
+      readAction: () => ({ ...action, captureReplay: true }),
+      loadConfiguration: () => loadConfig({
+        NEBIUS_API_KEY: 'nebius-test',
+        CONTREE_TOKEN: 'contree-test',
+        CONTREE_PROJECT: 'project-test',
+      }),
+      repository: () => ({ owner: 'acme', repo: 'widget' }),
+      environment: { GITHUB_RUN_ID: '88', GITHUB_SHA: SHA },
+      setFailed,
+    });
+
+    expect(setFailed).toHaveBeenCalledWith(
+      'capture-replay requires Sutura to be pinned to an exact Action commit SHA',
+    );
   });
 });
 

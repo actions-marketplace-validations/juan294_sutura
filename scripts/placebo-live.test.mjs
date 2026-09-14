@@ -72,7 +72,7 @@ function artifact(caseId, overrides = {}) {
   return createPlaceboCaseArtifact({
     controllerSha: CONTROLLER_SHA,
     githubRunId: String(1000 + caseIndex),
-    subjectVersion: '0.2.1',
+    subjectVersion: '0.3.0',
     subjectSha: SUBJECT_SHA,
     packageContentHash: PACKAGE_HASH,
     packageIntegrity: PACKAGE_INTEGRITY,
@@ -527,7 +527,7 @@ test('artifact/ledger crash recovery records a completed job once', async (t) =>
   const bytes = Buffer.from(JSON.stringify(value));
   const input = { artifact:value, bytes, run:{url:`https://github.com/juan294/sutura/actions/runs/${value.githubRunId}`}, stateDirectory:directory };
   await assert.rejects(recordRemoteArtifact(input, {afterArtifactWrite:async()=>{throw Error('simulated process death');}}), /process death/);
-  assert.deepEqual(JSON.parse(await readFile(join(directory,'placebo-v0.2.1-live-artifacts/repair-off-by-one.json'))), value);
+  assert.deepEqual(JSON.parse(await readFile(join(directory,'placebo-v0.3.0-live-artifacts/repair-off-by-one.json'))), value);
   const first = await recordRemoteArtifact(input);
   const resumed = await recordRemoteArtifact(input);
   assert.equal(first.entries.length,1); assert.deepEqual(resumed,first);

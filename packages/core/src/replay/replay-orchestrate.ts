@@ -91,7 +91,11 @@ export async function replayBundle(
     ? new RecordedCallCursor(validated.executor, describeMethodCall, 'executor', EXECUTOR_CURSOR_OPTIONS)
     : undefined;
   const githubReplay = replayingGitHubApi(validated, portCursor);
-  const repository = new RecordedRepository(validated.repository, portCursor);
+  const repository = new RecordedRepository(
+    validated.repository,
+    portCursor,
+    validated.runtimeDetection?.evidencePaths,
+  );
   const executor = options.executor ?? new RecordedExecutor(
     validated.executor,
     (args) => repository.normalizeArgs(args),
@@ -111,6 +115,9 @@ export async function replayBundle(
   const tavily = new TavilyClient('replay-only', {
     fetch: replayFetch(validated, 'tavily', httpCursor),
   });
+  const runtimeId = options.runtimeId ??
+    validated.runtimeDetection?.runtime ??
+    validated.configuration.runtimeId;
   const cursors: ReplayCursor[] = [portCursor, httpCursor];
   if (executorCursor) cursors.push(executorCursor);
   try {
@@ -135,9 +142,9 @@ export async function replayBundle(
         ...(validated.configuration.imageRef === undefined
           ? {}
           : { imageRef: validated.configuration.imageRef }),
-        ...(options.runtimeId ?? validated.configuration.runtimeId
-          ? { runtimeId: options.runtimeId ?? validated.configuration.runtimeId }
-          : {}),
+        ...(runtimeId === undefined
+          ? {}
+          : { runtimeId }),
         ...(validated.configuration.sourceReferenceOrder === undefined
           ? {}
           : { sourceReferenceOrder: validated.configuration.sourceReferenceOrder }),

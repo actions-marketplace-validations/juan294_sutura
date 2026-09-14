@@ -2,11 +2,19 @@
 
 Each manifest binds one measurement to its candidate, configuration, subjects and finite caps. Authorization is separate and specific to that manifest. Historical runs do not authorize a new run or leave a reusable balance.
 
-## Current request
+## Current result
 
-[Stage 3 v4 readiness](development-validation-v4-readiness.md) is the replacement request after a test-only CI guard-coverage correction: 80 development/validation subjects on `8657553608b04f5882eda7517068ad80f7d04aae`, asking to carry forward the **existing USD 25 total allowance**, with no additional budget. Replacement-manifest authorization is pending. Retain USD 1 for prerequisite canaries and limit the case controller to USD 24. No Stage 3 cases have run. The [saved configuration](development-validation-v4-config.json) retains the fixed production baseline and existing per-subject budgets.
+[Stage 3 v8](development-validation-v8-evidence.md) is the current clean
+development/validation measurement. Exact candidate
+`042af3aada158347db6006e30a4a0e6e7c65e420` completed 80/80 cases for USD
+6.431018 in recorded inference and sandbox cost. It repaired 33/42 repairable
+cases (78.6%) with zero false approvals. Hidden repair preservation passed 4/8
+with four not run, so the preservation gate did not pass. The held-out 20-case
+split remains sealed.
 
-The expanded verification path invalidates the earlier runtime/cost extrapolations. The readiness request distinguishes the validator's USD 10.48576 token calculation, the USD 20 aggregate repair-inference envelope at unchanged defaults, unknown sandbox billing and the proposed cumulative cap. None is a promise of a completed 80-case run.
+The sanitized evidence binds the result to its manifest, corpus, split,
+configuration, and candidate hashes without publishing private operational
+state. It does not replace or rewrite any historical manifest.
 
 ## Staged ladder and historical records
 
@@ -18,15 +26,16 @@ The expanded verification path invalidates the earlier runtime/cost extrapolatio
 | 3 | `development-validation-v2` | Superseded, unexecuted request for the earlier candidate. |
 | 3 | `development-validation-v3` | Cap and push approved; candidate failed final CI guard coverage. Prerequisite canary passed; zero cases dispatched. Superseded case request. |
 | 3 | `development-validation-v4` | Replacement after test-only coverage correction. Same total allowance requested; pending replacement-manifest approval. |
+| 3 | `development-validation-v8` | Current clean result: 80/80 completed on candidate `042af3a`; USD 6.431018 recorded; 33/42 repairs; zero false approvals. Sanitized evidence is tracked; the operational manifest remains private. |
 | 4 | Not prepared | Held-out 20 require a separate cap and frozen configuration after Stage 3 is read. |
 
-Each stage gates the next. Stop dependent jobs after a failed control or incomplete run. No clean repair rate exists for the new candidate yet. Paid Data Lab comparisons and other roadmap experiments need their own concrete requests; Stage 3 does not authorize them.
+Each stage gates the next. Stop dependent jobs after a failed control or incomplete run. Paid Data Lab comparisons and other roadmap experiments need their own concrete requests; Stage 3 does not authorize them. The completed Stage 3 result does not authorize or establish acceptance for Stage 4.
 
 Historical JSON identities remain unchanged. Read each manifest's own candidate, corpus, split, configuration, image and dated model prices. Do not rewrite old evidence to match the current candidate. A declared registry digest does not attest a provider image; executed evidence records the actual immutable executor baseline separately.
 
-## Local manifest checks
+## Historical local manifest checks
 
-From the repository root, validate the saved request without contacting a provider:
+From the repository root, validate the historical v4 request without contacting a provider:
 
 ```bash
 node --input-type=module -e "
@@ -39,9 +48,9 @@ console.log(validateRunManifest(m).manifestHash, manifestMaximumUsd(m));
 
 The validator prices the maximum listed model with equal input/output token allowances and takes the smaller result or inference cap. This calculation is not a provider invoice ceiling: actual input context, sandbox charges and controller reservations have separate semantics. The readiness request records these limits explicitly. Unknown sandbox units remain unknown; never convert them to USD or zero without billing evidence.
 
-## Before dispatch
+## Historical v4 dispatch instructions
 
-Follow the exact candidate, remote checks, credential-presence checks, commands and stop procedure in [v4 readiness](development-validation-v4-readiness.md). Push authorization and paid-run authorization are separate. Check secrets by presence only; never print their values. The push freeze remains enabled until every dispatched job is terminal or its cancellation and billing are reconciled.
+The exact candidate, remote checks, credential-presence checks, commands and stop procedure in [v4 readiness](development-validation-v4-readiness.md) are retained only as historical instructions for that superseded request. They do not authorize a new dispatch. Push authorization and paid-run authorization are separate. Check secrets by presence only; never print their values. A future run must keep the push freeze enabled until every dispatched job is terminal or its cancellation and billing are reconciled.
 
 ## Cumulative controller accounting
 

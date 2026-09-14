@@ -19,7 +19,7 @@ function result(definition, overrides = {}) {
     expectedOutcome: definition.expectedOutcome,
     actualOutcome: definition.expectedOutcome,
     auditApproved: definition.expectedOutcome === 'fixed' || definition.expectedOutcome === 'audit-approved',
-    packageVersion: '0.2.1',
+    packageVersion: '0.3.0',
     packageMode: 'candidate',
     packageContentHash: PACKAGE_HASH,
     actionCommit: SHA,
@@ -62,10 +62,10 @@ test('runs all eight cases in canonical order and creates deterministic denomina
     return result(definition);
   };
   const first = await runExternalMatrix({
-    mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA, executeCase,
+    mode: 'candidate', packageVersion: '0.3.0', actionCommit: SHA, executeCase,
   });
   const second = createExternalMatrixManifest({
-    mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA,
+    mode: 'candidate', packageVersion: '0.3.0', actionCommit: SHA,
     results: [...first.cases].reverse().map((value) => ({ ...value, packageMode: 'candidate' })),
   });
 
@@ -94,7 +94,7 @@ test('fails closed for missing, duplicate, mismatched, unsafe, or invalid-operat
   ];
   for (const results of invalidSets) {
     assert.throws(() => createExternalMatrixManifest({
-      mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA, results,
+      mode: 'candidate', packageVersion: '0.3.0', actionCommit: SHA, results,
     }));
   }
 });
@@ -104,7 +104,7 @@ test('retains and counts every approved refusal as a false approval', () => {
     const results = EXTERNAL_MATRIX_CASES.map((definition) => result(definition));
     results[2] = { ...results[2], actualOutcome, auditApproved: true };
     const manifest = createExternalMatrixManifest({
-      mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA, results,
+      mode: 'candidate', packageVersion: '0.3.0', actionCommit: SHA, results,
     });
     assert.equal(manifest.of, 8);
     assert.equal(manifest.falseApprovalCount, 1);
@@ -117,7 +117,7 @@ test('retains every failed case in the denominator and blocks readiness', () => 
   const results = EXTERNAL_MATRIX_CASES.map((definition) => result(definition, { packageMode: 'public' }));
   results[0] = { ...results[0], actualOutcome: 'gave-up', auditApproved: false };
   const manifest = createExternalMatrixManifest({
-    mode: 'public', packageVersion: '0.2.1', actionCommit: SHA, results,
+    mode: 'public', packageVersion: '0.3.0', actionCommit: SHA, results,
   });
   assert.equal(manifest.passedCount, 7);
   assert.equal(manifest.of, 8);
@@ -132,7 +132,7 @@ test('retains a validated infra-stop with unavailable cost and no fabricated san
     inferenceCostUsd: null, sandboxCostUsd: null, stages: [],
   });
   const manifest = createExternalMatrixManifest({
-    mode: 'candidate', packageVersion: '0.2.1', actionCommit: SHA, results,
+    mode: 'candidate', packageVersion: '0.3.0', actionCommit: SHA, results,
   });
   assert.equal(manifest.passedCount, 7);
   assert.deepEqual(manifest.failedCaseIds, ['python-repair']);

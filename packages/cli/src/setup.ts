@@ -71,8 +71,9 @@ jobs:
     name: Attempt verified CI repair
     if: >-
       \${{
-        github.event.workflow_run.conclusion == 'failure' ||
-        github.event.workflow_run.conclusion == 'timed_out'
+        vars.SUTURA_DISABLED != 'true' &&
+        (github.event.workflow_run.conclusion == 'failure' ||
+        github.event.workflow_run.conclusion == 'timed_out')
       }}
     runs-on: ubuntu-latest
     steps:

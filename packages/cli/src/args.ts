@@ -2,7 +2,7 @@ const MAX_CANDIDATE_DIFF_BYTES = 1024 * 1024;
 const REPOSITORY_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u;
 const SHA_PATTERN = /^[a-f0-9]{40}$/iu;
 
-export const VERSION = '0.2.1';
+export const VERSION = '0.3.0';
 export const USAGE = [
   'Usage:',
   '  sutura init [--workflow <name>] [--repo <owner/repo>] [--action-sha <commit>] [--force] [--no-tavily]',

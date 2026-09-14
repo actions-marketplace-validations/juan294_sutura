@@ -44,9 +44,9 @@ attributable feedback.
    Action commit:
 
    ```bash
-   node scripts/test-public-install.mjs --release 0.2.1
-   npx sutura@0.2.1 init
-   npx sutura@0.2.1 doctor
+   node scripts/test-public-install.mjs --release 0.3.0
+   npx sutura@0.3.0 init
+   npx sutura@0.3.0 doctor
    ```
 
 4. Run the assigned repair, refusal, or flake case through the generated Action.
@@ -74,7 +74,7 @@ After all three sessions, place only the reviewed public-safe records in the
 ignored `docs/adoption/records/` directory and create terminal evidence:
 
 ```bash
-node scripts/adoption-study.mjs finalize --candidate "$(git rev-list -n 1 v0.2.1)" --records docs/adoption/records --output docs/adoption/sutura-external-adoption-evidence-v1.json
+node scripts/adoption-study.mjs finalize --candidate "$(git rev-list -n 1 v0.3.0)" --records docs/adoption/records --output docs/adoption/sutura-external-adoption-evidence-v1.json
 ```
 
 The finalizer refuses duplicate participants or repositories, incomplete language

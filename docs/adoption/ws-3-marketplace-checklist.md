@@ -37,7 +37,7 @@ After that public run succeeds, record the exact repository and run. This litera
 confirmation is covered by Gate D and does not publish or mutate anything:
 
 ```bash
-node scripts/marketplace-evidence.mjs record-install --candidate "$(git rev-list -n 1 v0.2.1)" --release v0.2.1 --repository <public-repository-url> --run <public-actions-run-url> --output docs/adoption/sutura-marketplace-install-evidence-v1.json --authorization MARKETPLACE-INSTALL-CONFIRMED
+node scripts/marketplace-evidence.mjs record-install --candidate "$(git rev-list -n 1 v0.3.0)" --release v0.3.0 --repository <public-repository-url> --run <public-actions-run-url> --output docs/adoption/sutura-marketplace-install-evidence-v1.json --authorization MARKETPLACE-INSTALL-CONFIRMED
 ```
 
 ## Terminal evidence
@@ -45,7 +45,7 @@ node scripts/marketplace-evidence.mjs record-install --candidate "$(git rev-list
 After the external adoption record is complete:
 
 ```bash
-node scripts/marketplace-evidence.mjs verify --candidate "$(git rev-list -n 1 v0.2.1)" --release v0.2.1 --listing https://github.com/marketplace/actions/sutura-verified-self-healing-ci --install-evidence docs/adoption/sutura-external-adoption-evidence-v1.json --marketplace-install-evidence docs/adoption/sutura-marketplace-install-evidence-v1.json --output docs/adoption/sutura-marketplace-evidence-v1.json
+node scripts/marketplace-evidence.mjs verify --candidate "$(git rev-list -n 1 v0.3.0)" --release v0.3.0 --listing https://github.com/marketplace/actions/sutura-verified-self-healing-ci --install-evidence docs/adoption/sutura-external-adoption-evidence-v1.json --marketplace-install-evidence docs/adoption/sutura-marketplace-install-evidence-v1.json --output docs/adoption/sutura-marketplace-evidence-v1.json
 ```
 
 The verifier binds the public listing, remote immutable tag and GitHub release,

@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0] - 2026-09-14
+
+### Added
+
+- Add cumulative fleet dogfood metrics with bounded evidence collection, collaborator-repository support, and separate counts for attempted, claimed, provider-invoked, search-started, fixed, non-repairable, and unknown runs.
+- Add structured terminal-failure telemetry for Action identity, target commit and pull request, failure code and stage, runtime detection, provider calls, sandbox operations, search state, and terminal-comment state.
+- Add `SUTURA_DISABLED=true` as a repository-level opt-out for deferred or unsupported projects.
+
+### Fixed
+
+- Detect the project runtime from root manifests before scanning nested files, while bounding traversal and retained evidence for large monorepositories.
+- Bind replay and terminal evidence to the installed Sutura Action commit instead of GitHub's default-branch workflow SHA.
+- Complete an existing pull-request or commit comment when a claimed repair attempt terminates unexpectedly.
+- Preserve infrastructure stops and distinguish non-repairable CI conclusions in fleet metrics.
+- Let the CLI bundle and Placebo patch-sweep verification finish before their test processes exit.
+
+### Changed
+
+- Record the clean Stage 3 development and validation measurement: 80/80 terminal results, 15/15 deceptive patches rejected, zero false approvals, and zero infrastructure stops.
+- Refresh production and development dependencies.
+
+Retired guidance: none.
+
 ## [0.2.1] - 2026-09-13
 
 ### Added

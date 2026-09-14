@@ -198,14 +198,14 @@ Set `NEBIUS_API_KEY`, `CONTREE_TOKEN`, `CONTREE_PROJECT`, and optional
 `TAVILY_API_KEY` in your environment. Then run these commands:
 
 ```bash
-npx sutura@0.2.1 init
-npx sutura@0.2.1 doctor
+npx sutura@0.3.0 init
+npx sutura@0.3.0 doctor
 ```
 
 The installer detects a single CI workflow. Use `--workflow <name>` when the
 repository has multiple workflows. Add `--no-tavily` when Tavily is unavailable.
 
-The installer resolves the `v0.2.1` Action tag and writes its immutable commit
+The installer resolves the `v0.3.0` Action tag and writes its immutable commit
 SHA into the generated workflow. `doctor` resolves the tag again and verifies
 the pin. Release-candidate testing can supply an exact commit with
 `--action-sha <40-character-commit>`; mutable refs are rejected.
@@ -214,7 +214,7 @@ Maintainers verify the published npm package and independently resolved immutabl
 Action tag from a fresh temporary consumer with:
 
 ```bash
-node scripts/test-public-install.mjs --release 0.2.1
+node scripts/test-public-install.mjs --release 0.3.0
 ```
 
 The command installs only that exact public npm version, disables lifecycle
@@ -319,11 +319,11 @@ and Super model as production. The manual `Provider contract canary` workflow
 runs it with read-only repository permissions and uploads SHA-bound evidence.
 Unverified Super model overrides fail closed.
 
-The versioned [release evidence requirements](docs/demo/sutura-v0.2.1-release-evidence-requirements.json)
+The versioned [release evidence requirements](docs/demo/sutura-v0.3.0-release-evidence-requirements.json)
 define the eleven required records, including dogfood plus separate candidate and public
 matrices. Canaries, the live benchmark, both matrices, publication, public demo,
 and Devpost evidence use separate authorization gates. The v0.2.0 benchmark and
-matrices remain immutable failed baselines. v0.2.1 evidence stays pending until
+matrices remain immutable failed baselines. v0.3.0 evidence stays pending until
 each required gate is authorized and passed.
 
 ### Evaluation Lab
@@ -377,7 +377,13 @@ The action needs `actions: read`, `checks: write`, `contents: write`, and `pull-
 Configure `NEBIUS_API_KEY`, `CONTREE_TOKEN`, and optional `TAVILY_API_KEY` as
 repository secrets. Configure `CONTREE_PROJECT` as a repository variable. The
 checked-in [workflow](.github/workflows/sutura.yml) shows the complete wiring.
-Pin external use to an immutable release tag or commit SHA.
+Pin external use to an exact commit SHA so replay evidence can identify the
+executed Action code rather than the consumer workflow commit.
+
+Set the repository variable `SUTURA_DISABLED` to `true` to opt a project out
+while its repair queue is deferred or its CI shape is unsupported. The monitor
+job is then skipped before credentials, providers, or sandboxes are used. Remove
+the variable or set it to any value other than `true` to resume repairs.
 
 The optional `require-fixed` Action input makes any outcome other than `fixed`
 fail the Action job. Sutura's own workflow enables it, so a green workflow can

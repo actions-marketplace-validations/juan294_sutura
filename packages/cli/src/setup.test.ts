@@ -38,6 +38,7 @@ describe('installSutura', () => {
       const workflow = await readFile(join(directory, '.github', 'workflows', 'sutura.yml'), 'utf8');
       expect(workflow).toContain('workflows: ["CI"]');
       expect(workflow).toContain("workflow_run.conclusion == 'timed_out'");
+      expect(workflow).toContain("vars.SUTURA_DISABLED != 'true'");
       expect(workflow).toContain(`uses: juan294/sutura@${ACTION_SHA}`);
       expect(workflow).toContain('checks: write');
       expect(workflow).toContain('name: Sutura repair monitor');
@@ -116,7 +117,7 @@ describe('installSutura', () => {
   it('resolves the release tag before writing or configuring GitHub', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'sutura-init-release-'));
     const run = vi.fn(async (command: string) => {
-      if (command === 'git') return `${ACTION_SHA}\trefs/tags/v0.2.1\n`;
+      if (command === 'git') return `${ACTION_SHA}\trefs/tags/v0.3.0\n`;
       throw new Error('GitHub mutation must not run');
     });
     try {

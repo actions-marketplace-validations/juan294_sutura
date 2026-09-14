@@ -21,10 +21,10 @@ function doctorOutput(commit) {
 }
 
 test('candidate pack accepts npm 11 and npm 12 JSON output only when one package is present', () => {
-  assert.equal(packedFilename('[{"filename":"sutura-0.2.1.tgz"}]'), 'sutura-0.2.1.tgz');
-  assert.equal(packedFilename('{"filename":"sutura-0.2.1.tgz"}'), 'sutura-0.2.1.tgz');
-  assert.equal(packedFilename('{"sutura":{"filename":"sutura-0.2.1.tgz"}}'),
-    'sutura-0.2.1.tgz');
+  assert.equal(packedFilename('[{"filename":"sutura-0.3.0.tgz"}]'), 'sutura-0.3.0.tgz');
+  assert.equal(packedFilename('{"filename":"sutura-0.3.0.tgz"}'), 'sutura-0.3.0.tgz');
+  assert.equal(packedFilename('{"sutura":{"filename":"sutura-0.3.0.tgz"}}'),
+    'sutura-0.3.0.tgz');
   assert.throws(() => packedFilename('{}'), /did not return one filename/u);
   assert.throws(() => packedFilename('{"one":{"filename":"one.tgz"},"two":{"filename":"two.tgz"}}'),
     /did not return one filename/u);
@@ -43,7 +43,7 @@ test('candidate install uses the local tarball and exact candidate Action SHA wi
       dependencies: {
         pack: async (source, destination) => {
           calls.push(['pack', source]);
-          const tarball = join(destination, 'sutura-0.2.1.tgz');
+          const tarball = join(destination, 'sutura-0.3.0.tgz');
           await writeFile(tarball, 'candidate');
           return tarball;
         },
@@ -51,7 +51,7 @@ test('candidate install uses the local tarball and exact candidate Action SHA wi
           calls.push(['install']);
           await mkdir(join(consumer, 'node_modules', 'sutura'), { recursive: true });
           await writeFile(join(consumer, 'node_modules', 'sutura', 'package.json'), JSON.stringify({
-            name: 'sutura', version: '0.2.1', dependencies: {},
+            name: 'sutura', version: '0.3.0', dependencies: {},
           }));
           await writeFile(join(consumer, 'node_modules', 'sutura', 'LICENSE'), 'MIT fixture\n');
         },
@@ -64,7 +64,7 @@ test('candidate install uses the local tarball and exact candidate Action SHA wi
             return '';
           }
           if (args[0] === 'doctor') return doctorOutput(ACTION_SHA);
-          if (args[0] === '--version') return '0.2.1\n';
+          if (args[0] === '--version') return '0.3.0\n';
           throw new Error(`unexpected invocation ${args.join(' ')}`);
         },
       },
@@ -72,12 +72,12 @@ test('candidate install uses the local tarball and exact candidate Action SHA wi
 
     assert.equal(result.mode, 'candidate');
     assert.equal(result.actionCommit, ACTION_SHA);
-    assert.equal(result.packageVersion, '0.2.1');
+    assert.equal(result.packageVersion, '0.3.0');
     assert.equal(result.setupDurationMs, 25);
     assert.match(result.packageIntegrity, /^[a-f0-9]{64}$/u);
     assert.deepEqual(calls[0], ['pack', join(temporary, 'packages', 'cli')]);
     assert.ok(calls.some((entry) => Array.isArray(entry) && entry.includes('--action-sha')));
-    assert.ok(!JSON.stringify(calls).includes('sutura@0.2.1'));
+    assert.ok(!JSON.stringify(calls).includes('sutura@0.3.0'));
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
