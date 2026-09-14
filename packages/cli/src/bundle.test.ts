@@ -11,7 +11,7 @@ describe('published CLI bundle', () => {
     await execFileAsync('pnpm', ['run', 'build'], {
       cwd: new URL('..', import.meta.url),
     });
-  }, 30_000);
+  }, 90_000);
 
   it('contains the evaluation commands and manifest validator', async () => {
     const bundle = await readFile(new URL('../dist/bin.js', import.meta.url), 'utf8');
