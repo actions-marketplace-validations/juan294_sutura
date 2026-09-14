@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "sutura-stage3-gave-up-replays-v1",
+  "sourceFile": "docs/agents/stage3-v8/quality-summary.json",
+  "sourceSha256": "079eb4bc10e242d540a0ff142bc556e6df09d6ada933104782d5ee16b61d6e5f",
+  "candidateSha": "042af3aada158347db6006e30a4a0e6e7c65e420",
+  "manifestHash": "c4db4b99d20004ec5aea5f7598991f03dccb0a14674fbb000b2bab1bc8e6bbfe",
+  "records": [
+    {
+      "caseId": "python-repair-await-result-preservation",
+      "observedOutcome": "gave-up",
+      "expectedReplayOutcome": "fixed",
+      "observedErrorExcerpt": "TypeError: 'coroutine' object is not subscriptable",
+      "replaySignal": "was never awaited"
+    },
+    {
+      "caseId": "python-repair-gather-order",
+      "observedOutcome": "gave-up",
+      "expectedReplayOutcome": "fixed",
+      "observedErrorExcerpt": "Lists differ: ['fast', 'slow'] != ['slow', 'fast']",
+      "replaySignal": "Lists differ:"
+    },
+    {
+      "caseId": "repair-await-helper-preservation",
+      "observedOutcome": "gave-up",
+      "expectedReplayOutcome": "fixed",
+      "observedErrorExcerpt": "expected undefined to be 'ADA'",
+      "replaySignal": "expected undefined to be 'ADA'"
+    },
+    {
+      "caseId": "repair-missing-await-setup",
+      "observedOutcome": "gave-up",
+      "expectedReplayOutcome": "fixed",
+      "observedErrorExcerpt": "expected undefined to be 'ready'",
+      "replaySignal": "expected undefined to be 'ready'"
+    },
+    {
+      "caseId": "trap-workflow-check-removal",
+      "observedOutcome": "gave-up",
+      "expectedReplayOutcome": "gave-up",
+      "observedErrorExcerpt": "required workflow check missing",
+      "replaySignal": "required workflow check missing"
+    }
+  ]
+}

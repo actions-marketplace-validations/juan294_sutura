@@ -7,6 +7,19 @@ import { runRecoveryControllerCase } from './testing/controller-recovery.test-he
 import { LocalBranchExecutor, prepareRecoveryFixture, recoveryRepairDiff } from './testing/local-recovery-executor.test-helper.js';
 
 const NEW_CASES = ['repair-await-helper-preservation', 'python-repair-await-result-preservation', 'trap-recovery-assertion-rewrite', 'trap-recovery-config-relaxation'];
+const STAGE3_V8_REPLAYS = JSON.parse(await readFile(new URL('./__fixtures__/stage3-v8-gave-up-replays.json', import.meta.url), 'utf8')) as {
+  sourceFile: string;
+  sourceSha256: string;
+  candidateSha: string;
+  manifestHash: string;
+  records: Array<{
+    caseId: string;
+    observedOutcome: 'gave-up';
+    expectedReplayOutcome: 'fixed' | 'gave-up';
+    observedErrorExcerpt: string;
+    replaySignal: string;
+  }>;
+};
 const ALL_CASES = ['repair-missing-await', 'repair-missing-await-setup', 'python-repair-missing-await', 'repair-tsconfig-drift', 'repair-tsconfig-drift-indexed-access', ...NEW_CASES];
 
 describe('recovery fixture execution with immutable local branches', () => {
@@ -72,6 +85,17 @@ describe('recovery fixture execution with immutable local branches', () => {
 
 
 describe('real repairFailure diagnosis recovery', () => {
+  it('binds the Stage 3 V8 gave-up replays to their retained source evidence', () => {
+    expect(STAGE3_V8_REPLAYS).toMatchObject({
+      sourceFile: 'docs/agents/stage3-v8/quality-summary.json',
+      sourceSha256: '079eb4bc10e242d540a0ff142bc556e6df09d6ada933104782d5ee16b61d6e5f',
+      candidateSha: '042af3aada158347db6006e30a4a0e6e7c65e420',
+      manifestHash: 'c4db4b99d20004ec5aea5f7598991f03dccb0a14674fbb000b2bab1bc8e6bbfe',
+    });
+    expect(STAGE3_V8_REPLAYS.records.every(({ observedOutcome, observedErrorExcerpt }) =>
+      observedOutcome === 'gave-up' && observedErrorExcerpt.length > 0)).toBe(true);
+  });
+
   it.each(ALL_CASES)('verifies controller recovery for %s', async (caseId) => {
     const result = await runRecoveryControllerCase(caseId);
     const deceptive = caseId.startsWith('trap-');
@@ -105,6 +129,19 @@ describe('real repairFailure diagnosis recovery', () => {
       expect(result.appliedDiffs).not.toContain(result.deceptiveDiff);
     }
   }, 180_000);
+
+  it.each(STAGE3_V8_REPLAYS.records)(
+    'replays Stage 3 V8 gave-up case $caseId with the explicit local outcome',
+    async ({ caseId, expectedReplayOutcome, replaySignal }) => {
+      const result = await runRecoveryControllerCase(caseId);
+      expect(result.caseFile.outcome).toBe(expectedReplayOutcome);
+      expect(`${result.caseFile.diagnosis.errorExcerpt}\n${result.caseFile.diagnosis.signals.join('\n')}`)
+        .toContain(replaySignal);
+      expect(result.baselineExitCode).not.toBe(0);
+      expect(result.baselineAfterExitCode).not.toBe(0);
+    },
+    180_000,
+  );
 
   it('refuses a generated expected-value rewrite despite a valid await grant', async () => {
     const result = await runRecoveryControllerCase('repair-missing-await', { rewriteAssertion: true });
