@@ -65,28 +65,166 @@ export function parseCaseFileHtml(html) {
     sandboxCostUsd: exactNumber(/· \$([0-9,.]+) sandbox cost<\/p>/u, html, 'sandbox cost'),
     sandboxOperations: exactNumber(/<p>([0-9,]+) operations ·/u, html, 'sandbox operations'),
     sandboxElapsedTimeSec: exactNumber(/operations · ([0-9,.]+) s elapsed ·/u, html, 'sandbox elapsed time'),
+    providerInvoked: null,
+    searchStarted: outcome === 'fixed' ? true : null,
   };
 }
 
-export function parseTerminalFailureJson(content) {
-  if (typeof content !== 'string' || Buffer.byteLength(content) > 64 * 1024) {
-    throw new Error('Terminal failure must be bounded JSON text');
+function boundedTelemetryString(value, fallback = null) {
+  return typeof value === 'string' && /^[A-Za-z0-9._:/-]{1,160}$/u.test(value)
+    ? value
+    : fallback;
+}
+
+function boundedFailureDetails(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value).flatMap(([key, detail]) =>
+    /^[A-Za-z][A-Za-z0-9]{0,63}$/u.test(key) &&
+    ((typeof detail === 'number' && Number.isFinite(detail)) ||
+      (typeof detail === 'string' && detail.length <= 160))
+      ? [[key, detail]]
+      : []);
+  return entries.length === 0 ? undefined : Object.fromEntries(entries);
+}
+
+function legacyFailureIdentity(message, errorClass) {
+  const cases = [
+    [/Runtime evidence exceeds/iu, 'runtime-evidence-limit', 'runtime-detection'],
+    [/Failed-step logs do not contain an observed failing command/iu, 'failing-command-not-observed', 'diagnosis'],
+    [/ConTree.*(?:504|Gateway Timeout)/iu, 'contree-http-504', 'sandbox'],
+    [/already attempted workflow run/iu, 'already-attempted', 'claim'],
+    [/snapshot.*(?:exceed|bounded source size)/iu, 'replay-snapshot-limit', 'replay-capture'],
+  ];
+  const matched = cases.find(([pattern]) => pattern.test(message));
+  return {
+    failureCode: matched?.[1] ?? 'unstructured',
+    failureStage: matched?.[2] ?? 'unknown',
+    errorClass: boundedTelemetryString(errorClass, 'UnknownError'),
+  };
+}
+
+function parseBoundedJson(content, maximumBytes, label) {
+  if (typeof content !== 'string' || Buffer.byteLength(content) > maximumBytes) {
+    throw new Error(`${label} must be bounded JSON text`);
   }
-  let value;
   try {
-    value = JSON.parse(content);
+    return JSON.parse(content);
   } catch {
-    throw new Error('Terminal failure must be valid JSON');
+    throw new Error(`${label} must be valid JSON`);
   }
-  if (value?.schemaVersion !== 'sutura-terminal-failure-v1' || value.outcome !== 'infra-stop') {
+}
+
+function mergeObservedBoolean(primary, secondary) {
+  if (primary === true || secondary === true) return true;
+  if (primary === false || secondary === false) return false;
+  return null;
+}
+
+export function parseTerminalFailureJson(content) {
+  const value = parseBoundedJson(content, 64 * 1024, 'Terminal failure');
+  if (!['sutura-terminal-failure-v1', 'sutura-terminal-failure-v2'].includes(value?.schemaVersion) || value.outcome !== 'infra-stop') {
     throw new Error('Terminal failure schema or outcome is invalid');
   }
-  return {
+  const base = {
     outcome: 'infra-stop',
     costStatus: 'unavailable',
     evidenceError: typeof value.errorMessage === 'string'
       ? value.errorMessage.slice(0, 300)
       : 'Sutura stopped before complete case-file evidence was available',
+  };
+  if (value.schemaVersion === 'sutura-terminal-failure-v1') {
+    const fixture = value.fixtureIdentity && typeof value.fixtureIdentity === 'object' ? value.fixtureIdentity : {};
+    const packageIdentity = value.packageIdentity && typeof value.packageIdentity === 'object' ? value.packageIdentity : {};
+    const sourceRunId = boundedTelemetryString(fixture.targetRunId);
+    const sourceCommit = SHA.test(fixture.fixtureCommit ?? '') ? fixture.fixtureCommit : null;
+    const actionSha = SHA.test(packageIdentity.actionSha ?? '') ? packageIdentity.actionSha : null;
+    return {
+      ...base,
+      ...legacyFailureIdentity(base.evidenceError, value.errorClass),
+      ...(sourceRunId === null ? {} : { sourceRunId }),
+      ...(sourceCommit === null ? {} : { sourceCommit }),
+      ...(actionSha === null ? {} : { actionSha, actionShaSource: 'legacy-terminal-field' }),
+    };
+  }
+  const failure = value.failure && typeof value.failure === 'object' ? value.failure : {};
+  const fixture = value.fixtureIdentity && typeof value.fixtureIdentity === 'object' ? value.fixtureIdentity : {};
+  const packageIdentity = value.packageIdentity && typeof value.packageIdentity === 'object' ? value.packageIdentity : {};
+  const execution = value.execution && typeof value.execution === 'object' ? value.execution : {};
+  const runtimeDetection = value.runtimeDetection && typeof value.runtimeDetection === 'object'
+    ? value.runtimeDetection : {};
+  const providerInvocations = Number.isSafeInteger(execution.providerInvocations) && execution.providerInvocations >= 0
+    ? execution.providerInvocations : null;
+  const sandboxOperations = Number.isSafeInteger(execution.sandboxOperations) && execution.sandboxOperations >= 0
+    ? execution.sandboxOperations : null;
+  const failureDetails = boundedFailureDetails(failure.details);
+  return {
+    ...base,
+    failureCode: boundedTelemetryString(failure.code, 'unknown-error'),
+    failureStage: boundedTelemetryString(failure.stage, 'unknown'),
+    errorClass: boundedTelemetryString(failure.class, 'UnknownError'),
+    ...(failureDetails === undefined ? {} : { failureDetails }),
+    sourceRunId: boundedTelemetryString(fixture.targetRunId),
+    sourceCommit: SHA.test(fixture.fixtureCommit ?? '') ? fixture.fixtureCommit : null,
+    pullRequestNumber: Number.isSafeInteger(fixture.pullRequestNumber) && fixture.pullRequestNumber > 0
+      ? fixture.pullRequestNumber : null,
+    actionSha: SHA.test(packageIdentity.actionSha ?? '') ? packageIdentity.actionSha : null,
+    actionShaSource: boundedTelemetryString(packageIdentity.actionShaSource, 'unavailable'),
+    claimState: boundedTelemetryString(execution.claimState, 'not-observed'),
+    providerInvocations,
+    sandboxOperations,
+    providerInvoked: providerInvocations === null ? null : providerInvocations > 0,
+    searchStarted: typeof execution.searchStarted === 'boolean' ? execution.searchStarted : null,
+    terminalCommentState: boundedTelemetryString(execution.terminalCommentState, 'not-recorded'),
+    runtime: boundedTelemetryString(runtimeDetection.runtime),
+    runtimeEvidenceSource: boundedTelemetryString(runtimeDetection.evidenceSource),
+    runtimeEvidenceCount: Number.isSafeInteger(runtimeDetection.evidenceCount) &&
+      runtimeDetection.evidenceCount >= 0 && runtimeDetection.evidenceCount <= 500
+      ? runtimeDetection.evidenceCount : null,
+    runtimeVisitedEntries: Number.isSafeInteger(runtimeDetection.visitedEntries) &&
+      runtimeDetection.visitedEntries >= 0 && runtimeDetection.visitedEntries <= 500
+      ? runtimeDetection.visitedEntries : null,
+  };
+}
+
+export function parseReplayIdentityJson(content) {
+  const value = parseBoundedJson(content, 32 * 1024 * 1024, 'Replay bundle');
+  if (value?.schemaVersion !== 'sutura-replay-v1' || !Array.isArray(value.github) ||
+      !Array.isArray(value.executor) || !Array.isArray(value.http)) {
+    throw new Error('Replay bundle schema is invalid');
+  }
+  const workflowRun = value.github.find(({ method, result }) =>
+    method === 'getWorkflowRun' && result && typeof result === 'object' && !Array.isArray(result))?.result ?? {};
+  const pullRequests = Array.isArray(workflowRun.pullRequests) ? workflowRun.pullRequests : [];
+  const pullRequestNumber = pullRequests.length === 1 && Number.isSafeInteger(pullRequests[0]?.number) && pullRequests[0].number > 0
+    ? pullRequests[0].number : null;
+  const operationIds = new Set(value.executor.flatMap(({ result }) => {
+    const operationId = result?.operation?.operationId;
+    return typeof operationId === 'string' && /^[A-Za-z0-9._:-]{1,128}$/u.test(operationId)
+      ? [operationId] : [];
+  }));
+  const providerInvocations = value.http.filter(({ boundary }) => boundary === 'nebius').length;
+  const claimed = value.github.some(({ method, result }) =>
+    ['createCheckRun', 'createIssueComment', 'createCommitComment'].includes(method) && !result?.error);
+  return {
+    sourceRunId: boundedTelemetryString(value.runId),
+    sourceCommit: SHA.test(workflowRun.headSha ?? '') ? workflowRun.headSha : null,
+    pullRequestNumber,
+    actionSha: SHA.test(value.actionSha ?? '') ? value.actionSha : null,
+    actionShaSource: 'replay-bundle',
+    claimState: claimed ? 'claimed' : 'not-observed',
+    providerInvocations,
+    providerInvoked: providerInvocations > 0,
+    sandboxOperations: operationIds.size,
+    searchStarted: [...operationIds].some((id) => id.startsWith('search-')) ? true : null,
+    replayComplete: value.completeness?.complete === true,
+    runtime: boundedTelemetryString(value.runtimeDetection?.runtime),
+    runtimeEvidenceSource: boundedTelemetryString(value.runtimeDetection?.evidenceSource),
+    runtimeEvidenceCount: Array.isArray(value.runtimeDetection?.evidencePaths) &&
+      value.runtimeDetection.evidencePaths.length <= 500
+      ? value.runtimeDetection.evidencePaths.length : null,
+    runtimeVisitedEntries: Number.isSafeInteger(value.runtimeDetection?.visitedEntries) &&
+      value.runtimeDetection.visitedEntries >= 0 && value.runtimeDetection.visitedEntries <= 500
+      ? value.runtimeDetection.visitedEntries : null,
   };
 }
 
@@ -153,14 +291,68 @@ export async function collectFleetMetrics(configInput, client, now = new Date())
         !expired && /^sutura-case-file-[1-9]\d*\.html$/u.test(name));
       const terminalArtifact = artifacts.find(({ name, expired }) =>
         !expired && /^sutura-terminal-failure-[1-9]\d*\.json$/u.test(name));
+      const replayArtifact = artifacts.find(({ name, expired }) =>
+        !expired && /^sutura-replay-[1-9]\d*\.json$/u.test(name));
       try {
         const artifact = caseArtifact ?? terminalArtifact;
         if (!artifact) throw new Error('Sutura run has no readable terminal evidence artifact');
-        const content = await client.downloadArtifact(repository, run.id, artifact);
+        const [content, replayDownload] = await Promise.all([
+          client.downloadArtifact(repository, run.id, artifact),
+          replayArtifact
+            ? client.downloadArtifact(repository, run.id, replayArtifact)
+              .then((replayContent) => ({ replayContent, replayEvidenceError: null }))
+              .catch((error) => ({
+                replayContent: null,
+                replayEvidenceError: error instanceof Error
+                  ? error.message.slice(0, 300)
+                  : String(error).slice(0, 300),
+              }))
+            : Promise.resolve({ replayContent: null, replayEvidenceError: null }),
+        ]);
         const evidence = caseArtifact
           ? parseCaseFileHtml(content)
           : parseTerminalFailureJson(content);
-        events.push({ ...base, attempted: true, costStatus: 'measured', ...evidence });
+        let replayEvidence = {};
+        let replayEvidenceError = replayDownload.replayEvidenceError;
+        if (replayDownload.replayContent !== null) {
+          try {
+            replayEvidence = parseReplayIdentityJson(replayDownload.replayContent);
+          } catch (error) {
+            replayEvidenceError = error instanceof Error
+              ? error.message.slice(0, 300)
+              : String(error).slice(0, 300);
+          }
+        }
+        const providerInvoked = mergeObservedBoolean(
+          evidence.providerInvoked,
+          replayEvidence.providerInvoked,
+        );
+        const searchStarted = mergeObservedBoolean(
+          evidence.searchStarted,
+          replayEvidence.searchStarted,
+        );
+        events.push({
+          ...base,
+          attempted: true,
+          costStatus: 'measured',
+          ...evidence,
+          ...replayEvidence,
+          providerInvoked,
+          searchStarted,
+          sourceRunId: evidence.sourceRunId ?? replayEvidence.sourceRunId ?? null,
+          sourceCommit: evidence.sourceCommit ?? replayEvidence.sourceCommit ?? null,
+          pullRequestNumber: evidence.pullRequestNumber ?? replayEvidence.pullRequestNumber ?? null,
+          actionSha: evidence.actionSha ?? replayEvidence.actionSha ?? null,
+          actionShaSource: evidence.actionSha === null || evidence.actionSha === undefined
+            ? replayEvidence.actionShaSource ?? 'unavailable'
+            : evidence.actionShaSource ?? 'unavailable',
+          runtime: evidence.runtime ?? replayEvidence.runtime ?? null,
+          runtimeEvidenceSource: evidence.runtimeEvidenceSource ?? replayEvidence.runtimeEvidenceSource ?? null,
+          runtimeEvidenceCount: evidence.runtimeEvidenceCount ?? replayEvidence.runtimeEvidenceCount ?? null,
+          runtimeVisitedEntries: evidence.runtimeVisitedEntries ?? replayEvidence.runtimeVisitedEntries ?? null,
+          ...(replayEvidenceError === null ? {} : { replayEvidenceError }),
+          expectedActionSha: config.actionCommit,
+        });
       } catch (error) {
         events.push({
           ...base,
@@ -185,7 +377,7 @@ export async function collectFleetMetrics(configInput, client, now = new Date())
   }
   const attempts = events.filter(({ attempted }) => attempted);
   const summary = {
-    schemaVersion: 'sutura-fleet-summary-v1',
+    schemaVersion: 'sutura-fleet-summary-v2',
     collectedAt: now.toISOString(),
     startedAt: config.startedAt,
     actionCommit: config.actionCommit,
@@ -195,6 +387,30 @@ export async function collectFleetMetrics(configInput, client, now = new Date())
     noRepairNeeded: events.filter(({ outcome }) => outcome === 'no-repair-needed').length,
     notTriggered: events.filter(({ outcome }) => outcome === 'not-triggered').length,
     repairAttempts: attempts.length,
+    attemptStages: {
+      attempted: attempts.length,
+      claimed: attempts.filter(({ claimState }) => claimState === 'claimed').length,
+      searchStarted: attempts.filter(({ searchStarted }) => searchStarted === true).length,
+      providerInvoked: attempts.filter(({ providerInvoked }) => providerInvoked === true).length,
+      fixed: attempts.filter(({ outcome }) => outcome === 'fixed').length,
+      recovered: null,
+      recoveryEvidenceComplete: false,
+    },
+    failureCauses: Object.fromEntries([...new Set(attempts
+      .filter(({ outcome }) => outcome === 'infra-stop')
+      .map(({ failureCode }) => failureCode ?? 'unstructured'))]
+      .sort()
+      .map((cause) => [cause, attempts.filter((event) =>
+        event.outcome === 'infra-stop' && (event.failureCode ?? 'unstructured') === cause).length])),
+    costCompleteness: {
+      measured: attempts.filter(({ costStatus }) => costStatus === 'measured').length,
+      unavailable: attempts.filter(({ costStatus }) => costStatus === 'unavailable').length,
+    },
+    actionIdentity: {
+      matched: attempts.filter(({ actionSha }) => actionSha === config.actionCommit).length,
+      mismatched: attempts.filter(({ actionSha }) => actionSha !== null && actionSha !== undefined && actionSha !== config.actionCommit).length,
+      unavailable: attempts.filter(({ actionSha }) => actionSha === null || actionSha === undefined).length,
+    },
     outcomes,
     repairPrsOpened: attempts.filter(({ outcome, workflowConclusion }) => outcome === 'fixed' && workflowConclusion === 'success').length,
     inferenceCostUsd: rounded(inferenceCostUsd),
@@ -212,7 +428,7 @@ export function publicFleetSummary(summary) {
 function markdown(summary) {
   const completed = summary.outcomes.fixed + summary.outcomes['flaky-no-patch'] + summary.outcomes.refused + summary.outcomes['gave-up'];
   const repairRate = completed === 0 ? 'n/a' : `${((summary.outcomes.fixed / completed) * 100).toFixed(1)}%`;
-  return `# Sutura fleet dogfood metrics\n\nCollected ${summary.collectedAt}. Window starts ${summary.startedAt}.\n\n| Metric | Value |\n| --- | ---: |\n| Repositories configured | ${summary.installedRepositories}/${summary.fleetRepositories} |\n| CI completions observed | ${summary.monitorRuns} |\n| Green CI, no repair needed | ${summary.noRepairNeeded} |\n| Other CI conclusions, no repair attempted | ${summary.notTriggered} |\n| Repair attempts | ${summary.repairAttempts} |\n| Verified repairs and PRs | ${summary.repairPrsOpened} |\n| Flakes classified without patching | ${summary.outcomes['flaky-no-patch']} |\n| Unsafe repairs refused | ${summary.outcomes.refused} |\n| Gave up safely | ${summary.outcomes['gave-up']} |\n| Infrastructure stops | ${summary.outcomes['infra-stop']} |\n| Unknown or missing evidence | ${summary.outcomes.unknown} |\n| Repair rate among terminal repair searches | ${repairRate} |\n| Measured inference cost | $${summary.inferenceCostUsd.toFixed(6)} |\n| Measured sandbox cost | $${summary.sandboxCostUsd.toFixed(6)} |\n| Measured total cost | $${summary.totalCostUsd.toFixed(6)} |\n| Median attempt duration | ${summary.medianAttemptDurationSec === null ? 'n/a' : `${summary.medianAttemptDurationSec.toFixed(1)} s`} |\n`;
+  return `# Sutura fleet dogfood metrics\n\nCollected ${summary.collectedAt}. Window starts ${summary.startedAt}.\n\n| Metric | Value |\n| --- | ---: |\n| Repositories configured | ${summary.installedRepositories}/${summary.fleetRepositories} |\n| CI completions observed | ${summary.monitorRuns} |\n| Green CI, no repair needed | ${summary.noRepairNeeded} |\n| Other CI conclusions, no repair attempted | ${summary.notTriggered} |\n| Repair attempts | ${summary.attemptStages.attempted} |\n| Attempts claimed | ${summary.attemptStages.claimed} |\n| Provider invoked | ${summary.attemptStages.providerInvoked} |\n| Repair search started | ${summary.attemptStages.searchStarted} |\n| Verified repairs and PRs | ${summary.repairPrsOpened} |\n| Recovered CI | ${summary.attemptStages.recovered === null ? 'not measured' : summary.attemptStages.recovered} |\n| Flakes classified without patching | ${summary.outcomes['flaky-no-patch']} |\n| Unsafe repairs refused | ${summary.outcomes.refused} |\n| Gave up safely | ${summary.outcomes['gave-up']} |\n| Infrastructure stops | ${summary.outcomes['infra-stop']} |\n| Unknown or missing evidence | ${summary.outcomes.unknown} |\n| Repair rate among terminal repair searches | ${repairRate} |\n| Measured inference cost | $${summary.inferenceCostUsd.toFixed(6)} |\n| Measured sandbox cost | $${summary.sandboxCostUsd.toFixed(6)} |\n| Measured total cost | $${summary.totalCostUsd.toFixed(6)} |\n| Median attempt duration | ${summary.medianAttemptDurationSec === null ? 'n/a' : `${summary.medianAttemptDurationSec.toFixed(1)} s`} |\n`;
 }
 
 export async function writeFleetMetrics(result, outputDirectory) {

@@ -98,6 +98,17 @@ describe('replayBundle', () => {
     ]);
   });
 
+  it('reuses the runtime selected during live execution', async () => {
+    const bundle = await createCompleteReplayBundleForTest();
+    delete bundle.configuration.runtimeId;
+    bundle.runtimeDetection = {
+      runtime: 'python', evidenceSource: 'bounded-scan',
+      evidencePaths: ['services/worker/tests/test_widget.py'], visitedEntries: 12,
+    };
+
+    await expect(replayBundle(bundle)).rejects.toBeInstanceOf(ReplayMismatchError);
+  });
+
   it('preserves live run 33321172589 while current replay fails closed on contract drift', async () => {
     const bundle = await capturedDogfoodReplayBundle();
     const report = recordedReport(bundle);

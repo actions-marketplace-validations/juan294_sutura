@@ -224,7 +224,14 @@ export { isSensitiveRepositoryPath, isVerificationPrivatePath } from './security
 export { trimEdges, trimTrailing } from './text/trim-edge.js';
 export { TraceRecorder } from './trace/recorder.js';
 export { selectBoundedSourceWindow, SourceWindowError } from './source-window.js';
-export { RuntimeDetectionError, detectRuntime, detectRuntimeAtPath, runtimeEvidencePaths } from './runtime/detect.js';
+export {
+  RuntimeDetectionError,
+  detectRuntime,
+  detectRuntimeAtPath,
+  runtimeEvidencePaths,
+  runtimeRootEvidencePaths,
+} from './runtime/detect.js';
+export type { RuntimeDetectionObservation } from './runtime/detect.js';
 export { NODE_IMAGE_REF, NODE_RUNTIME, nodePreparationCommand, normalizeNodeCommand } from './runtime/node.js';
 export { PYTHON_IMAGE_INDEX_DIGEST, PYTHON_IMAGE_LINUX_AMD64_DIGEST, PYTHON_IMAGE_REF, PYTHON_REQUIRED_TOOLS, PYTHON_RUNTIME, PythonDependencyError, normalizePythonCommand, validatePythonDependencyInputs } from './runtime/python.js';
 export {

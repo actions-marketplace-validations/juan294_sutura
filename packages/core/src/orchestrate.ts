@@ -230,7 +230,11 @@ export class AlreadyAttemptedError extends Error {
 }
 
 export class OrchestrationError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly code = 'orchestration-error',
+    readonly stage = 'orchestration',
+  ) {
     super(message);
     this.name = 'OrchestrationError';
   }
@@ -590,6 +594,8 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
   if (mechanical.failingCmd === 'unknown') {
     throw new OrchestrationError(
       'Failed-step logs do not contain an observed failing command',
+      'failing-command-not-observed',
+      'diagnosis',
     );
   }
   const target = await ctx.github.claimAttempt(run.prNumber, marker);
@@ -608,16 +614,29 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
     loadedPolicy.policy.runtime !== undefined &&
     ctx.runtimeId !== loadedPolicy.policy.runtime
   ) {
-    throw new OrchestrationError('Configured runtime conflicts with repository policy runtime');
+    throw new OrchestrationError(
+      'Configured runtime conflicts with repository policy runtime',
+      'runtime-configuration-conflict',
+      'runtime-detection',
+    );
   }
   const runtime = await detectRuntimeAtPath(
     checkoutDir,
     mechanical.failingCmd,
     ctx.runtimeId ?? loadedPolicy.policy.runtime,
     failedLog,
+    (observation) => ctx.replay?.recordRuntimeDetection({
+      ...observation,
+      evidencePaths: observation.evidencePaths.filter((path) =>
+        !isSensitiveRepositoryPath(path)),
+    }),
   );
   if (runtime.id === 'python' && ctx.imageRef !== undefined && ctx.imageRef !== runtime.imageRef) {
-    throw new OrchestrationError('Python runtime image must use the verified exact digest');
+    throw new OrchestrationError(
+      'Python runtime image must use the verified exact digest',
+      'runtime-image-invalid',
+      'runtime-detection',
+    );
   }
   const executionRecorder = loadedPolicy.policy.verification?.mode === 'required'
     ? new VerificationExecutionRecorder({ executor: ctx.executor, llm: ctx.llm, mode: ctx.evidenceMode ?? 'local' }) : undefined;

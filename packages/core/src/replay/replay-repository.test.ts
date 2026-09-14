@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { ReplayBundle } from './bundle.js';
+import { detectRuntimeAtPath } from '../runtime/detect.js';
 import { RecordedRepository } from './replay-repository.js';
 
 const LIMITS = {
@@ -93,6 +94,25 @@ describe('RecordedRepository', () => {
       await repository.readPolicyAtSha('acme/widget', 'a'.repeat(40));
       await expect(repository.checkoutHead('acme/widget', 'a'.repeat(40), 'main'))
         .rejects.toThrow('snapshot path');
+    } finally {
+      await repository.cleanup();
+    }
+  });
+
+  it('materializes the evidence selected by live runtime detection for replay', async () => {
+    const value = bundle();
+    const repository = new RecordedRepository(
+      value.repository,
+      undefined,
+      ['services/worker/tests/test_widget.py'],
+    );
+    try {
+      await repository.readPolicyAtSha('acme/widget', 'a'.repeat(40));
+      const checkoutDir = await repository.checkoutHead('acme/widget', 'a'.repeat(40), 'main');
+      await expect(readFile(join(checkoutDir, 'services/worker/tests/test_widget.py'), 'utf8'))
+        .resolves.toBe('');
+      await expect(detectRuntimeAtPath(checkoutDir, 'pytest'))
+        .resolves.toMatchObject({ id: 'python' });
     } finally {
       await repository.cleanup();
     }

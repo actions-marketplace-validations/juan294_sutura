@@ -153,6 +153,10 @@ describe('ReplayRecorder', () => {
       maxOps: 40,
     });
     recorder.recordExecutor({ method: 'importImage', args: ['node:22'], result: 'image-1' });
+    recorder.recordRuntimeDetection({
+      runtime: 'node', evidenceSource: 'root',
+      evidencePaths: ['package.json'], visitedEntries: 1,
+    });
 
     expect(recorder.finish('fixed')).toMatchObject({
       configuration: {
@@ -165,6 +169,10 @@ describe('ReplayRecorder', () => {
         maxOps: 40,
       },
       executor: [{ sequence: 1, method: 'importImage', args: ['node:22'], result: 'image-1' }],
+      runtimeDetection: {
+        runtime: 'node', evidenceSource: 'root',
+        evidencePaths: ['package.json'], visitedEntries: 1,
+      },
     });
   });
 

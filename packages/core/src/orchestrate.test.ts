@@ -409,6 +409,8 @@ describe('orchestrate', () => {
 
     await expect(orchestrate(ctx)).rejects.toEqual(new OrchestrationError(
       'Failed-step logs do not contain an observed failing command',
+      'failing-command-not-observed',
+      'diagnosis',
     ));
     expect(currentLog).toContain('##[group]Run pnpm run test');
     expect(preFixLog).not.toContain('##[group]Run pnpm run test');

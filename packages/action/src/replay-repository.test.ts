@@ -51,7 +51,7 @@ describe('recordingRepositoryPort', () => {
     expect(calls[1]?.result).toEqual({
       checkoutId: 'checkout-1',
       snapshot: {
-        runtimeEvidencePaths: ['package.json', 'src/value.ts'],
+        runtimeEvidencePaths: ['package.json'],
         files: [{ path: 'package.json', content: '{"type":"module"}' }],
       },
     });
@@ -111,6 +111,60 @@ describe('recordingRepositoryPort', () => {
           runtimeEvidencePaths: [],
           files: [{ path: '.sutura.json', content: '{"version":1,"runtime":"node"}\n' }],
         },
+      });
+    } finally {
+      await rm(checkoutDir, { recursive: true, force: true });
+    }
+  });
+
+  it('captures shared root runtime evidence without scanning a large checkout', async () => {
+    const checkoutDir = await mkdtemp(join(tmpdir(), 'sutura-replay-clarity-'));
+    try {
+      await writeFile(join(checkoutDir, 'package.json'), '{}\n');
+      await writeFile(join(checkoutDir, 'package-lock.json'), '{"lockfileVersion":3}\n');
+      await Promise.all(Array.from({ length: 501 }, (_, index) =>
+        writeFile(join(checkoutDir, `source-${index}.ts`), 'export {};\n'),
+      ));
+      const port = {
+        checkoutHead: vi.fn(async () => checkoutDir),
+      } as unknown as RepositoryPort;
+      const recorder = new ReplayRecorder('77001', 'acme/clarity', 'a'.repeat(40), CONFIG);
+
+      await recordingRepositoryPort(port, recorder).checkoutHead(
+        'acme/clarity', 'a'.repeat(40),
+      );
+
+      expect(recorder.finish('infra-stop').repository[0]?.result).toMatchObject({
+        checkoutId: 'checkout-1',
+        snapshot: {
+          runtimeEvidencePaths: ['package-lock.json', 'package.json'],
+          files: [
+            { path: 'package.json', content: '{}\n' },
+            { path: 'package-lock.json', content: '{"lockfileVersion":3}\n' },
+          ],
+        },
+      });
+    } finally {
+      await rm(checkoutDir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves bounded nested evidence for a rootless runtime fallback', async () => {
+    const checkoutDir = await mkdtemp(join(tmpdir(), 'sutura-replay-nested-runtime-'));
+    try {
+      await mkdir(join(checkoutDir, 'src'));
+      await writeFile(join(checkoutDir, 'src', 'widget.py'), 'value = 1\n');
+      const port = {
+        checkoutHead: vi.fn(async () => checkoutDir),
+      } as unknown as RepositoryPort;
+      const recorder = new ReplayRecorder('77001', 'acme/widget', 'a'.repeat(40), CONFIG);
+
+      await recordingRepositoryPort(port, recorder).checkoutHead(
+        'acme/widget', 'a'.repeat(40),
+      );
+
+      expect(recorder.finish('gave-up').repository[0]?.result).toMatchObject({
+        snapshot: { runtimeEvidencePaths: ['src/widget.py'] },
       });
     } finally {
       await rm(checkoutDir, { recursive: true, force: true });

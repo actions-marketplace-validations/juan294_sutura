@@ -377,7 +377,13 @@ The action needs `actions: read`, `checks: write`, `contents: write`, and `pull-
 Configure `NEBIUS_API_KEY`, `CONTREE_TOKEN`, and optional `TAVILY_API_KEY` as
 repository secrets. Configure `CONTREE_PROJECT` as a repository variable. The
 checked-in [workflow](.github/workflows/sutura.yml) shows the complete wiring.
-Pin external use to an immutable release tag or commit SHA.
+Pin external use to an exact commit SHA so replay evidence can identify the
+executed Action code rather than the consumer workflow commit.
+
+Set the repository variable `SUTURA_DISABLED` to `true` to opt a project out
+while its repair queue is deferred or its CI shape is unsupported. The monitor
+job is then skipped before credentials, providers, or sandboxes are used. Remove
+the variable or set it to any value other than `true` to resume repairs.
 
 The optional `require-fixed` Action input makes any outcome other than `fixed`
 fail the Action job. Sutura's own workflow enables it, so a green workflow can

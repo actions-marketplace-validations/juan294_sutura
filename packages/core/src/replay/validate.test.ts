@@ -41,6 +41,18 @@ describe('parseReplayBundle', () => {
     expect(parseReplayBundle(complete)).toEqual(complete);
   });
 
+  it('accepts bounded selected runtime evidence and rejects unsafe paths', () => {
+    const value = clone(PARTIAL);
+    value.runtimeDetection = {
+      runtime: 'python', evidenceSource: 'bounded-scan',
+      evidencePaths: ['services/worker/tests/test_widget.py'], visitedEntries: 42,
+    };
+    expect(parseReplayBundle(value)).toEqual(value);
+
+    value.runtimeDetection.evidencePaths = ['../outside.py'];
+    expect(() => parseReplayBundle(value)).toThrow(/safe relative repository path/iu);
+  });
+
   it('rejects a complete bundle without an outcome', () => {
     const value = clone(complete);
     delete value.outcome;
