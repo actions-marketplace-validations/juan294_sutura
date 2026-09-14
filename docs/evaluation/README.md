@@ -17,7 +17,17 @@ retains failure evidence and never merges the generated repair.
 - **Layered audit:** mechanical checks, a fresh rerun, and semantic review can
   refuse a previously green candidate. [Audit evidence](architecture.md#layered-audit).
 
-No clean quality measurement exists for the current candidate. The September 6–8 preflight passed its provider/image contract, the six-case smoke passed, and Stage 3 stopped on a real false approval after 72 of 80 cases. Its five attempts spent USD 12.55 against a USD 10 cap. The false-approval defect and cumulative restart cap are fixed locally; those fixes do not produce a repair rate. The held-out 20 remain unopened. Read [the retained Stage 3 record](../demo/run-manifests/development-validation-v1-evidence.md), [evidence status](#evidence-status) and [limitations](#limitations) before treating these mechanisms as release proof.
+The current candidate has a clean completed development/validation measurement.
+Candidate `042af3aada158347db6006e30a4a0e6e7c65e420` completed all 80 cases for USD
+6.431018 in recorded inference and sandbox cost. It repaired 33 of 42
+repairable cases (78.6%) with zero false approvals. Hidden repair-preservation
+checks passed 4 of 8, with 4 not run, so that gate did not pass. The held-out
+20 remain sealed. Read the [sanitized Stage 3 v8 evidence](../demo/run-manifests/development-validation-v8-evidence.md),
+[evidence status](#evidence-status) and [limitations](#limitations) before
+treating this development result as release proof. The earlier
+[Stage 3 v1 record](../demo/run-manifests/development-validation-v1-evidence.md)
+remains unchanged as historical evidence of the false approval and defective
+cumulative accounting.
 The [architecture cards](architecture.md) connect each claim to code and tests.
 
 ## Current local verification implementation
@@ -26,7 +36,12 @@ The [architecture cards](architecture.md) connect each claim to code and tests.
 
 The [CLI](../../packages/cli/src/verify.ts) and [read-only Action](../../packages/action/src/verify-execution.ts) retain canonical evidence and artifact bytes. The Action authenticates the exact same-repository failed run and source SHA; fork sources are refused. [Evidence v2](../../packages/core/src/verification/types.ts) records the actual executor baseline image ID separately from an unavailable OCI digest, with observed model, operation and cost records. These are local implementation claims, not a published release or new live quality result.
 
-Remaining external work includes clean capped Stage 3 and held-out measurement, authorized publication, consented participants, the [independent human record walkthrough](record-walkthrough.md), and [December judging-access evidence](../runbooks/judging-access.md). Historical reports below retain the source and limitations of the runs they describe.
+Remaining external work includes remediation of the development misses, a
+separately authorized held-out measurement, authorized publication, consented
+participants, the [independent human record walkthrough](record-walkthrough.md),
+and [December judging-access evidence](../runbooks/judging-access.md).
+Historical reports below retain the source and limitations of the runs they
+describe.
 
 See [evaluation recovery](run-recovery.md) for durable job recovery, cumulative spend reservations, offline failure tests, and terminal notification setup.
 
@@ -82,6 +97,7 @@ remain separate identities.
 
 | Evidence | Status and interpretation |
 | --- | --- |
+| [Stage 3 v8 development/validation result, 2026-09-09](../demo/run-manifests/development-validation-v8-evidence.md) | Current clean measurement on exact candidate `042af3aada158347db6006e30a4a0e6e7c65e420`: 80/80 cases completed for USD 6.431018; 33/42 repairs (78.6%); zero false approvals. Hidden repair preservation passed 4/8 with four not run. The held-out split remains sealed. |
 | [Latest repair-quality rerun, 2026-09-05](../demo/sutura-v0.2.1-repair-quality-evidence.md?plain=1#L13) | Live Placebo v0.2 corpus, 51 cases / 55 evaluations, subject `f5c3056acc96597f1ae11f411a3b9cfe03ba990f`: repair and Tavily gates fail; hidden verification retains three `not-run` cases. Zero observed false approvals does not make it release-ready. |
 | [Candidate external matrix](../demo/sutura-v0.2.1-candidate-matrix.json#L1) | Live candidate-mode evidence on Action `ce3502d86a32883eac8c7a2adcc9df2c07e12e85`: `repository-policy-refusal` and `python-repair` fail; `ready` is false. This is not a public-release matrix or hosted-demo acceptance. |
 | [Earlier v0.2.1 candidate](../demo/sutura-v0.2.1-phase-0-evidence.md?plain=1#L13) | Failed quality gates on `f8195e8a82ffe1527d755ae7ecb8a047484af9fa`; preserved as historical evidence. |
