@@ -102,9 +102,9 @@ describe('publishResult', () => {
     expect(() => publishResult({
       requestId: REQUEST_ID, caseId: 'flaky-failure', outcome: 'flaky-no-patch', demoSha: DEMO_SHA, controllerSha: CONTROLLER_SHA,
       replayBundlePath: foreign, links: LINKS, release: RELEASE, now: NOW,
-    })).toThrow(`replay bundle actionSha ${bundle.actionSha} must equal the demo commit ${DEMO_SHA}`);
+    })).toThrow(`replay bundle actionSha ${bundle.actionSha} must equal the release actionSha ${RELEASE.actionSha}`);
     const matching = join(dir, 'matching.json');
-    writeFileSync(matching, JSON.stringify({ ...bundle, actionSha: DEMO_SHA }));
+    writeFileSync(matching, JSON.stringify({ ...bundle, actionSha: RELEASE.actionSha }));
     expect(() => publishResult({
       requestId: REQUEST_ID, caseId: 'flaky-failure', outcome: 'fixed', demoSha: DEMO_SHA, controllerSha: CONTROLLER_SHA,
       replayBundlePath: matching, links: LINKS, release: RELEASE, now: NOW,

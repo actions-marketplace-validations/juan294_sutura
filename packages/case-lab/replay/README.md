@@ -13,8 +13,9 @@ Rules:
 - `release.actionSha` must equal `actionSha` in `../release.json`: the Sutura
   release that recorded the bundle. Recorded request shapes drift between
   Sutura commits.
-- The bundle's own `actionSha` is the commit of the repository that ran the
-  workflow, the demo commit; it must equal the fixture's `demoSha`.
+- The bundle's own `actionSha` is the commit of the Action that ran the
+  workflow (unified with the release/controller commit); it must equal
+  `release.actionSha`, not the fixture's `demoSha`.
 - A partial bundle (`completeness.complete: false`) is refused.
 - The replayed outcome must equal the recorded outcome.
 - Fixtures are written with `flag: 'wx'` by `case-lab capture-replay`, which

@@ -39,8 +39,8 @@ export const REPLAY_FIXTURE_SCHEMA_VERSION = 'sutura-case-lab-replay-fixture-v1'
 
 /**
  * A committed replay fixture: the bundle plus the identities it binds to. The
- * bundle's own `actionSha` is the commit of the repository that ran the
- * workflow (the demo commit); the Sutura release that ran is recorded here.
+ * bundle's own `actionSha` is the commit of the Action that ran (unified with
+ * `release.actionSha`); `demoSha` records which demo commit triggered the run.
  */
 export interface ReplayFixture {
   readonly schemaVersion: typeof REPLAY_FIXTURE_SCHEMA_VERSION;
@@ -157,9 +157,9 @@ export async function replayedResult(
     );
   }
   const bundle = parseReplayBundle(fixture.bundle);
-  if (bundle.actionSha !== fixture.demoSha) {
+  if (bundle.actionSha !== options.release.actionSha) {
     throw new CaseLabReplayError(
-      `replay bundle actionSha ${bundle.actionSha} must equal the fixture demoSha ${fixture.demoSha}`,
+      `replay bundle actionSha ${bundle.actionSha} must equal the release actionSha ${options.release.actionSha}`,
     );
   }
   if (!bundle.completeness.complete) {

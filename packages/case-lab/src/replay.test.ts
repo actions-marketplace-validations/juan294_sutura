@@ -82,8 +82,8 @@ describe('deterministic results', () => {
     expect(result.elapsedMs).toBeCloseTo(76322.37917700001, 3);
   });
 
-  it('replays a complete fixture bound to the release and the demo commit', { timeout: 60_000 }, async () => {
-    const bundle = { ...(await createCompleteReplayBundleForTest()), actionSha: DEMO_SHA };
+  it('replays a complete fixture bound to the release and stamped with the demo commit', { timeout: 60_000 }, async () => {
+    const bundle = { ...(await createCompleteReplayBundleForTest()), actionSha: RELEASE.actionSha };
     const result = await replayedResult(caseLabCase('flaky-failure'), fixtureFor(bundle), {
       release: RELEASE, now: NOW, fixtureSha256: 'a'.repeat(64),
     });
@@ -100,13 +100,13 @@ describe('deterministic results', () => {
     expect(validateCaseLabResult(JSON.parse(JSON.stringify(result)))).toEqual(result);
   });
 
-  it('refuses a fixture from another release, a bundle from another demo commit, a partial bundle, and a drifted outcome', { timeout: 60_000 }, async () => {
-    const bundle = { ...(await createCompleteReplayBundleForTest()), actionSha: DEMO_SHA };
+  it('refuses a fixture from another release, a bundle stamped with the wrong action commit, a partial bundle, and a drifted outcome', { timeout: 60_000 }, async () => {
+    const bundle = { ...(await createCompleteReplayBundleForTest()), actionSha: RELEASE.actionSha };
     const options = { release: RELEASE, now: NOW, fixtureSha256: 'a'.repeat(64) };
     await expect(replayedResult(caseLabCase('flaky-failure'), { ...fixtureFor(bundle), release: { version: '0.1.0', actionSha: 'b'.repeat(40) } }, options))
       .rejects.toThrow(`replay fixture release actionSha ${'b'.repeat(40)} must equal release.json actionSha ${RELEASE.actionSha}`);
     await expect(replayedResult(caseLabCase('flaky-failure'), fixtureFor({ ...bundle, actionSha: 'c'.repeat(40) }), options))
-      .rejects.toThrow(`replay bundle actionSha ${'c'.repeat(40)} must equal the fixture demoSha ${DEMO_SHA}`);
+      .rejects.toThrow(`replay bundle actionSha ${'c'.repeat(40)} must equal the release actionSha ${RELEASE.actionSha}`);
     const partial = { ...bundle, completeness: { complete: false, overflowedBoundaries: [], pendingBoundaries: ['tavily'] } };
     await expect(replayedResult(caseLabCase('flaky-failure'), fixtureFor(partial), options)).rejects.toThrow(CaseLabReplayError);
     const drifted = { ...bundle, outcome: 'fixed' as const };
@@ -118,7 +118,7 @@ describe('deterministic results', () => {
 
   it('prefers a fixture on disk over the recorded result', { timeout: 60_000 }, async () => {
     const replayDir = mkdtempSync(join(tmpdir(), 'case-lab-replay-'));
-    const bundle = { ...(await createCompleteReplayBundleForTest()), actionSha: DEMO_SHA };
+    const bundle = { ...(await createCompleteReplayBundleForTest()), actionSha: RELEASE.actionSha };
     writeFileSync(join(replayDir, 'flaky-failure.json'), JSON.stringify(fixtureFor(bundle)));
     const result = await deterministicResult('flaky-failure', { replayDir, now: NOW });
     expect(result.mode).toBe('replay');

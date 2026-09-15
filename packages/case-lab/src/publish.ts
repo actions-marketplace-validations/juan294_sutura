@@ -61,9 +61,9 @@ export function publishResult(inputs: PublishInputs): CaseLabResult {
   const outcome = normalizeOutcome(inputs.outcome);
   if (inputs.replayBundlePath !== undefined && inputs.replayBundlePath !== '') {
     const bundle = parseReplayBundle(readReplayBundleFile(inputs.replayBundlePath).value);
-    // The Action records the commit of the repository that ran the workflow, which is the demo commit.
-    if (bundle.actionSha !== inputs.demoSha) {
-      throw new CaseLabRequestError(`replay bundle actionSha ${bundle.actionSha} must equal the demo commit ${inputs.demoSha}`);
+    // The Action records its own pinned commit (GITHUB_ACTION_REF), which is the release's actionSha, not the demo commit.
+    if (bundle.actionSha !== release.actionSha) {
+      throw new CaseLabRequestError(`replay bundle actionSha ${bundle.actionSha} must equal the release actionSha ${release.actionSha}`);
     }
     if (bundle.outcome !== undefined && bundle.outcome !== outcome) {
       throw new CaseLabRequestError(`replay bundle outcome ${bundle.outcome} must equal the Action outcome ${outcome}`);
