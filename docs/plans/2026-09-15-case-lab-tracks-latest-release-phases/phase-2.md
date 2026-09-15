@@ -2,9 +2,12 @@
 
 Plan: [2026-09-15-case-lab-tracks-latest-release.md](../2026-09-15-case-lab-tracks-latest-release.md)
 
-Status: not started. Requires Phase 1 merged to `develop` and a fresh, explicit
-authorization from Juan in this phase's conversation (cap USD 8, reserve
-USD 1.00, push freeze on `develop` for the run's duration, ~3 h).
+Status: Done. Authorized by Juan 2026-09-15. Ran 51/51 cases, 55/55
+evaluations, USD 4.11234948 total (under the USD 8 cap), zero false
+approvals. Interrupted six times by the local machine's memory watchdog and
+resumed each time from the ledger/manifest-spend state with no duplicate
+case runs. Evidence committed and pushed to `develop`
+(`docs/demo/sutura-v0.3.0-release-benchmark-evidence.md`); push freeze off.
 
 ## Goal
 
