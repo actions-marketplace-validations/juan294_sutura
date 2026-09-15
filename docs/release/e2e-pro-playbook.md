@@ -1087,6 +1087,18 @@ The analyzer MUST fail for:
 - Push the tag using `<TAG_COMMAND>`.
 - Record release, deployment, report, and rollback references.
 
+### 8a. Case Lab follows the release
+
+The public Case Lab runs the newest release tag; the release is not done until it does.
+
+- Dispatch the canaries at the tag: `gh workflow run provider-contract-canary.yml --ref <TAG>`.
+- Prepare `docs/demo/run-manifests/release-<TAG>-benchmark.json`; get authorization for its priced ceiling.
+- `pnpm run push-freeze on`, `placebo:live init-spend`, `placebo:live streak --release-tag <TAG> … --authorize`, `placebo:live finalize`; promote the evidence to `docs/demo/` with the dated names; `pnpm run push-freeze off`.
+- `pnpm run release:case-lab bump --tag <TAG> --result <file> --ledger <file>`; commit.
+- `pnpm run release:case-lab publish-demo --authorize`, then `deploy --authorize`; confirm `/api/health` reports the tag.
+- Until the bump lands, `pnpm run release:case-lab check` refuses every push to `develop` and fails CI; the bump commit is the one permitted push.
+- One live smoke dispatch from the deployed site before calling the cycle done (`case-lab dispatch --base-url <url> --case <case-id>`), polled to a terminal state and its result page confirmed public. A deploy that never actually publishes a live result is not verified.
+
 ### 9. Rollback
 
 Trigger rollback on `<ROLLBACK_CONDITIONS>`.

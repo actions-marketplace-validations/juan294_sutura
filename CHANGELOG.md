@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- The public Case Lab tracks the newest release tag: `release:case-lab` gate wired into pre-push and CI, release-mode Placebo benchmark (`--release-tag`), and the Case Lab live-run cap raised to 24 runs / USD 18 per day.
+
+### Fixed
+
+- Replay bundle identity checks (`publish.ts`, `replay.ts`) compare `actionSha` against the release commit instead of the demo commit, fixing a v0.3.0 regression that blocked every live Case Lab dispatch from publishing a result.
+- `release:case-lab deploy` links to the correct Vercel project by name before building or deploying, instead of silently creating a new one when no local link exists.
+
 ## [0.3.0] - 2026-09-14
 
 ### Added
