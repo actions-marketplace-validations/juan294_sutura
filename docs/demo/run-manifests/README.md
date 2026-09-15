@@ -28,6 +28,7 @@ state. It does not replace or rewrite any historical manifest.
 | 3 | `development-validation-v4` | Replacement after test-only coverage correction. Same total allowance requested; pending replacement-manifest approval. |
 | 3 | `development-validation-v8` | Current clean result: 80/80 completed on candidate `042af3a`; USD 6.431018 recorded; 33/42 repairs; zero false approvals. Sanitized evidence is tracked; the operational manifest remains private. |
 | 4 | Not prepared | Held-out 20 require a separate cap and frozen configuration after Stage 3 is read. |
+| Release | `release-v0.3.0-benchmark` | Prepared for Phase 2; unexecuted. |
 
 Each stage gates the next. Stop dependent jobs after a failed control or incomplete run. Paid Data Lab comparisons and other roadmap experiments need their own concrete requests; Stage 3 does not authorize them. The completed Stage 3 result does not authorize or establish acceptance for Stage 4.
 

@@ -2,7 +2,9 @@
 
 Plan: [2026-09-15-case-lab-tracks-latest-release.md](../2026-09-15-case-lab-tracks-latest-release.md)
 
-Status: not started
+Status: Implemented; plan-compliance reviewed, one gap fixed (live `gh` call
+in an offline test), `/simplify` applied. Committed and pushed to `develop`;
+awaiting Phase 2 authorization.
 
 `[batch-eligible]` with Phase 4 (disjoint files).
 

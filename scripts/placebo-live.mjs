@@ -33,6 +33,7 @@ const ARTIFACT_ROOT = resolve(ROOT, '.sutura/placebo-v0.3.0-live-artifacts');
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024;
 const OUTCOMES = new Set(['fixed', 'flaky-no-patch', 'refused', 'gave-up', 'infra-stop']);
 const KIND_ORDER = new Map([['flaky', 0], ['trap', 1], ['upstream', 2], ['repairable', 3]]);
+const RELEASE_TAG = /^v(\d+\.\d+\.\d+)$/u;
 const CORPUS_HASH = '785cfc70359935a0f04a9a9cda39e8fb6ff4b05cc8fea3738fb24b70bcda101f';
 const EXPANDED_CORPUS_HASH = 'd4757a557e3376b8610c7e0ecc3b6660f5f2ca10d2fbee43e04ebaa617e4d136';
 const FROZEN_CASE_COUNT = 51;
@@ -607,12 +608,30 @@ async function ghApi(endpoint, binary = false) {
   return command('gh', ['api', '-X', 'GET', endpoint], { binary, maxBuffer: MAX_ARTIFACT_BYTES });
 }
 
-export async function gatePlaceboLive(controllerSha, subjectSha) {
+export async function resolveReleaseTag(tag, dependencies = {}) {
+  // Same dereference as packages/case-lab/src/cli.ts:195-201.
+  const gh = dependencies.gh ?? ((args) => command('gh', args));
+  const match = RELEASE_TAG.exec(tag ?? '');
+  if (!match) throw new Error(`--release-tag must look like v0.3.0, got ${tag}`);
+  let ref = JSON.parse(await gh(['api', `repos/juan294/sutura/git/ref/tags/${tag}`]));
+  if (ref.object?.type === 'tag') ref = JSON.parse(await gh(['api', `repos/juan294/sutura/git/tags/${ref.object.sha}`]));
+  return { tag, version: match[1], sha: exactSha(ref.object.sha, `tag ${tag}`) };
+}
+
+export async function gatePlaceboLive(controllerSha, subjectSha, options = {}) {
   const controller = exactSha(controllerSha, 'Placebo controller');
   const subject = exactSha(subjectSha, 'Placebo subject');
   if (subject !== controller) throw new Error('Placebo candidate controller and subject must be the same exact commit');
   const { gateDogfood } = await import('./dogfood.mjs');
-  await gateDogfood(controller);
+  if (options.releaseTag !== undefined) {
+    const release = await resolveReleaseTag(options.releaseTag, options);
+    if (release.sha !== controller) {
+      throw new Error(`Placebo release tag ${release.tag} points to ${release.sha} but the candidate is ${controller}`);
+    }
+    await gateDogfood(controller, {}, { branch: 'main', releaseVersion: release.version });
+  } else {
+    await gateDogfood(controller);
+  }
   const corpus = validateCorpus(JSON.parse(await readFile(CORPUS_PATH, 'utf8')));
   return {
     controllerSha: controller,
@@ -724,7 +743,7 @@ export async function dispatchPlaceboWorkflow(input, dependencies = {}) {
   const runCommand = dependencies.command ?? command;
   await assertFreeze();
   return runCommand('gh', [
-    'workflow', 'run', 'placebo-live-case.yml', '--ref', 'develop',
+    'workflow', 'run', 'placebo-live-case.yml', '--ref', input.releaseTag ?? 'develop',
     '-f', `controller-sha=${input.controllerSha}`, '-f', `subject-sha=${input.subjectSha}`,
     '-f', `case-id=${input.caseId}`, '-f', `controller-id=${input.controllerId}`,
     '-f', `counterfactual=${input.counterfactual === true ? 'true' : 'false'}`,
@@ -753,14 +772,15 @@ export async function recordRemoteArtifact({ artifact, bytes, run, stateDirector
 }
 
 export async function runRemoteCase({ controllerSha, subjectSha, caseId, skipGate = false, counterfactual = false,
-  controllerId = `pl-${Date.now()}-${randomUUID().slice(0, 8)}`, resumed = false, runId: savedRunId, checkpointRun }, dependencies = {}) {
-  if (!skipGate) await gatePlaceboLive(controllerSha, subjectSha);
+  controllerId = `pl-${Date.now()}-${randomUUID().slice(0, 8)}`, resumed = false, runId: savedRunId, checkpointRun,
+  releaseTag }, dependencies = {}) {
+  if (!skipGate) await gatePlaceboLive(controllerSha, subjectSha, { releaseTag });
   const runCommand = dependencies.command ?? command;
   const corpus = loadCorpusSync(needsExpandedSelection(caseId));
   corpusCase(corpus, caseId);
   if (!resumed) {
     try {
-      const response = await dispatchPlaceboWorkflow({ controllerSha, subjectSha, caseId, controllerId, counterfactual }, {
+      const response = await dispatchPlaceboWorkflow({ controllerSha, subjectSha, caseId, controllerId, counterfactual, releaseTag }, {
         command: runCommand, requireActivePushFreeze: dependencies.requireActivePushFreeze,
       });
       const match = response?.match(/https:\/\/github\.com\/juan294\/sutura\/actions\/runs\/([1-9]\d*)/u);
@@ -850,7 +870,7 @@ export async function recoverPendingPlaceboCase(options, dependencies = {}) {
     }));
 }
 
-export async function main(args = process.argv.slice(2)) {
+export async function main(args = process.argv.slice(2), dependencies = {}) {
   const commandName = args[0];
   if (['run', 'streak'].includes(commandName) && !args.includes('--authorize')) throw new Error('Placebo live run requires literal --authorize');
   if (commandName === 'artifact') return artifactCommand(args);
@@ -868,7 +888,17 @@ export async function main(args = process.argv.slice(2)) {
   }
   const controllerSha = valueAfter(args, '--controller-sha');
   const subjectSha = valueAfter(args, '--subject-sha');
-  if (commandName === 'gate') return gatePlaceboLive(controllerSha, subjectSha);
+  const releaseTag = args.includes('--release-tag') ? valueAfter(args, '--release-tag') : undefined;
+  if (releaseTag !== undefined) {
+    const release = await resolveReleaseTag(releaseTag, dependencies);
+    if (controllerSha !== release.sha || subjectSha !== release.sha) {
+      throw new Error(`--release-tag ${releaseTag} points to ${release.sha}; pass it as both --controller-sha and --subject-sha`);
+    }
+  }
+  if (commandName === 'gate') {
+    if (releaseTag !== undefined) process.stdout.write(`release tag ${releaseTag} -> ${controllerSha}\n`);
+    return gatePlaceboLive(controllerSha, subjectSha, { releaseTag });
+  }
   if (commandName === 'run') {
     if (!args.includes('--authorize')) throw new Error('Placebo live run requires literal --authorize');
     const caseId = valueAfter(args, '--case');
@@ -879,12 +909,12 @@ export async function main(args = process.argv.slice(2)) {
       const recovered = await recoverPendingPlaceboCase({ ...spendOptions, controllerSha, subjectSha });
       if (recovered && hasFalseApproval(recovered.artifact)) return { ...recovered, stoppedFor: 'false-approval' };
       if (recovered?.artifact.caseId === caseId) return recovered;
-      await gatePlaceboLive(controllerSha, subjectSha);
+      await gatePlaceboLive(controllerSha, subjectSha, { releaseTag });
       return runSinglePlaceboCase({ controllerSha, subjectSha, caseId, capUsd, initialReserveUsd }, {
         gate: async () => {},
         readLedger: readLedgerDefault,
         runCase: () => withManifestSpend({ ...spendOptions, controllerSha, subjectSha, caseId },
-          (pending) => runRemoteCase({ ...pending, controllerSha, subjectSha, caseId, skipGate: true, counterfactual })),
+          (pending) => runRemoteCase({ ...pending, controllerSha, subjectSha, caseId, skipGate: true, counterfactual, releaseTag })),
       });
     });
   }
@@ -894,7 +924,7 @@ export async function main(args = process.argv.slice(2)) {
       if (recovered && hasFalseApproval(recovered.artifact)) return { ...recovered, stoppedFor: 'false-approval' };
       const ledger = await readLedgerDefault();
       if (spendOptions.manifest.subjects.some(id => !ledger.entries.some(entry => entry.caseId === id))) {
-        await gatePlaceboLive(controllerSha, subjectSha);
+        await gatePlaceboLive(controllerSha, subjectSha, { releaseTag });
       }
       return runPlaceboStreak({
         controllerSha, subjectSha, authorize: args.includes('--authorize'),
@@ -904,7 +934,7 @@ export async function main(args = process.argv.slice(2)) {
       }, {
         readLedger: readLedgerDefault,
         runCase: (caseId) => withManifestSpend({ ...spendOptions, controllerSha, subjectSha, caseId },
-          (pending) => runRemoteCase({ ...pending, controllerSha, subjectSha, caseId, skipGate: true })),
+          (pending) => runRemoteCase({ ...pending, controllerSha, subjectSha, caseId, skipGate: true, releaseTag })),
       });
     });
   }

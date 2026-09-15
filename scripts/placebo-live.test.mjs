@@ -13,10 +13,12 @@ import {
   createPlaceboCaseArtifact,
   createPlaceboLedger,
   finalizePlaceboEvidence,
+  gatePlaceboLive,
   placeboSpendDecision,
   redactPublicArtifact,
   main,
   orderedPlaceboCaseIds,
+  resolveReleaseTag,
   runSinglePlaceboCase,
   runPlaceboStreak,
   dispatchPlaceboWorkflow,
@@ -281,6 +283,65 @@ test('workflow dispatch checks the active freeze at the final dispatch edge', as
     command: async () => { dispatched = true; },
   }), /freeze missing/u);
   assert.equal(dispatched, false);
+});
+
+test('release tag resolves an annotated tag to its commit and refuses a mismatched candidate', async () => {
+  const ref = JSON.parse(await readFile('scripts/__fixtures__/tag-ref-v0.3.0.json', 'utf8'));
+  const tagObject = JSON.parse(await readFile('scripts/__fixtures__/tag-object-v0.3.0.json', 'utf8'));
+  const calls = [];
+  const gh = async (args) => {
+    calls.push(args.join(' '));
+    if (args[1] === 'repos/juan294/sutura/git/ref/tags/v0.3.0') return JSON.stringify(ref);
+    if (args[1] === `repos/juan294/sutura/git/tags/${ref.object.sha}`) return JSON.stringify(tagObject);
+    throw new Error(`unexpected gh: ${args.join(' ')}`);
+  };
+  const resolved = await resolveReleaseTag('v0.3.0', { gh });
+  assert.equal(resolved.tag, 'v0.3.0');
+  assert.equal(resolved.version, '0.3.0');
+  assert.equal(resolved.sha, tagObject.object.sha);
+  assert.deepEqual(calls, [
+    'api repos/juan294/sutura/git/ref/tags/v0.3.0',
+    `api repos/juan294/sutura/git/tags/${ref.object.sha}`,
+  ]);
+
+  const mismatchedCandidate = 'b'.repeat(40);
+  await assert.rejects(
+    () => resolveReleaseTag('not-a-tag', { gh }),
+    /--release-tag must look like v0\.3\.0, got not-a-tag/u,
+  );
+  await assert.rejects(
+    () => gatePlaceboLive(mismatchedCandidate, mismatchedCandidate, { releaseTag: 'v0.3.0', gh }),
+    new RegExp(`Placebo release tag v0\\.3\\.0 points to ${tagObject.object.sha} but the candidate is ${mismatchedCandidate}`, 'u'),
+  );
+});
+
+test('workflow dispatch uses the release tag as ref', async () => {
+  const events = [];
+  await dispatchPlaceboWorkflow({
+    controllerSha: CONTROLLER_SHA,
+    subjectSha: CONTROLLER_SHA,
+    caseId: 'repair-off-by-one',
+    controllerId: 'pl-test-controller',
+    releaseTag: 'v0.3.0',
+  }, {
+    requireActivePushFreeze: async () => {},
+    command: async (name, args) => { events.push(args); },
+  });
+  assert.equal(events[0][events[0].indexOf('--ref') + 1], 'v0.3.0');
+});
+
+test('paid CLI commands require the release tag as both controller and subject', async () => {
+  const ref = JSON.parse(await readFile('scripts/__fixtures__/tag-ref-v0.3.0.json', 'utf8'));
+  const tagObject = JSON.parse(await readFile('scripts/__fixtures__/tag-object-v0.3.0.json', 'utf8'));
+  const gh = async (args) => {
+    if (args[1] === 'repos/juan294/sutura/git/ref/tags/v0.3.0') return JSON.stringify(ref);
+    if (args[1] === `repos/juan294/sutura/git/tags/${ref.object.sha}`) return JSON.stringify(tagObject);
+    throw new Error(`unexpected gh: ${args.join(' ')}`);
+  };
+  await assert.rejects(() => main([
+    'gate', '--release-tag', 'v0.3.0',
+    '--controller-sha', 'b'.repeat(40), '--subject-sha', 'b'.repeat(40),
+  ], { gh }), new RegExp(`--release-tag v0\\.3\\.0 points to ${tagObject.object.sha}; pass it as both --controller-sha and --subject-sha`, 'u'));
 });
 
 test('streak resumes and stops immediately after a false approval', async () => {

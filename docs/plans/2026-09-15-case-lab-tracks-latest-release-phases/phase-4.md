@@ -2,7 +2,8 @@
 
 Plan: [2026-09-15-case-lab-tracks-latest-release.md](../2026-09-15-case-lab-tracks-latest-release.md)
 
-Status: not started
+Status: Implemented; plan-compliance reviewed, `/simplify` applied. Committed
+and pushed to `develop` (gate not yet wired, per design).
 
 `[batch-eligible]` with Phase 1 (disjoint files). This phase adds the script,
 its test and the `package.json` entries only. It does **not** touch
