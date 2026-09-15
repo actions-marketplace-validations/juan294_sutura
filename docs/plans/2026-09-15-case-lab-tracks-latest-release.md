@@ -129,7 +129,7 @@ inside the 200-line cap of §8, and a dated record
 | --- | --- | --- | --- | --- |
 | 1 | Release-mode benchmark gate and the v0.3.0 run manifest — **done** | [phase-1](2026-09-15-case-lab-tracks-latest-release-phases/phase-1.md) | no | `[batch-eligible]` with 4 |
 | 2 | Run the v0.3.0 benchmark and promote the evidence — **done** | [phase-2](2026-09-15-case-lab-tracks-latest-release-phases/phase-2.md) | **yes: cap USD 8, ~3 h, push freeze** | after 1 |
-| 3 | Case Lab pin, evidence rebinding, launch caps, stale docs | [phase-3](2026-09-15-case-lab-tracks-latest-release-phases/phase-3.md) | no | after 2 |
+| 3 | Case Lab pin, evidence rebinding, launch caps, stale docs — **done** | [phase-3](2026-09-15-case-lab-tracks-latest-release-phases/phase-3.md) | no | after 2 |
 | 4 | `release:case-lab` script and its tests — **done** | [phase-4](2026-09-15-case-lab-tracks-latest-release-phases/phase-4.md) | no | `[batch-eligible]` with 1 |
 | 5 | Wire the gate, publish the demo workflow, deploy, smoke, playbook | [phase-5](2026-09-15-case-lab-tracks-latest-release-phases/phase-5.md) | outward-facing | after 3 and 4 |
 

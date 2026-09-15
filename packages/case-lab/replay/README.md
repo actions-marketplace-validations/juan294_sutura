@@ -22,5 +22,5 @@ Rules:
   are never overwritten; replace one by deleting it in a reviewed commit.
 
 When no fixture exists for a case, the Case Lab falls back to the committed
-live benchmark result in `docs/demo/placebo-v0.2-live-2026-09.json`, labeled
+live benchmark result in `docs/demo/placebo-v0.3.0-live-2026-09-15.json`, labeled
 `Recorded live result`.

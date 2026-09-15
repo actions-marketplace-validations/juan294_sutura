@@ -161,7 +161,7 @@ describe('createCaseLabHandler', () => {
     expect(hourly.dispatched).toEqual([]);
 
     const daily = fakeGitHub(Array.from({ length: CASE_LAB_LIMITS.maxRunsPerDay }, (_, index) =>
-      run({ id: index + 1, createdAt: `2026-09-04T0${index}:00:00.000Z` })));
+      run({ id: index + 1, createdAt: `2026-09-04T00:${String(index).padStart(2, '0')}:00.000Z` })));
     const stopped = await handlerWith(daily)(post('{"caseId":"javascript-repair"}'));
     expect(stopped.status).toBe(429);
     expect(stopped.body.error).toBe('daily-spend-stop');

@@ -2,10 +2,12 @@
 
 Plan: [2026-09-15-case-lab-tracks-latest-release.md](../2026-09-15-case-lab-tracks-latest-release.md)
 
-Status: not started. Requires Phase 2's evidence files on `develop`. Folds in
-the uncommitted bump on the temp branch `chore/case-lab-pin-v0.3.0`
-(`release.json` and the three workflow SHAs → `c94eee20…`); re-apply it in the
-worktree rather than merging that branch.
+Status: Done. Case Lab bound to v0.3.0 everywhere (release identity, evidence
+constants, launch caps 24 runs/USD 18). Plan-compliance reviewed (APPROVE)
+and `/simplify` applied. STOP-condition check held (`trap-weakened-expect`,
+`flaky-timer-race` unchanged structurally). 220/220 case-lab tests,
+306/306 release-contracts, `ci:fast` green. `verify-pin --tag v0.3.0` shows
+3 PASS + 1 expected FAIL (sutura-demo byte-identity, pending Phase 5).
 
 ## Goal
 

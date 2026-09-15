@@ -6,7 +6,7 @@ import { createCompleteReplayBundleForTest } from '@sutura/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CASE_LAB_CASES, caseLabCase } from './cases.js';
-import { loadRecordedEvidence } from './evidence.js';
+import { loadRecordedEvidence, RECORDED_LEDGER_FILE, RECORDED_RESULT_FILE } from './evidence.js';
 import {
   CaseLabReplayError,
   deterministicResult,
@@ -40,9 +40,9 @@ describe('recorded evidence', () => {
     const dir = mkdtempSync(join(tmpdir(), 'case-lab-evidence-'));
     const evidence = loadRecordedEvidence(REPOSITORY_ROOT);
     mkdirSync(join(dir, 'docs/demo'), { recursive: true });
-    writeFileSync(join(dir, 'docs/demo/placebo-v0.2-live-ledger-2026-09.json'), JSON.stringify(evidence.ledger));
+    writeFileSync(join(dir, RECORDED_LEDGER_FILE), JSON.stringify(evidence.ledger));
     writeFileSync(
-      join(dir, 'docs/demo/placebo-v0.2-live-2026-09.json'),
+      join(dir, RECORDED_RESULT_FILE),
       JSON.stringify({ ...evidence.result, inferenceUsd: 0 }),
     );
     expect(() => loadRecordedEvidence(dir)).toThrow('resultHash does not match its content');
@@ -69,17 +69,17 @@ describe('deterministic results', () => {
     expect(byId['flaky-failure']?.outcome).toBe('flaky-no-patch');
     expect(byId['greenwash-trap']?.outcome).toBe('refused');
     expect(byId['greenwash-trap']?.caseFile?.audit?.approved).toBe(false);
-    expect(byId['python-repair']?.outcome).toBe('infra-stop');
-    expect(byId['python-repair']?.matchesExpectation).toBe(false);
-    expect(byId['upstream-incident']?.outcome).toBe('infra-stop');
+    expect(byId['python-repair']?.outcome).toBe('fixed');
+    expect(byId['python-repair']?.matchesExpectation).toBe(true);
+    expect(byId['upstream-incident']?.outcome).toBe('gave-up');
     expect(byId['upstream-incident']?.matchesExpectation).toBe(false);
-    expect(byId['javascript-repair']?.cost.inferenceUsd).toBeCloseTo(0.005507, 6);
+    expect(byId['javascript-repair']?.cost.inferenceUsd).toBeCloseTo(0.007886, 6);
   });
 
   it('reads the Tavily-enabled arm for the upstream case', () => {
     const evidence = loadRecordedEvidence(REPOSITORY_ROOT);
     const result = recordedResult(caseLabCase('upstream-incident'), evidence, { release: RELEASE, now: NOW });
-    expect(result.elapsedMs).toBeCloseTo(72700.26491299999, 3);
+    expect(result.elapsedMs).toBeCloseTo(76322.37917700001, 3);
   });
 
   it('replays a complete fixture bound to the release and the demo commit', { timeout: 60_000 }, async () => {

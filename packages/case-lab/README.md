@@ -50,8 +50,8 @@ names, refs, commands, patches, and free text are rejected before any I/O.
 | Concurrent live runs | 1 |
 | Live runs per rolling hour | 4 |
 | Worst-case cost per run | USD 0.75 |
-| Daily spend stop | USD 6.00 |
-| Live runs per UTC day | 8 |
+| Daily spend stop | USD 18.00 |
+| Live runs per UTC day | 24 |
 
 The dispatcher counts the `case-lab.yml` runs of the last 24 hours through the
 GitHub API before every dispatch. The workflow repeats the count and checks
@@ -123,7 +123,7 @@ case-lab build-site [--site-url <origin>] [--site-config <file>]
                                              write dist/site; site.json supplies the origin and identifiers
 case-lab serve [--port 4177]                 serve dist/site for local review
 case-lab acceptance --base-url <url>         signed-out acceptance record (--offline skips link checks)
-case-lab verify-pin [--tag v0.2.0]           prove release.json, the demo workflow, and the tag agree
+case-lab verify-pin [--tag v0.3.0]           prove release.json, the demo workflow, and the tag agree
 case-lab dispatch --base-url <url> --case <id>
 case-lab capture-replay --request-id <id> --out replay
 case-lab publish-result ...                  used inside the demo workflow

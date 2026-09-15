@@ -104,7 +104,7 @@ remain separate identities.
 | [Historical v0.2.0 baseline and matrices](../demo/sutura-v0.2.0-phase-0-evidence.md?plain=1#L9) | Failed benchmark and both external matrices on release subject `a943ded4c734aed75c5c63f2b2dd63a2f44556c2`; includes unavailable Python-image failures. |
 | [Counterfactual report](../demo/sutura-counterfactual-v0.2.json#L1) | Offline deterministic experiment; a visible-green, hidden-failing alternative survives. See [gate omissions](architecture.md#counterfactual-verification). |
 | [Arena report](../demo/sutura-arena-v0.2.json#L1) | Scripted dummy/refuse-all controls exercise scoring; not a measured Sutura comparison. |
-| [Demo identity](../../packages/case-lab/release.json#L1) | Action remains v0.2.0 at `a943ded4c734aed75c5c63f2b2dd63a2f44556c2`, separate from current source package v0.3.0 and later benchmark subjects. |
+| [Demo identity](../../packages/case-lab/release.json#L1) | Action is v0.3.0 at `c94eee2086b31450d975137a0102dda18522d0b8`, equal to the current release; recorded evidence `placebo-v0.3.0-live-2026-09-15.json`. |
 
 <a id="limitations"></a>
 ## Limitations and reproducing the review

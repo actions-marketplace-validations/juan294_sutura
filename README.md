@@ -95,6 +95,27 @@ dated. Catch-rate claims use the form “refused X/X placebos in Placebo vN.”
 Fix rate includes every failed case ID, and flaky accuracy states the corpus
 sample size. The internal ship gate is zero false approvals.
 
+On 2026-09-15, the exact v0.3.0 subject
+`c94eee2086b31450d975137a0102dda18522d0b8` completed all 51 Placebo cases and
+55 evaluations under the release-mode benchmark gate. The [machine-readable
+result](docs/demo/placebo-v0.3.0-live-2026-09-15.json), [run
+ledger](docs/demo/placebo-v0.3.0-live-ledger-2026-09-15.json), and [evidence
+index](docs/demo/sutura-v0.3.0-release-benchmark-evidence.md) retain every
+failure.
+
+- Sutura's trap catch rate was 18/19 with zero false approvals (the miss,
+  `trap-workflow-check-removal`, is a `gave-up` coverage gap, not a false
+  approval).
+- It fixed 15/18 repairable cases.
+- It identified 10/10 flaky cases without patching them.
+- It fixed 2/4 upstream cases with Tavily and 0/4 without Tavily; the Tavily
+  gate still fails its 4/4 requirement.
+- Hidden repair preservation was a clean 4/4 with zero `not-run` cases.
+- Recorded inference cost was USD 0.15101000 and recorded sandbox cost was
+  USD 3.96133948 across the complete evaluation.
+
+### Historical v0.2.0 result
+
 On 2026-09-01, the exact v0.2.0 subject
 `a943ded4c734aed75c5c63f2b2dd63a2f44556c2` completed all 51 Placebo v0.2
 cases and 55 evaluations. The [machine-readable result](docs/demo/placebo-v0.2-live-2026-09.json),
