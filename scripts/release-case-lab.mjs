@@ -21,6 +21,8 @@ const DEMO_REPOSITORY = 'juan294/sutura-demo';
 const DEMO_WORKFLOW_PATH = '.github/workflows/case-lab.yml';
 const HEALTH_URL = 'https://sutura-case-lab.vercel.app/api/health';
 const VERCEL_SCOPE = 'thecreativetoken';
+const VERCEL_PROJECT = 'sutura-case-lab';
+const VERCEL_PROJECT_FILE = 'packages/case-lab/.vercel/project.json';
 
 export const FILES = Object.freeze({
   release: 'packages/case-lab/release.json',
@@ -263,6 +265,13 @@ export async function publishDemo({ authorize }, dependencies) {
 export async function deploy({ authorize }, dependencies) {
   if (!authorize) throw new ReleaseCaseLabError('deploy requires literal --authorize');
   const cwd = resolve(ROOT, 'packages/case-lab');
+  await dependencies.vercel(['link', '--yes', '--scope', VERCEL_SCOPE, '--project', VERCEL_PROJECT], { cwd });
+  const project = JSON.parse(await dependencies.readFile(VERCEL_PROJECT_FILE, 'utf8'));
+  if (project.projectName !== VERCEL_PROJECT) {
+    throw new ReleaseCaseLabError(
+      `${VERCEL_PROJECT_FILE}: projectName is ${JSON.stringify(project.projectName)} but deploy requires ${JSON.stringify(VERCEL_PROJECT)}`,
+    );
+  }
   await dependencies.vercel(['pull', '--yes', '--environment=production', '--scope', VERCEL_SCOPE], { cwd });
   await dependencies.vercel(['build', '--prod', '--scope', VERCEL_SCOPE], { cwd });
   await dependencies.vercel(['deploy', '--prebuilt', '--prod', '--scope', VERCEL_SCOPE], { cwd });

@@ -371,6 +371,9 @@ test('publish-demo refuses when the remote is not byte-identical after publish',
 test('deploy requires literal --authorize and refuses a health mismatch', async () => {
   await withTempDirectory(async (directory) => {
     await buildConsistentTree(directory);
+    await writeFixtureFile(directory, 'packages/case-lab/.vercel/project.json', `${JSON.stringify({
+      projectName: 'sutura-case-lab',
+    }, null, 2)}\n`);
     const dependencies = dependenciesFor(directory);
 
     await assert.rejects(
@@ -394,23 +397,54 @@ test('deploy requires literal --authorize and refuses a health mismatch', async 
         return true;
       },
     );
-    assert.equal(vercelCalls.length, 3);
-    assert.deepEqual(vercelCalls.map(({ args }) => args[0]), ['pull', 'build', 'deploy']);
+    assert.equal(vercelCalls.length, 4);
+    assert.deepEqual(vercelCalls.map(({ args }) => args[0]), ['link', 'pull', 'build', 'deploy']);
     for (const { args, options } of vercelCalls) {
       assert.ok(args.includes('--scope'), 'passes --scope');
       assert.ok(args.includes('thecreativetoken'));
       assert.ok(options.cwd.endsWith(join('packages', 'case-lab')));
     }
     assert.ok(vercelCalls[0].args.includes('--yes'));
-    assert.ok(vercelCalls[1].args.includes('--prod'));
-    assert.ok(vercelCalls[2].args.includes('--prebuilt'));
+    assert.ok(vercelCalls[0].args.includes('--project'));
+    assert.ok(vercelCalls[0].args.includes('sutura-case-lab'));
+    assert.ok(vercelCalls[1].args.includes('--yes'));
     assert.ok(vercelCalls[2].args.includes('--prod'));
+    assert.ok(vercelCalls[3].args.includes('--prebuilt'));
+    assert.ok(vercelCalls[3].args.includes('--prod'));
 
     dependencies.fetch = async () => ({
       json: async () => ({ release: { version: '0.3.0', actionSha: NEWEST_COMMIT } }),
     });
     const release = await deploy({ authorize: true }, dependencies);
     assert.equal(release.version, '0.3.0');
+  });
+});
+
+test('deploy links first and refuses a mismatched Vercel project before any build or deploy call', async () => {
+  await withTempDirectory(async (directory) => {
+    await buildConsistentTree(directory);
+    await writeFixtureFile(directory, 'packages/case-lab/.vercel/project.json', `${JSON.stringify({
+      projectName: 'case-lab',
+    }, null, 2)}\n`);
+    const dependencies = dependenciesFor(directory);
+    const vercelCalls = [];
+    dependencies.vercel = async (args, options) => {
+      vercelCalls.push({ args, options });
+      return '';
+    };
+    dependencies.fetch = async () => { throw new Error('fetch must not be called'); };
+
+    await assert.rejects(
+      deploy({ authorize: true }, dependencies),
+      (error) => {
+        assert.match(error.message, /packages\/case-lab\/\.vercel\/project\.json/u);
+        assert.match(error.message, /case-lab/u);
+        assert.match(error.message, /sutura-case-lab/u);
+        return true;
+      },
+    );
+    assert.equal(vercelCalls.length, 1);
+    assert.equal(vercelCalls[0].args[0], 'link');
   });
 });
 
