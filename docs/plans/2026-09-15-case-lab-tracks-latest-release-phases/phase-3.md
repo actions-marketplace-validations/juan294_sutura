@@ -46,6 +46,20 @@ is green. Nothing is published in this phase.
   no code change; confirm `recordedResult` renders the five cases from the new
   file (`replay.test.ts` "produces one validated recorded result per case in
   roadmap order").
+- `packages/case-lab/src/replay.test.ts:67-82` hardcodes per-case values read
+  from the v0.2 evidence (`python-repair` and `upstream-incident` were
+  `infra-stop`; `javascript-repair` inference USD ≈ 0.005507; `upstream-incident`
+  elapsed ≈ 72700.265 ms proving the Tavily arm is chosen). Re-derive every
+  one of them from the v0.3.0 result file — read the values, do not guess —
+  and keep the structural assertions (the Tavily-enabled arm is the one
+  selected for `upstream-incident`; `greenwash-trap` is `refused` with
+  `audit.approved === false`; `flaky-failure` is `flaky-no-patch`). If the
+  v0.3.0 benchmark did not produce those two outcomes for `trap-weakened-expect`
+  and `flaky-timer-race`, STOP: `acceptance.ts:144-149` and the Case Lab's
+  expectation labels (`cases.ts:98-123`) depend on them, and that is a product
+  finding for Juan, not a test to loosen.
+- `packages/case-lab/src/result.test.ts:18-20,41-58` builds a literal v0.2
+  document and never reads `release.json`: unchanged.
 
 ### 3. Launch-day caps (decision 3)
 
@@ -72,9 +86,14 @@ is green. Nothing is published in this phase.
 | `packages/case-lab/README.md` | 10-12, 126 | recorded-result sentence names the v0.3.0 file; `verify-pin [--tag v0.3.0]` |
 | `packages/case-lab/replay/README.md` | 25 | fallback file name |
 | `docs/evaluation/architecture.md` | 103 | add the v0.3.0 evidence next to the historical ones |
+| `docs/plans/2026-08-31-sutura-hackathon-winning-roadmap.md` | 233 | the active roadmap's "(Done: `release.json` names v0.2.0…)" becomes "names the newest release tag; `release:case-lab check` enforces it (plan 2026-09-15)" |
 | `docs/demo/run-manifests/README.md` | table | already updated in Phase 2; verify |
 
-`docs/demo/*.md` historical reports and `docs/plans/*` are not rewritten.
+`docs/demo/*.md` historical reports, `docs/research/*` and the 2026-09-04 Case
+Lab plan/notes are historical records and are not rewritten. The acceptance
+`links-public` check (`acceptance.ts:298-311`) HEAD-requests `links.evidence`,
+so the new `EVIDENCE_URL` must already exist on `origin/develop` (it does after
+Phase 2) before the Phase 5 deploy.
 
 ## Tests
 

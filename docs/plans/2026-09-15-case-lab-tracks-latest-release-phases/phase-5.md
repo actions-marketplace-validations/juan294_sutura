@@ -44,7 +44,7 @@ The demo copy also carries `CASE_LAB_DAILY_RUN_CAP: '24'` from Phase 3.
 ### 3. Deploy and smoke (authorization required)
 
 ```bash
-pnpm run release:case-lab deploy --authorize
+pnpm run release:case-lab deploy --authorize     # vercel pull → build --prod → deploy --prebuilt --prod, scope thecreativetoken, from packages/case-lab
 curl -s https://sutura-case-lab.vercel.app/api/health
 # expect: "release":{"version":"0.3.0","actionSha":"c94eee2086b31450d975137a0102dda18522d0b8"} and "maxRunsPerDay":24,"dailySpendStopUsd":18
 node packages/case-lab/bin/case-lab.js acceptance --base-url https://sutura-case-lab.vercel.app --out "$(mktemp -d)/acceptance.json"

@@ -118,10 +118,18 @@ export async function publishDemo({ authorize }, dependencies)
   // PUT same path with { message: `chore(case-lab): pin the Action and controller to sutura ${tag}`, content: base64(local), sha, branch: 'main' }
   // then run check() semantics for byte identity: GET again and compare to the local file
   // refuses when check() itself fails (the local tree must already be consistent)
+  // Historically (Sep 4–5) the file was pushed from the local clone /Users/juan/code/sutura-demo,
+  // which is now out of sync (ahead 1, behind 11 of origin/main). The contents API avoids that
+  // clone entirely; the committer shows as GitHub for these commits, which is acceptable.
 
 export async function deploy({ authorize }, dependencies)
   // literal --authorize required
-  // `vercel deploy --prod --scope thecreativetoken --yes` with cwd packages/case-lab (docs/plans/2026-09-04-sutura-case-lab.md:124-134 is the documented form; the project is linked as thecreativetoken/sutura-case-lab)
+  // Production deploys are PREBUILT ONLY (docs/plans/2026-09-04-sutura-case-lab-notes.md:84-85,
+  // docs/release/discoverability-playbook.md:20-30); a personal scope is refused by Vercel:
+  //   cwd packages/case-lab
+  //   vercel pull --yes --environment=production --scope thecreativetoken
+  //   vercel build --prod --scope thecreativetoken
+  //   vercel deploy --prebuilt --prod --scope thecreativetoken
   // then fetch https://sutura-case-lab.vercel.app/api/health and require .release.version and .release.actionSha equal release.json; retry the fetch up to 5 times at 10 s spacing (edge propagation), then refuse with both values in the message
 ```
 
@@ -160,7 +168,9 @@ Fixtures live in a temp directory built with the `withTempDirectory` idiom
    without the flag → rejects before any `gh` call; with the flag, the `gh`
    stub records GET → PUT → GET and the PUT body carries the local bytes.
 7. "deploy requires literal --authorize and refuses a health mismatch": `vercel`
-   stub records the args; `fetch` stub returns `0.2.0` → rejects with both
+   stub records the three invocations in order (`pull`, `build --prod`,
+   `deploy --prebuilt --prod`, all with `--scope thecreativetoken`, cwd
+   `packages/case-lab`); `fetch` stub returns `0.2.0` → rejects with both
    versions in the message; returns `0.3.0`/matching sha → resolves.
 8. "cli guard: run returns 1 and prints the refusal on stderr" (spawn with
    `process.execPath`, as `scripts/guards-verify.test.mjs:71-76`).
