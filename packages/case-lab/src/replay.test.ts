@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -23,6 +24,11 @@ const RELEASE = loadRelease();
 const DEMO_SHA = 'a7a3278db7e1185403dc223a97ebb205ccf4c2f7';
 const CAPTURED_RUN_URL = 'https://github.com/juan294/sutura-demo/actions/runs/33949921397';
 const EMPTY_REPLAY_DIR = mkdtempSync(join(tmpdir(), 'case-lab-no-replay-'));
+// The v0.3.0 Action's own commit: the release the real live bundle below was recorded under.
+const RELEASE_V030 = { version: '0.3.0', actionSha: 'c94eee2086b31450d975137a0102dda18522d0b8' };
+const LIVE_BUNDLE_FIXTURE = new URL('./__fixtures__/live-34977342282-javascript-repair-gave-up.json', import.meta.url);
+const LIVE_DEMO_SHA = 'f8ea06f211163a5bc233dfadf1c728d4c79b7418';
+const LIVE_RUN_URL = 'https://github.com/juan294/sutura-demo/actions/runs/34977342282';
 
 function fixtureFor(bundle: unknown): Record<string, unknown> {
   return { schemaVersion: 'sutura-case-lab-replay-fixture-v1', release: RELEASE, demoSha: DEMO_SHA, capturedRunUrl: CAPTURED_RUN_URL, bundle };
@@ -114,6 +120,32 @@ describe('deterministic results', () => {
       .rejects.toThrow('replay outcome mismatch: recorded fixed, replayed flaky-no-patch');
     await expect(replayedResult(caseLabCase('flaky-failure'), bundle, options))
       .rejects.toThrow('replay fixture must be a sutura-case-lab-replay-fixture-v1 document');
+  });
+
+  it('replays Case Lab live run 34977342282 (javascript-repair gave-up) from the real bundle', { timeout: 120_000 }, async () => {
+    // Captured from the sutura-demo workflow artifact sutura-replay-34977415599.json (2026-09-15).
+    // The Action stamps its own pinned commit, not the demo commit, so the bundle binds to the release.
+    const bytes = readFileSync(LIVE_BUNDLE_FIXTURE);
+    const bundle = JSON.parse(bytes.toString('utf8')) as Record<string, unknown> & { actionSha: string; outcome: string };
+    expect(bundle.actionSha).toBe(RELEASE_V030.actionSha);
+    expect(bundle.actionSha).not.toBe(LIVE_DEMO_SHA);
+    const fixture = {
+      schemaVersion: 'sutura-case-lab-replay-fixture-v1' as const,
+      release: RELEASE_V030, demoSha: LIVE_DEMO_SHA, capturedRunUrl: LIVE_RUN_URL, bundle,
+    };
+    const result = await replayedResult(caseLabCase('javascript-repair'), fixture, {
+      release: RELEASE_V030, now: NOW, fixtureSha256: createHash('sha256').update(bytes).digest('hex'),
+    });
+    expect(result.mode).toBe('replay');
+    expect(result.outcome).toBe('gave-up');
+    expect(result.matchesExpectation).toBe(false);
+    expect(result.identity).toEqual({ controllerSha: RELEASE_V030.actionSha, demoSha: LIVE_DEMO_SHA });
+    expect(result.caseFile?.diagnosis.class).toBe('test-assertion');
+    expect(validateCaseLabResult(JSON.parse(JSON.stringify(result)))).toEqual(result);
+    // The pre-fix binding (bundle actionSha === demoSha) refused this real bundle.
+    await expect(replayedResult(caseLabCase('javascript-repair'), fixture, {
+      release: { version: '0.3.1', actionSha: LIVE_DEMO_SHA }, now: NOW, fixtureSha256: 'a'.repeat(64),
+    })).rejects.toThrow(`replay fixture release actionSha ${RELEASE_V030.actionSha} must equal release.json actionSha ${LIVE_DEMO_SHA}`);
   });
 
   it('prefers a fixture on disk over the recorded result', { timeout: 60_000 }, async () => {

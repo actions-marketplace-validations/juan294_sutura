@@ -11,6 +11,7 @@ import { describeMethodCall, RecordedCallCursor } from './recorded-call-cursor.j
 import { EXECUTOR_CURSOR_OPTIONS, RecordedExecutor } from './replay-executor.js';
 import { replayFetch } from './replay-fetch.js';
 import {
+  describePortCall,
   replayingGitHubApi,
   type RecordedGitHubMutation,
   type RecordedPortCall,
@@ -79,7 +80,7 @@ export async function replayBundle(
   if (!owner || !repo) throw new ReplayValidationError('bundle.repo', 'must use owner/repo format');
   const portCursor = new RecordedCallCursor<RecordedPortCall>(
     [...validated.github, ...validated.repository],
-    describeMethodCall,
+    describePortCall,
     'port',
   );
   const httpCursor = new RecordedCallCursor<RecordedHttpExchange>(
