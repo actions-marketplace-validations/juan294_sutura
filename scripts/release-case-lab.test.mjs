@@ -291,7 +291,10 @@ test('bump rewrites all six bindings and refuses to write on a stale result', as
     };
 
     await bump({ tag: NEWEST_TAG, result: RESULT_PATH, ledger: LEDGER_PATH }, dependencies);
-    assert.deepEqual(commandCalls, [['node', 'packages/case-lab/bin/case-lab.js', 'verify-pin', '--tag', NEWEST_TAG]]);
+    assert.deepEqual(commandCalls, [
+      ['pnpm', '--filter', '@sutura/core', '--filter', '@sutura/case-lab', 'build'],
+      ['node', 'packages/case-lab/bin/case-lab.js', 'verify-pin', '--tag', NEWEST_TAG],
+    ]);
 
     const release = await check(dependenciesFor(directory));
     assert.deepEqual(release, { tag: NEWEST_TAG, version: '0.3.0', commit: NEWEST_COMMIT });

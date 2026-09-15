@@ -2,7 +2,7 @@
 
 Date: 2026-09-15
 
-Status: Approved design; implementation not started
+Status: Implemented 2026-09-15 (Phases 1-5 on `develop`); the live-run smoke criterion is carried to v0.3.1 — see `docs/release/v0.3.0-case-lab-record.md`
 
 Owner: Juan
 

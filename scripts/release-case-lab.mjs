@@ -2,12 +2,13 @@
 // The Case Lab always tracks the newest production release tag on `main`.
 //
 //   node scripts/release-case-lab.mjs check                                          read-only
-//   node scripts/release-case-lab.mjs bump --tag <vX.Y.Z> --result <file> --ledger <file>
+//   node scripts/release-case-lab.mjs bump --tag <vX.Y.Z> --result <file> --ledger <file>   builds core + case-lab, then verify-pin
 //   node scripts/release-case-lab.mjs publish-demo --authorize
 //   node scripts/release-case-lab.mjs deploy --authorize
 //
 // Exit 0 on success, 1 on any refusal. Every refusal names the file, the
-// observed value and the expected value.
+// observed value and the expected value. Repository paths resolve against the
+// repository root, so the script behaves the same from any working directory.
 
 import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -55,8 +56,8 @@ export function defaultDependencies() {
     vercel: (args, options) => command('vercel', args, options),
     command,
     fetch: globalThis.fetch,
-    readFile,
-    writeFile,
+    readFile: (path, encoding) => readFile(resolve(ROOT, path), encoding),
+    writeFile: (path, data, encoding) => writeFile(resolve(ROOT, path), data, encoding),
     sleep: (ms) => new Promise((resolvePromise) => { setTimeout(resolvePromise, ms); }),
     stdout: process.stdout,
     stderr: process.stderr,
@@ -185,7 +186,9 @@ export async function check(dependencies = defaultDependencies()) {
   expect(binding.result, 'subjectSha', result.subjectSha, release.commit);
   expect(binding.result, 'subjectVersion', result.subjectVersion, release.version);
   const ledger = JSON.parse(ledgerText);
-  expect(binding.ledger, 'resultHash', ledger.resultHash, result.ledgerHash);
+  if (ledger.resultHash !== result.ledgerHash) {
+    refusals.push(`${binding.ledger}: resultHash is ${ledger.resultHash} but ${binding.result} ledgerHash is ${result.ledgerHash}`);
+  }
   expect(FILES.replay, 'EVIDENCE_URL', readEvidenceUrl(replayText),
     `https://github.com/juan294/sutura/blob/develop/${binding.result}`);
   if (refusals.length > 0) {
@@ -234,6 +237,8 @@ export async function bump({ tag, result, ledger }, dependencies) {
     'utf8',
   );
 
+  // verify-pin runs from the built package; a fresh worktree has no dist.
+  await dependencies.command('pnpm', ['--filter', '@sutura/core', '--filter', '@sutura/case-lab', 'build']);
   const output = await dependencies.command('node', ['packages/case-lab/bin/case-lab.js', 'verify-pin', '--tag', tag]);
   dependencies.stdout.write(output);
   return newest;
