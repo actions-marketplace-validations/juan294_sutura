@@ -106,6 +106,8 @@ for (;;) {
 }
 ```
 
+Also in `scripts/release-case-lab.mjs` `newestReleaseTag`: retry `git ls-remote` and `git fetch --quiet origin main` up to 3 times with 2 s / 4 s backoff on transport errors (`SSL_ERROR_SYSCALL`, `Could not resolve host`, `Connection reset`, `unable to access`) before refusing, so a network blip in the pre-push hook does not block a push (observed three times on 2026-09-15). Test: a `git` stub that throws `unable to access … SSL_ERROR_SYSCALL` twice then succeeds → `check` passes; three throws → refuses with the transport error in the message.
+
 `scripts/release-case-lab.test.mjs`: extend test 6 (`gh` stub returns the
 commit, then `queued` → `completed/success`; `sleep` stubbed) and add
 "publish-demo refuses when the demo CI on the published commit is red"
