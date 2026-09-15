@@ -28,6 +28,20 @@ test('ordinary CI runs deterministic release contract and candidate install chec
   assert.match(workflow, /pnpm run test:package/u);
 });
 
+test('ordinary CI refuses a stale Case Lab before the release contract checks run', async () => {
+  const workflow = await text('.github/workflows/ci.yml');
+  const gate = workflow.indexOf('release-case-lab.mjs check');
+  const contracts = workflow.indexOf('pnpm run test:release-contracts');
+  assert.ok(gate >= 0 && contracts > gate);
+});
+
+test('pre-push refuses a stale Case Lab after the push-freeze check', async () => {
+  const hook = await text('.husky/pre-push');
+  const freeze = hook.indexOf('push-freeze.mjs check');
+  const gate = hook.indexOf('release-case-lab.mjs check');
+  assert.ok(freeze >= 0 && gate > freeze);
+});
+
 test('ordinary CI fails a stale Action bundle before the long test suites run', async () => {
   const workflow = await text('.github/workflows/ci.yml');
   const build = workflow.indexOf('pnpm run build');

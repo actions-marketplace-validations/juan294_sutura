@@ -23,6 +23,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: node scripts/release-case-lab.mjs check
       - run: pnpm run test:release-contracts
       - run: pnpm run test:readme
       - run: pnpm run verify:readme-setup

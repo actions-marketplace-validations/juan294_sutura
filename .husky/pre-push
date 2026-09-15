@@ -3,4 +3,6 @@
 unset $(git rev-parse --local-env-vars)
 # Refuse to push while a paid live run has develop frozen (scripts/push-freeze.mjs).
 node scripts/push-freeze.mjs check || exit 1
+# Refuse to push while the public Case Lab lags the newest release tag (scripts/release-case-lab.mjs).
+node scripts/release-case-lab.mjs check || exit 1
 pnpm run ci:fast
