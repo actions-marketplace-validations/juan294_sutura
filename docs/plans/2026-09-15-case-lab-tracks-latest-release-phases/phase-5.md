@@ -2,9 +2,15 @@
 
 Plan: [2026-09-15-case-lab-tracks-latest-release.md](../2026-09-15-case-lab-tracks-latest-release.md)
 
-Status: not started. Requires Phases 3 and 4 on `develop`. The
-`publish-demo` and `deploy` steps are outward-facing and need Juan's explicit
-go in this conversation.
+Status: Done, with one open item carried to v0.3.1. Gate wired into
+pre-push/CI; `publish-demo` and `deploy` ran with authorization and are
+verified (`verify-pin --tag v0.3.0` four PASS lines; `/api/health` reports
+0.3.0, 24 runs/USD 18). The required live smoke dispatch surfaced a real
+v0.3.0 regression (replay bundle actionSha compared against the wrong
+commit) that blocked every live publish; fixed on `develop`
+(`a278812`) but the fix only reaches the public path at v0.3.1, so
+**live runs are disabled on production** (`CASE_LAB_ENABLED=false`) until
+then. Full record: `docs/release/v0.3.0-case-lab-record.md`.
 
 ## Goal
 

@@ -131,7 +131,7 @@ inside the 200-line cap of §8, and a dated record
 | 2 | Run the v0.3.0 benchmark and promote the evidence — **done** | [phase-2](2026-09-15-case-lab-tracks-latest-release-phases/phase-2.md) | **yes: cap USD 8, ~3 h, push freeze** | after 1 |
 | 3 | Case Lab pin, evidence rebinding, launch caps, stale docs — **done** | [phase-3](2026-09-15-case-lab-tracks-latest-release-phases/phase-3.md) | no | after 2 |
 | 4 | `release:case-lab` script and its tests — **done** | [phase-4](2026-09-15-case-lab-tracks-latest-release-phases/phase-4.md) | no | `[batch-eligible]` with 1 |
-| 5 | Wire the gate, publish the demo workflow, deploy, smoke, playbook | [phase-5](2026-09-15-case-lab-tracks-latest-release-phases/phase-5.md) | outward-facing | after 3 and 4 |
+| 5 | Wire the gate, publish the demo workflow, deploy, smoke, playbook — **done, one item carried to v0.3.1** | [phase-5](2026-09-15-case-lab-tracks-latest-release-phases/phase-5.md) | outward-facing | after 3 and 4 |
 
 Dependency graph: 1 → 2 → 3 → 5; 4 → 5. Phases 1 and 4 touch disjoint files
 (1: `scripts/placebo-live.mjs`, `scripts/dogfood.mjs`, their tests, fixtures,
@@ -169,10 +169,18 @@ Automated (all must hold at the end of Phase 5):
 Manual (Juan):
 
 - One live Case Lab run from the public site after the Phase 5 deploy
-  completes and its result page shows release `0.3.0`.
+  completes and its result page shows release `0.3.0`. **Attempted and NOT
+  met**: the live smoke dispatch (`javascript-repair`,
+  `sutura-demo` run 34977342282) ran but failed to publish a result page,
+  surfacing a real v0.3.0 regression (fixed on `develop`, commit `a278812`,
+  but the fix doesn't reach the public live path until v0.3.1). Live runs
+  are disabled on production (`CASE_LAB_ENABLED=false`) until then. Full
+  record: `docs/release/v0.3.0-case-lab-record.md`. This criterion carries
+  forward to the v0.3.1 cycle.
 - Authorization for the Phase 2 paid run and for the Phase 5
   `publish-demo`/`deploy` steps is given in those conversations, not assumed
-  from this plan.
+  from this plan. **Met** — both authorized explicitly in-conversation
+  2026-09-15.
 
 ## Out of scope
 
