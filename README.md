@@ -33,7 +33,7 @@ offline examples, controls, and pending evidence. The
 
 ```mermaid
 flowchart LR
-  A[Failed GitHub Actions run] --> B[Exact PR head SHA and failed-step log]
+  A[Failed GitHub Actions run] --> B[Exact failing source SHA and failed-step log]
   B --> C[Nemotron Nano diagnosis]
   C --> D[ConTree dependency-prepared snapshot]
   D -->|Branching use 1| E1[Progressive triage batch 1]
@@ -113,8 +113,9 @@ cases and 55 evaluations. The [machine-readable result](docs/demo/placebo-v0.2-l
 
 This is a complete failed baseline, not passing release evidence. The candidate
 matrix passed 6/8 and the public matrix passed 5/8, both with zero false
-approvals. The immutable v0.2.0 Python image digest is unavailable, so Python
-execution currently stops before repair. The v0.2.1 remediation plan is
+approvals. The immutable v0.2.0 Python image digest became unavailable, so
+Python execution stopped before repair in that historical run. The subsequent
+v0.2.1 remediation is
 [tracked here](docs/plans/2026-09-01-sutura-v0.2.1-evidence-remediation.md).
 
 On 2026-08-28, Sutura commit `478684646ee1e4ccb56fdd8260c6fe01bc4c0158`
@@ -182,6 +183,15 @@ before enabling Sutura on confidential source.
 Sutura uses bring-your-own-key billing. Each repository supplies its provider
 credentials. The repository owner pays providers directly for its usage.
 
+Installation is repository-scoped. You do not need to install Sutura globally:
+`npx` downloads the selected CLI version for the command, while the generated
+workflow pins the matching Action to an immutable commit.
+
+Before setup, install Git and Node.js 22 or later, install the GitHub CLI, run
+`gh auth login`, and clone a GitHub repository that already has at least one
+Actions CI workflow. Your GitHub account must be able to configure Actions
+secrets and variables and commit the generated workflow.
+
 Create these provider credentials first:
 
 - A [Nebius Token Factory API key](https://docs.tokenfactory.nebius.com/quickstart)
@@ -199,11 +209,18 @@ Set `NEBIUS_API_KEY`, `CONTREE_TOKEN`, `CONTREE_PROJECT`, and optional
 
 ```bash
 npx sutura@0.3.0 init
+sed -n '1,220p' .github/workflows/sutura.yml
 npx sutura@0.3.0 doctor
+git add .github/workflows/sutura.yml
+git commit -m "ci: add Sutura repair monitor"
+git push
 ```
 
 The installer detects a single CI workflow. Use `--workflow <name>` when the
 repository has multiple workflows. Add `--no-tavily` when Tavily is unavailable.
+Review the generated workflow before committing it. It becomes active only
+after it is committed and reaches the repository's default branch, either by a
+direct push or through the repository's normal pull-request process.
 
 The installer resolves the `v0.3.0` Action tag and writes its immutable commit
 SHA into the generated workflow. `doctor` resolves the tag again and verifies
@@ -231,6 +248,10 @@ Sutura handles failed and timed-out runs from pull requests, pushes, scheduled w
 Pull request runs receive an evidence comment. Direct runs receive the same evidence as a commit comment. Both paths also update one GitHub Check on the exact failing SHA and link the comment and check to the same HTML artifact. Maintainers can require the Sutura check. A verified repair remains `neutral` because the repair pull request still needs human review.
 
 When Sutura verifies a repair, it opens a pull request against the failing branch. It never merges the repair.
+
+The complete [user guide](docs/user-guide.md) covers first-run behavior,
+configuration, per-repository upgrades, disabling, removal, credential
+rotation, and troubleshooting.
 
 ## Contributor setup
 

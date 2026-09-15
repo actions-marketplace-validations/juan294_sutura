@@ -28,7 +28,7 @@ case ID:
   published package contents. Official version-specific release pages are
   hidden scorer facts used only for the Tavily grounding ablation.
 
-## Current Sutura result
+## Historical Sutura v0.2.0 result
 
 The exact `sutura@0.2.0` subject completed the full live Placebo v0.2 run on
 2026-09-01. See the machine-readable

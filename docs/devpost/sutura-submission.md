@@ -63,7 +63,8 @@ explicit refusal or insufficient-evidence report. Sutura never merges a patch.
 
 ```mermaid
 flowchart LR
-  A[Failed run or supplied patch] --> B[Exact source and trusted policy]
+  A[Failed run] --> B[Exact failing source and trusted policy]
+  M[Supplied patch] --> N[Exact supplied source and trusted policy]
   B --> C[Nemotron Nano diagnosis]
   C --> D[Tavily grounding for upstream failures]
   C --> E[ConTree dependency-prepared snapshot]
@@ -72,6 +73,7 @@ flowchart LR
   E --> G[Nemotron Super bounded repairs]
   F --> G
   G --> H[Controller tests and frozen challenges]
+  N --> H
   H --> I[Clean ConTree verification branch]
   I --> J[Mechanical checks and Nemotron Ultra audit]
   J --> K[Verified patch, repair PR, refusal, or insufficient evidence]

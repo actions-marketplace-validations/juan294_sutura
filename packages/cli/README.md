@@ -2,17 +2,32 @@
 
 Sutura verifies AI-generated CI repairs before it opens a pull request.
 
-Install Sutura in a GitHub repository:
+Configure Sutura in a GitHub repository; a global npm installation is not
+required. Setup needs Git, Node.js 22 or later, an authenticated GitHub CLI,
+an existing Actions CI workflow, and permission to configure repository
+secrets, variables, and workflows.
 
 ```bash
 npx sutura@0.3.0 init
 npx sutura@0.3.0 doctor
+git add .github/workflows/sutura.yml
+git commit -m "ci: add Sutura repair monitor"
+git push
 ```
 
 `init` resolves the `v0.3.0` Action tag to one immutable commit and writes that
 SHA into the workflow. `doctor` verifies the pin against the tag. Release
 candidate checks can pass `--action-sha <40-character-commit>` to both commands;
 mutable refs are rejected.
+
+Review the generated workflow before committing it. The monitor becomes active
+only after `.github/workflows/sutura.yml` reaches the repository's default
+branch.
+
+Every repository pins its own Action commit. Sutura 0.3.0 has no automatic
+`upgrade` command, and `init --force` replaces the whole workflow. Preserve
+customized inputs and conditions by updating their immutable `uses` commit
+manually, then run `doctor` and review the diff.
 
 Sutura uses bring-your-own-key billing. Your repository supplies its own
 Nebius Token Factory and ConTree credentials. Tavily is optional.
@@ -48,4 +63,7 @@ Replay uses the recorded runtime unless `--runtime node|python` overrides it.
 are partial fixtures for boundary tests. The public command rejects them before
 provider, repository, or sandbox work starts.
 
-Read the complete [setup and security guide](https://github.com/juan294/sutura#install-sutura).
+Read the complete [user guide](../../docs/user-guide.md) for credentials,
+first-run behavior, upgrades, disabling, removal, and troubleshooting. The
+[setup and security overview](https://github.com/juan294/sutura#install-sutura)
+summarizes the trust boundary.
