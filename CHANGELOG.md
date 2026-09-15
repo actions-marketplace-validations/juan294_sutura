@@ -10,6 +10,8 @@
 
 - Replay bundle identity checks (`publish.ts`, `replay.ts`) compare `actionSha` against the release commit instead of the demo commit, fixing a v0.3.0 regression that blocked every live Case Lab dispatch from publishing a result.
 - `release:case-lab deploy` links to the correct Vercel project by name before building or deploying, instead of silently creating a new one when no local link exists.
+- Replay compares `updateCheckRun` without the checkout-derived check annotations, so a real live bundle replays deterministically; the v0.3.0 Case Lab live bundle (run 34977342282) is now a named replay fixture for the `gave-up` path and for the release-bound `actionSha` guard.
+- `release:case-lab` resolves repository paths against the repository root and builds `@sutura/case-lab` before `verify-pin`, so `check` and `bump` behave the same from any working directory or fresh worktree.
 
 ## [0.3.0] - 2026-09-14
 
