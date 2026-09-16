@@ -758,8 +758,8 @@ describe('orchestrate', () => {
         expect(request.selectedTarget).toEqual({
           path: 'packages/core/src/dogfood-add.ts', startLine: 1, endLine: 3,
         });
-        expect(JSON.stringify(body.response_format)).toContain('"replacement"');
-        expect(JSON.stringify(body.response_format)).not.toMatch(/(?:dogfood-add|startLine|endLine|"path")/u);
+        // json_object since 2026-09-16: the proposal contract is enforced locally, no schema travels.
+        expect(body.response_format).toEqual({ type: 'json_object' });
         expect(body).not.toHaveProperty('tools');
         expect(body).not.toHaveProperty('tool_choice');
         expect(body).not.toHaveProperty('parallel_tool_calls');

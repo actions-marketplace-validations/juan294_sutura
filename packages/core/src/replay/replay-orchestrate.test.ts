@@ -121,7 +121,7 @@ describe('replayBundle', () => {
     expect(report.match(/^\| search-/gmu)).toHaveLength(7);
     expect(recordedProviderRequestIncludes(bundle, 'invalid: Repair proposal must be valid JSON'))
       .toBe(true);
-    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v5');
+    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v6');
     expect(capturedSuperRequestBodies(bundle).map(({ chat_template_kwargs }) => chat_template_kwargs))
       .toEqual(Array.from({ length: 7 }, () => ({ enable_thinking: false })));
 
@@ -147,7 +147,7 @@ describe('replayBundle', () => {
       bundle,
       'sandbox: Automatic trusted test did not produce valid evidence',
     )).toBe(true);
-    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v5');
+    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v6');
     expect(capturedSuperRequestBodies(bundle).map(({ chat_template_kwargs }) => chat_template_kwargs))
       .toEqual(Array.from({ length: 6 }, () => ({ enable_thinking: false })));
 

@@ -14,7 +14,9 @@ import type { NebiusClientDependencies } from './nebius.js';
 import { createTokenFactoryClient } from './token-factory.js';
 import type { LlmReply, TierLlm } from './types.js';
 
-export const SUPER_REPAIR_PROVIDER_CONTRACT_VERSION = 'sutura-super-repair-v5';
+// v6 (2026-09-16): the repair proposal request moved from json_schema to json_object
+// after Token Factory's schema-guided decoding started dropping string escapes.
+export const SUPER_REPAIR_PROVIDER_CONTRACT_VERSION = 'sutura-super-repair-v6';
 
 /** Shared canary subject: also reused by the OpenAI (GPT-6 Astra) second-opinion live/fixture tests. */
 export const BROKEN_SOURCE = [
