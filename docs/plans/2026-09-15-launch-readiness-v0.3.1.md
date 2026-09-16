@@ -2,7 +2,11 @@
 
 Date: 2026-09-15 (Tuesday evening)
 
-Status: Phases 1-3 done, merged to `develop` at `28c79b8` (2026-09-16). Phases 4-5 not started.
+Status: Phases 1-3 done, merged to `develop` at `28c79b8` (2026-09-16). Phase
+4 blocked: `main` tagged `v0.3.1` (`3fd99d8`) but npm publish deferred pending
+Nebius/Nemotron provider drift (unrelated to this release) blocking the Case
+Lab benchmark — see `docs/plans/2026-09-15-launch-readiness-v0.3.1-notes.md`.
+Phase 5 not started.
 
 Owner: Juan
 
