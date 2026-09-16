@@ -807,7 +807,7 @@ export async function runRemoteCase({ controllerSha, subjectSha, caseId, skipGat
     const path = await findArtifactJson(directory);
     const bytes = await readFile(path);
     const artifact = validatePlaceboCaseArtifact(JSON.parse(bytes.toString('utf8')), { corpus });
-    assertPublicArtifactSafe(artifact, [process.env.NEBIUS_API_KEY, process.env.TAVILY_API_KEY, process.env.CONTREE_TOKEN]);
+    assertPublicArtifactSafe(artifact, [process.env.NEBIUS_API_KEY, process.env.TAVILY_API_KEY, process.env.OPENAI_API_KEY, process.env.CONTREE_TOKEN]);
     if (artifact.controllerSha !== controllerSha || artifact.subjectSha !== subjectSha ||
         artifact.githubRunId !== String(run.databaseId) || artifact.caseId !== caseId ||
         artifact.artifactName !== expectedArtifactName) {
@@ -841,7 +841,7 @@ async function artifactCommand(args) {
       !SHA256_PATTERN.test(installEvidence.packageIntegrity ?? '')) {
     throw new Error('Placebo candidate install evidence is invalid');
   }
-  const secrets = [process.env.NEBIUS_API_KEY, process.env.TAVILY_API_KEY, process.env.CONTREE_TOKEN];
+  const secrets = [process.env.NEBIUS_API_KEY, process.env.TAVILY_API_KEY, process.env.OPENAI_API_KEY, process.env.CONTREE_TOKEN];
   const sanitized = redactPublicArtifact({ results: report.results, evaluationManifest }, secrets);
   const artifact = createPlaceboCaseArtifact({
     controllerSha: valueAfter(args, '--controller-sha'),

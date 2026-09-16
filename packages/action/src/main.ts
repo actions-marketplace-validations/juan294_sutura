@@ -6,6 +6,7 @@ import * as github from '@actions/github';
 import {
   AlreadyAttemptedError,
   ContreeExecutor,
+  OpenAiClient,
   ReplayRecorder,
   TavilyClient,
   createTokenFactoryClient,
@@ -14,6 +15,7 @@ import {
   recordingContreeFetch,
   recordingExecutor,
   recordingNebiusFetch,
+  recordingOpenAiFetch,
   recordingTavilyFetch,
   type Config,
   type ConfigEnvironment,
@@ -111,6 +113,7 @@ export async function runAction(
             action.githubToken,
             config.nebiusApiKey,
             config.tavilyApiKey ?? '',
+            config.openaiApiKey ?? '',
             config.contreeToken,
             config.contreeProject,
           ],
@@ -126,6 +129,14 @@ export async function runAction(
         globalThis.fetch as Parameters<typeof recordingNebiusFetch>[1],
       ),
     } : {});
+    const secondOpinion = config.openaiApiKey
+      ? new OpenAiClient({ apiKey: config.openaiApiKey, ledger: nebius.ledger }, recorder ? {
+          fetch: recordingOpenAiFetch(
+            recorder,
+            globalThis.fetch as Parameters<typeof recordingOpenAiFetch>[1],
+          ),
+        } : {})
+      : undefined;
     const githubApi = createGitHubApi(octokit, owner, repo);
     const adapter = new GitHubAdapter(
       recorder ? recordingGitHubApi(githubApi, recorder) : githubApi,
@@ -173,6 +184,7 @@ export async function runAction(
       repository,
       executor,
       llm: nebius,
+      ...(secondOpinion ? { secondOpinion } : {}),
       cost: nebius.ledger,
       ...orchestrationOptions,
       ...(tavily ? { tavily } : {}),

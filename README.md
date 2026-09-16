@@ -78,7 +78,8 @@ workflow artifact.
 
 | Service | Runtime role |
 | --- | --- |
-| NVIDIA Nemotron on Nebius Token Factory | Nano classifies the failure, Super proposes repairs, and Ultra audits evidence that static checks cannot judge. |
+| NVIDIA Nemotron on Nebius Token Factory | Nano classifies the failure, Super proposes repairs, and Ultra audits evidence that static checks cannot judge. This is the runtime model; nothing dilutes it. |
+| GPT-6 Astra (optional second opinion) | A different provider re-runs the same adversarial audit as a veto-only check when `OPENAI_API_KEY` is configured. It can only reject a Nemotron approval, never approve one; absent, failed, timed out, or over its own USD 0.30 budget, it is recorded `skipped` and the run proceeds on Nemotron alone. |
 | Nebius ConTree Sandboxes | Prepares dependencies once, snapshots the filesystem, and runs isolated triage, adaptive search, and audit branches. |
 | Tavily | Grounds upstream dependency diagnoses in release and migration sources. It is optional for non-upstream cases and for the benchmark ablation. |
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { DefaultArtifactClient } from '@actions/artifact';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import { ContreeExecutor, createTokenFactoryClient, executeExternalVerification, readTrustedPolicyAtCommit, snapshotCleanSourceAt, type Config, type ExternalVerificationResult, } from '@sutura/core';
+import { ContreeExecutor, OpenAiClient, createTokenFactoryClient, executeExternalVerification, readTrustedPolicyAtCommit, snapshotCleanSourceAt, type Config, type ExternalVerificationResult, } from '@sutura/core';
 import { GitRepository } from './repository.js';
 import { verifyActionRequest, type ActionVerifyInputs } from './verify.js';
 interface WorkflowIdentity {
@@ -62,8 +62,9 @@ async function execute(inputs: ActionVerifyInputs, context: ActionVerificationCo
     if (!config.contreeToken || !config.contreeProject)
       throw Error('Verification needs ConTree configuration');
     const llm = createTokenFactoryClient({ apiKey: config.nebiusApiKey, models: config.models, routingProfileId: config.routingProfileId });
+    const secondOpinion = config.openaiApiKey ? new OpenAiClient({ apiKey: config.openaiApiKey, ledger: llm.ledger }) : undefined;
     const executor = new ContreeExecutor({ token: config.contreeToken, project: config.contreeProject, maxOps: config.maxOps });
-    const result = await executeExternalVerification({ mode: 'live', request: validated.request, policy: trusted.policy, executor, llm, sourceDir: snapshot.dir, snapshotSha256: snapshot.snapshotSha256, policySha256: trusted.sha === 'default' ? createHash('sha256').update(JSON.stringify(trusted.policy)).digest('hex') : trusted.sha, budgets: config.repairBudgets });
+    const result = await executeExternalVerification({ mode: 'live', request: validated.request, policy: trusted.policy, executor, llm, ...(secondOpinion ? { secondOpinion } : {}), sourceDir: snapshot.dir, snapshotSha256: snapshot.snapshotSha256, policySha256: trusted.sha === 'default' ? createHash('sha256').update(JSON.stringify(trusted.policy)).digest('hex') : trusted.sha, budgets: config.repairBudgets });
     const evidence = { schemaVersion: 'sutura-action-verification-v1', repository: name, runId: context.runId, sourceSha: inputs.sourceSha, policyBaseSha: inputs.policyBaseSha, snapshotSha256: snapshot.snapshotSha256, diffSha256: createHash('sha256').update(inputs.candidateDiff).digest('hex'), ...result, repositoryMutation: false };
     const file = join(root, 'verification.json');
     await writeFile(file, JSON.stringify(evidence, null, 2), 'utf8');

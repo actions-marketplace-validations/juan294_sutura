@@ -9,6 +9,8 @@ import { resolveActionCommit } from './release.js';
 const REQUIRED_SECRET_NAMES = ['NEBIUS_API_KEY', 'CONTREE_TOKEN'] as const;
 const REQUIRED_VARIABLE_NAMES = ['CONTREE_PROJECT'] as const;
 const OPTIONAL_SECRET_NAMES = ['TAVILY_API_KEY'] as const;
+/** Offered regardless of --tavily: the veto-only GPT-6 Astra second opinion. */
+const ALWAYS_OPTIONAL_SECRET_NAMES = ['OPENAI_API_KEY'] as const;
 const MAX_WORKFLOW_BYTES = 128 * 1024;
 
 export interface SetupOptions {
@@ -84,6 +86,7 @@ jobs:
           run-id: \${{ github.event.workflow_run.id }}
           runtime: ${runtime}
           nebius-api-key: \${{ secrets.NEBIUS_API_KEY }}
+          openai-api-key: \${{ secrets.OPENAI_API_KEY }}
 ${tavilyInput}          contree-token: \${{ secrets.CONTREE_TOKEN }}
           contree-project: \${{ vars.CONTREE_PROJECT }}
 `;
@@ -187,6 +190,7 @@ export async function installSutura(
     ...(request.tavilyEnabled
       ? OPTIONAL_SECRET_NAMES.map((name) => ({ name, kind: 'optional-secret' as const }))
       : []),
+    ...ALWAYS_OPTIONAL_SECRET_NAMES.map((name) => ({ name, kind: 'optional-secret' as const })),
   ];
   const available = values.filter(({ name }) => Boolean(environment[name]?.trim()));
   const requiredMissing = values.filter(({ name, kind }) =>

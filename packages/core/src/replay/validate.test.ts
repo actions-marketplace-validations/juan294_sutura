@@ -78,6 +78,23 @@ describe('parseReplayBundle', () => {
     expect(parseReplayBundle(value)).toEqual(value);
   });
 
+  it('accepts a complete bundle when the optional GPT-6 Astra second opinion did not run', () => {
+    const value = clone(complete);
+    value.http = value.http.filter((exchange) => exchange.boundary !== 'openai');
+    expect(parseReplayBundle(value)).toEqual(value);
+  });
+
+  it('accepts an openai HTTP exchange', () => {
+    const value = clone(PARTIAL);
+    value.http = [{
+      boundary: 'openai', sequence: 1,
+      request: { method: 'POST', url: 'https://api.openai.com/v1/chat/completions', headers: {}, body: '{}' },
+      response: { status: 200, headers: {}, body: '{}' },
+      latencyMs: 12,
+    }];
+    expect(parseReplayBundle(value)).toEqual(value);
+  });
+
   it('rejects duplicate sequences in each recorder reservation domain', () => {
     const ports = clone(complete);
     ports.repository[0]!.sequence = ports.github[0]!.sequence;
@@ -217,6 +234,7 @@ describe('parseReplayBundle', () => {
     value.configuration.repairBudgets = {
       modelTurns: 4,
       inferenceCostUsd: 0.1,
+      secondOpinionUsd: 0.15,
       diffBytes: 1_024,
     };
     value.configuration.search = {
@@ -264,6 +282,7 @@ describe('parseReplayBundle', () => {
     ['sandboxOperations', 1.5],
     ['elapsedTimeSec', 601],
     ['inferenceCostUsd', 0.251],
+    ['secondOpinionUsd', 0.301],
     ['diffBytes', 65_537],
   ])('rejects malformed repairBudgets.%s', (field, malformed) => {
     const value = clone(PARTIAL);

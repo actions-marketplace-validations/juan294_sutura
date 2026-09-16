@@ -5,6 +5,8 @@ export interface RepairBudgetLimits {
   sandboxOperations: number;
   elapsedTimeSec: number;
   inferenceCostUsd: number;
+  /** Separate from inferenceCostUsd: caps the optional GPT-6 Astra veto-only second opinion. */
+  secondOpinionUsd: number;
   diffBytes: number;
 }
 
@@ -15,6 +17,7 @@ export const DEFAULT_REPAIR_BUDGET_LIMITS = Object.freeze({
   sandboxOperations: 32,
   elapsedTimeSec: 600,
   inferenceCostUsd: 0.25,
+  secondOpinionUsd: 0.30,
   diffBytes: 65_536,
 }) satisfies Readonly<RepairBudgetLimits>;
 
@@ -36,7 +39,7 @@ function boundedLimit<K extends keyof RepairBudgetLimits>(
   if (!Number.isFinite(resolved) || resolved <= 0 || resolved > maximum) {
     throw new RangeError(`Repair ${key} must be greater than 0 and at most ${maximum}`);
   }
-  if (key !== 'inferenceCostUsd' && !Number.isSafeInteger(resolved)) {
+  if (key !== 'inferenceCostUsd' && key !== 'secondOpinionUsd' && !Number.isSafeInteger(resolved)) {
     throw new RangeError(`Repair ${key} must be an integer`);
   }
   return resolved;
@@ -52,11 +55,17 @@ export function repairBudgetLimits(
     sandboxOperations: boundedLimit('sandboxOperations', overrides.sandboxOperations),
     elapsedTimeSec: boundedLimit('elapsedTimeSec', overrides.elapsedTimeSec),
     inferenceCostUsd: boundedLimit('inferenceCostUsd', overrides.inferenceCostUsd),
+    secondOpinionUsd: boundedLimit('secondOpinionUsd', overrides.secondOpinionUsd),
     diffBytes: boundedLimit('diffBytes', overrides.diffBytes),
   };
 }
 
 export interface ModelTurnReservation {
+  readonly id: number;
+  readonly reservedUsd: number;
+}
+
+export interface SecondOpinionReservation {
   readonly id: number;
   readonly reservedUsd: number;
 }
@@ -74,6 +83,7 @@ export interface RepairBudgetSnapshot {
   sandboxOperations: number;
   elapsedTimeSec: number;
   inferenceCostUsd: number;
+  secondOpinionUsd: number;
 }
 
 export class RepairBudget {
@@ -83,8 +93,10 @@ export class RepairBudget {
   private branches = 0;
   private sandboxOperations = 0;
   private inferenceCostUsd = 0;
+  private secondOpinionUsd = 0;
   private nextReservationId = 1;
   private readonly unsettled = new Map<number, number>();
+  private readonly unsettledSecondOpinion = new Map<number, number>();
   private readonly held = new Map<RepairCapacityReservation, Record<CapacityKey, number>>();
   private readonly startedAt: number;
 
@@ -188,6 +200,32 @@ export class RepairBudget {
     this.inferenceCostUsd -= reserved - actualUsd;
   }
 
+  /** Independent of inferenceCostUsd: caps only the optional veto-only second opinion. */
+  reserveSecondOpinion(worstCaseUsd: number): SecondOpinionReservation {
+    this.assertElapsed();
+    if (!Number.isFinite(worstCaseUsd) || worstCaseUsd <= 0) {
+      throw new RangeError('Worst-case second-opinion cost must be positive');
+    }
+    if (this.secondOpinionUsd + worstCaseUsd > this.limits.secondOpinionUsd) {
+      throw new BudgetExceededError('secondOpinionUsd');
+    }
+    this.secondOpinionUsd += worstCaseUsd;
+    const reservation = { id: this.nextReservationId, reservedUsd: worstCaseUsd };
+    this.nextReservationId += 1;
+    this.unsettledSecondOpinion.set(reservation.id, worstCaseUsd);
+    return reservation;
+  }
+
+  settleSecondOpinion(reservation: SecondOpinionReservation, actualUsd: number): void {
+    const reserved = this.unsettledSecondOpinion.get(reservation.id);
+    if (reserved === undefined) throw new Error('Second-opinion reservation is not active');
+    if (!Number.isFinite(actualUsd) || actualUsd < 0 || actualUsd > reserved) {
+      throw new RangeError('Actual second-opinion cost must be between zero and the reservation');
+    }
+    this.unsettledSecondOpinion.delete(reservation.id);
+    this.secondOpinionUsd -= reserved - actualUsd;
+  }
+
   assertDiffBytes(bytes: number): void {
     this.assertElapsed();
     if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > this.limits.diffBytes) {
@@ -212,6 +250,7 @@ export class RepairBudget {
       sandboxOperations: this.committed('sandboxOperations'),
       elapsedTimeSec: Math.max(0, (this.now() - this.startedAt) / 1_000),
       inferenceCostUsd: this.committed('inferenceCostUsd'),
+      secondOpinionUsd: this.secondOpinionUsd,
     };
   }
 }

@@ -4,6 +4,7 @@
 
 ### Added
 
+- Optional GPT-6 Astra second opinion on the adjudication gate: when `OPENAI_API_KEY` is configured, a different provider re-runs the same adversarial audit as a veto-only check (it can reject a Nemotron approval but never approve on its own); absent, failed, timed out, or over its own USD 0.30 budget, it is recorded `skipped` and the run proceeds on Nemotron alone. The runtime model remains Nemotron on Nebius Token Factory.
 - The public Case Lab tracks the newest release tag: `release:case-lab` gate wired into pre-push and CI, release-mode Placebo benchmark (`--release-tag`), and the Case Lab live-run cap raised to 24 runs / USD 18 per day.
 
 ### Fixed

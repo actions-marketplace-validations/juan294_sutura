@@ -19,6 +19,9 @@ inputs:
   tavily-api-key:
     description: Optional Tavily API key for grounded dependency diagnosis.
     required: false
+  openai-api-key:
+    description: Optional OpenAI key for the GPT-6 Astra second-opinion audit. Veto-only; never widens acceptance.
+    required: false
   contree-token:
     description: Nebius ConTree token used for sandbox operations.
     required: true
@@ -81,6 +84,10 @@ inputs:
     description: Lower-only repair-agent inference-cost limit in USD.
     required: false
     default: '0.25'
+  repair-second-opinion-usd:
+    description: Lower-only GPT-6 Astra second-opinion cost limit in USD, separate from repair-inference-cost-usd.
+    required: false
+    default: '0.30'
   repair-diff-bytes:
     description: Lower-only cumulative repair diff limit in bytes.
     required: false

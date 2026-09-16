@@ -129,6 +129,8 @@ export interface RepairFailureContext {
   failingImage: ImageId;
   executor: Executor;
   llm: HealLlm;
+  /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
+  secondOpinion?: AuditLlm;
   cost: CostLedger;
   triageN: number;
   raceK: number;
@@ -264,7 +266,7 @@ function ensureTraceStarted(trace: TraceRecorder): void {
   }
 }
 
-export function tracedLlm(llm: HealLlm, trace: TraceRecorder): HealLlm {
+function tracedTierLlm<T extends TierLlm<ModelTier>>(llm: T, trace: TraceRecorder): T {
   const delegate = llm as TierLlm<ModelTier>;
   return {
     capacitySnapshot: () => delegate.capacitySnapshot?.(),
@@ -316,7 +318,16 @@ export function tracedLlm(llm: HealLlm, trace: TraceRecorder): HealLlm {
       });
       return reply;
     },
-  } as HealLlm;
+  } as T;
+}
+
+export function tracedLlm(llm: HealLlm, trace: TraceRecorder): HealLlm {
+  return tracedTierLlm(llm, trace);
+}
+
+/** Traces the optional GPT-6 Astra second opinion the same way as the primary Nemotron llm (stage 'audit'). */
+export function tracedAuditLlm(llm: AuditLlm, trace: TraceRecorder): AuditLlm {
+  return tracedTierLlm(llm, trace);
 }
 
 function publicSearchEvidence(nodes: readonly SearchNode[]): SearchEvidence[] {
@@ -831,6 +842,7 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
   const ledger = ctx.stageLedger ?? new StageLedger(trace);
   const fullContext = {
     ...ctx, policy, llm: tracedLlm(ctx.llm, trace),
+    ...(ctx.secondOpinion === undefined ? {} : { secondOpinion: tracedAuditLlm(ctx.secondOpinion, trace) }),
     stageLedger: ledger, traceRecorder: trace,
   };
   const charged = budgetedRecoveryPorts({ budget, llm: fullContext.llm, executor: ctx.executor, operationIdPrefix: `repair-${ctx.runId}-initial` });
@@ -1191,6 +1203,7 @@ async function repairFailureWithinBudget(
             firstAuditAvailable = false;
             const result = await evaluateRuntimeCandidate({
               ...ports, prepared, policy, baselineImage: ctx.failingImage,
+              ...(fullContext.secondOpinion === undefined ? {} : { secondOpinion: fullContext.secondOpinion, secondOpinionBudget: budget }),
               winner: {candidate, imageId: expansion.imageId, nodeId,
                 held: true, exitCode: expansion.testEvidence.exitCode},
               diagnosis: target.diagnosis, beforeLog: providerLog, suiteCommand: verificationCommand,
@@ -1510,6 +1523,7 @@ async function repairFailureWithinBudget(
 
   const suppliedVerification = await evaluateRuntimeCandidate({
     ...suppliedAudit, winner, prepared, policy, baselineImage: ctx.failingImage,
+    ...(fullContext.secondOpinion === undefined ? {} : { secondOpinion: fullContext.secondOpinion, secondOpinionBudget: budget }),
     diagnosis, beforeLog: providerLog, suiteCommand: verificationCommand, runtime,
     observe: (result, parentImageId, note) => { ledger.record({stage:'audit',attempt:1,network:'disabled',result,parentImageId,note}); },
   });
