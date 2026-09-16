@@ -57,6 +57,15 @@ export {
   createTokenFactoryClient,
 } from './llm/token-factory.js';
 export {
+  OPENAI_BASE_URL,
+  SECOND_OPINION_MODEL,
+  SECOND_OPINION_PRICE,
+  SECOND_OPINION_PRICE_PROVENANCE,
+  OpenAiApiError,
+  OpenAiClient,
+  OpenAiResponseError,
+} from './llm/openai.js';
+export {
   SUPER_REPAIR_PROVIDER_CONTRACT_VERSION,
   SuperRepairProviderContractCanaryError,
   runSuperRepairProviderContractCanary,
@@ -88,7 +97,10 @@ export {
 } from './counterfactual/types.js';
 export {
   ADVERSARIAL_AUDIT_PROMPT,
+  SECOND_OPINION_WORST_CASE_USD,
   adjudicate,
+  adjudicateWith,
+  secondOpinion,
 } from './audit/adjudicate.js';
 export {
   checkAssertionDrop,
@@ -194,6 +206,7 @@ export type {
   RepairBudgetLimits,
   RepairBudgetOverrides,
   RepairBudgetSnapshot,
+  SecondOpinionReservation,
 } from './engine/repair-budget.js';
 export type { RepairAgentContext, RepairAgentOutcome } from './engine/repair-agent.js';
 export type { ControlledRepairAttemptContext, RepairAttemptFeedback } from './engine/repair-attempt.js';
@@ -253,6 +266,7 @@ export {
 export {
   recordingContreeFetch,
   recordingNebiusFetch,
+  recordingOpenAiFetch,
   recordingTavilyFetch,
 } from './replay/record-fetch.js';
 export { recordingExecutor } from './replay/record-executor.js';
@@ -310,6 +324,7 @@ export type {
   NebiusClientDependencies,
 } from './llm/nebius.js';
 export type { NebiusFetch } from './llm/nebius.js';
+export type { OpenAiClientConfig } from './llm/openai.js';
 export type {
   SuperRepairProviderContractCanaryInput,
   SuperRepairProviderContractCanaryResult,
@@ -355,9 +370,13 @@ export type {
   CounterfactualResult,
 } from './counterfactual/types.js';
 export type {
+  AdjudicateWithOptions,
   AdjudicationContext,
   AdjudicationLlm,
   AdjudicationResult,
+  SecondOpinionBudget,
+  SecondOpinionResult,
+  SecondOpinionStatus,
 } from './audit/adjudicate.js';
 export type { MechanicalCheck } from './audit/mechanical.js';
 export type { AuditOnlyContext, AuditOnlyLlm } from './audit-only.js';

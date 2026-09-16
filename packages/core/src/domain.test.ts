@@ -77,6 +77,7 @@ describe('domain model', () => {
       | 'pass-with-no-tests'
       | 'module-syntax'
       | 'llm-adjudication'
+      | 'second-opinion'
       | 'policy-required-command'
       | 'policy-resource-limit'
       | 'paired-evidence'

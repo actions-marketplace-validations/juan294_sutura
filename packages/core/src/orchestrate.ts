@@ -7,6 +7,7 @@ import { Buffer } from 'node:buffer';
 import { classifyMechanically } from './diagnose/classify.js';
 import type { TavilySearch } from './diagnose/tavily.js';
 import type { RepairBudgetOverrides } from './engine/repair-budget.js';
+import type { AuditLlm } from './audit/audit.js';
 import type { SearchLimits } from './config.js';
 import type {
   CaseFile,
@@ -208,6 +209,8 @@ export interface OrchestrationContext {
   repository: RepositoryPort;
   executor: Executor;
   llm: OrchestratorLlm;
+  /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
+  secondOpinion?: AuditLlm;
   cost: CostLedger;
   triageN: number;
   raceK: number;
@@ -720,6 +723,7 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
     failingImage: setup.imageId,
     executor,
     llm: ctx.llm,
+    ...(ctx.secondOpinion === undefined ? {} : { secondOpinion: ctx.secondOpinion }),
     cost: ctx.cost,
     triageN: ctx.triageN,
     raceK: ctx.raceK,

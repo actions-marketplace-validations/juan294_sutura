@@ -46,6 +46,16 @@ describe('replayFetch', () => {
     await expect(response.json()).resolves.toEqual({ answer: 42 });
   });
 
+  it('replays the openai boundary the same way as nebius', async () => {
+    const openaiBundle = bundle();
+    openaiBundle.http[0]!.boundary = 'openai';
+    const fetch = replayFetch(openaiBundle, 'openai');
+    const response = await fetch('https://example.test/chat', {
+      method: 'POST', headers: {}, body: '{"a":1,"b":2}',
+    });
+    await expect(response.json()).resolves.toEqual({ answer: 42 });
+  });
+
   it('names the first differing JSON path', async () => {
     const fetch = replayFetch(bundle(), 'nebius');
     await expect(fetch('https://example.test/chat', {

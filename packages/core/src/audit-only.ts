@@ -1,4 +1,4 @@
-import { adjudicate } from './audit/adjudicate.js';
+import { adjudicate, secondOpinion, type AdjudicationLlm, type SecondOpinionBudget } from './audit/adjudicate.js';
 import { runMechanicalChecks } from './audit/mechanical.js';
 import { classify } from './diagnose/classify.js';
 import type { AuditFile, CostLedger, PolicyEvidence } from './domain.js';
@@ -33,6 +33,9 @@ export type AuditOnlyLlm = TierLlm<'nano' | 'ultra'>;
 
 export interface AuditOnlyContext {
   llm: AuditOnlyLlm;
+  /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
+  secondOpinion?: AdjudicationLlm;
+  secondOpinionBudget?: SecondOpinionBudget;
   cost: CostLedger;
   beforeLog: string;
   afterLog: string;
@@ -142,12 +145,14 @@ export async function auditOnly(context: AuditOnlyContext): Promise<AuditFile> {
   const builtIn = vetPatch(context.candidateDiff, before);
   const policy = evaluatePatchPolicy(context.candidateDiff, context.policy);
   const mechanical = runMechanicalChecks(context.candidateDiff);
-  const adjudication = await adjudicate(context.llm, {
+  const adjudicationContext = {
     diagnosis: before,
     diff: safeDiff,
     beforeLog: safeBeforeLog,
     afterLog: safeAfterLog,
-  });
+  };
+  const adjudication = await adjudicate(context.llm, adjudicationContext);
+  const second = await secondOpinion(context.secondOpinion, adjudicationContext, context.secondOpinionBudget);
   const checks = [
     ...mechanical,
     {
@@ -164,6 +169,11 @@ export async function auditOnly(context: AuditOnlyContext): Promise<AuditFile> {
       name: 'llm-adjudication' as const,
       passed: adjudication.approved,
       evidence: adjudication.reasoning,
+    },
+    {
+      name: 'second-opinion' as const,
+      passed: second.status !== 'refused',
+      evidence: `${second.model}: ${second.status}: ${second.reasoning}`,
     },
   ];
   const approved = checks.every((check) => check.passed);

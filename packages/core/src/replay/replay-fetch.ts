@@ -111,6 +111,11 @@ export function replayFetch(
 ): TavilyFetch;
 export function replayFetch(
   bundle: ReplayBundle,
+  boundary: 'openai',
+  cursor?: RecordedCallCursor<RecordedHttpExchange>,
+): NebiusFetch;
+export function replayFetch(
+  bundle: ReplayBundle,
   boundary: Exclude<RecordedHttpBoundary, 'contree'>,
   sharedCursor?: RecordedCallCursor<RecordedHttpExchange>,
 ): NebiusFetch | TavilyFetch {

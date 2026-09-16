@@ -22,6 +22,8 @@ export const MAX_STAGE_EVIDENCE_ENTRIES = 100;
 export interface Config {
   nebiusApiKey: string;
   tavilyApiKey?: string;
+  /** Optional veto-only second-opinion provider (GPT-6 Astra). Never the runtime model. */
+  openaiApiKey?: string;
   contreeToken?: string;
   contreeProject?: string;
   triageN: number;
@@ -179,6 +181,11 @@ export function loadConfig(env: ConfigEnvironment): Config {
         DEFAULT_REPAIR_BUDGET_LIMITS.inferenceCostUsd,
         DEFAULT_REPAIR_BUDGET_LIMITS.inferenceCostUsd,
       ),
+      secondOpinionUsd: boundedPositiveNumber(
+        env, 'SUTURA_SECOND_OPINION_USD',
+        DEFAULT_REPAIR_BUDGET_LIMITS.secondOpinionUsd,
+        DEFAULT_REPAIR_BUDGET_LIMITS.secondOpinionUsd,
+      ),
       diffBytes: boundedPositiveInteger(
         env, 'SUTURA_REPAIR_DIFF_BYTES',
         DEFAULT_REPAIR_BUDGET_LIMITS.diffBytes,
@@ -202,6 +209,11 @@ export function loadConfig(env: ConfigEnvironment): Config {
   const tavilyApiKey = optional(env, 'TAVILY_API_KEY');
   if (tavilyApiKey !== undefined) {
     config.tavilyApiKey = tavilyApiKey;
+  }
+
+  const openaiApiKey = optional(env, 'OPENAI_API_KEY');
+  if (openaiApiKey !== undefined) {
+    config.openaiApiKey = openaiApiKey;
   }
 
   const contreeToken = optional(env, 'CONTREE_TOKEN');
