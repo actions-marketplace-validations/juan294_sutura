@@ -1,6 +1,6 @@
 {
   "name": "sutura",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Install and run verified self-healing CI for GitHub Actions.",
   "type": "module",
   "license": "MIT",

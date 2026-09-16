@@ -215,6 +215,57 @@ export function recordingNebiusFetch(
   };
 }
 
+export function recordingOpenAiFetch(
+  recorder: ReplayRecorder,
+  fetch: NebiusFetch,
+): NebiusFetch {
+  return async (input: string, init: HttpRequestInit): Promise<HttpResponse> => {
+    const sequence = recorder.reserveHttpSequence('openai');
+    const startedAt = Date.now();
+    const request = {
+      boundary: 'openai' as const,
+      request: {
+        method: init.method,
+        url: input,
+        headers: objectHeaders(init.headers),
+        body: boundedText(init.body),
+      },
+    };
+    let response: HttpResponse;
+    try {
+      response = await fetch(input, init);
+    } catch (error) {
+      recorder.recordHttp({
+        ...request,
+        response: { transportError: errorMessage(error) },
+        latencyMs: Date.now() - startedAt,
+      }, sequence);
+      throw error;
+    }
+    const record = recordResponseOnce(
+      recorder,
+      request,
+      startedAt,
+      response,
+      selectedHeaders(response.headers),
+      sequence,
+    );
+    const body = recordedBodyReader(
+      recorder,
+      record,
+      responseBytes(response),
+      response,
+    );
+    return {
+      ok: response.ok,
+      status: response.status,
+      headers: response.headers,
+      json: body.json,
+      text: body.text,
+    };
+  };
+}
+
 export function recordingTavilyFetch(
   recorder: ReplayRecorder,
   fetch: TavilyFetch,

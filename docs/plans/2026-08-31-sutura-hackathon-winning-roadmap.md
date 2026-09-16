@@ -230,7 +230,7 @@ Evaluate Nebius Serverless Jobs and Serverless Endpoints for the public control 
 - A signed-out non-collaborator selects each allowlisted case and receives a stable result. (Built and locally accepted; public enablement is Gate A in `docs/plans/2026-09-04-sutura-case-lab.md`.)
 - At least one live repair and one refusal complete through the public path. (Gate B in the same plan.)
 - Every case has a tested replay fallback. (Done: `packages/case-lab`, five recorded results validated in CI.)
-- The demo is pinned to the exact current public Sutura release. (Done: `packages/case-lab/release.json` names v0.2.0; `case-lab verify-pin` proves the demo workflow and tag agree.)
+- The demo is pinned to the exact current public Sutura release. (Done: `packages/case-lab/release.json` names the newest release tag; `release:case-lab check` enforces it (plan 2026-09-15).)
 - Security tests prove that arbitrary input and unauthorized repository access fail closed. (Done: `packages/case-lab/src/request.test.ts`, `dispatcher.test.ts`, `demo-workflow.test.ts`.)
 
 ## Phase 2 - Add counterfactual patch proof

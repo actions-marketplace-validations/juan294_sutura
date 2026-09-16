@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 
 import { workflowActionReferences } from './evidence-contract.mjs';
 
-export const RELEASE_VERSION = '0.3.0';
+export const RELEASE_VERSION = '0.3.1';
 const SHA_PATTERN = /^[a-f0-9]{40}$/iu;
 const EXACT_SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
 const execFileAsync = promisify(execFile);

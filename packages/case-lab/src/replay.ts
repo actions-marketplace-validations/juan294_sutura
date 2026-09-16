@@ -26,7 +26,7 @@ export const PACKAGE_DIR = resolve(import.meta.dirname, '..');
 export const REPOSITORY_ROOT = resolve(PACKAGE_DIR, '../..');
 export const REPLAY_DIR = resolve(PACKAGE_DIR, 'replay');
 const MAX_BUNDLE_BYTES = 16 * 1_024 * 1_024;
-const EVIDENCE_URL = 'https://github.com/juan294/sutura/blob/develop/docs/demo/placebo-v0.2-live-2026-09.json';
+const EVIDENCE_URL = 'https://github.com/juan294/sutura/blob/develop/docs/demo/placebo-v0.3.0-live-2026-09-15.json';
 
 export class CaseLabReplayError extends Error {
   constructor(message: string) {
@@ -39,8 +39,8 @@ export const REPLAY_FIXTURE_SCHEMA_VERSION = 'sutura-case-lab-replay-fixture-v1'
 
 /**
  * A committed replay fixture: the bundle plus the identities it binds to. The
- * bundle's own `actionSha` is the commit of the repository that ran the
- * workflow (the demo commit); the Sutura release that ran is recorded here.
+ * bundle's own `actionSha` is the commit of the Action that ran (unified with
+ * `release.actionSha`); `demoSha` records which demo commit triggered the run.
  */
 export interface ReplayFixture {
   readonly schemaVersion: typeof REPLAY_FIXTURE_SCHEMA_VERSION;
@@ -157,9 +157,9 @@ export async function replayedResult(
     );
   }
   const bundle = parseReplayBundle(fixture.bundle);
-  if (bundle.actionSha !== fixture.demoSha) {
+  if (bundle.actionSha !== options.release.actionSha) {
     throw new CaseLabReplayError(
-      `replay bundle actionSha ${bundle.actionSha} must equal the fixture demoSha ${fixture.demoSha}`,
+      `replay bundle actionSha ${bundle.actionSha} must equal the release actionSha ${options.release.actionSha}`,
     );
   }
   if (!bundle.completeness.complete) {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -222,6 +223,17 @@ test('an unconfirmed sandbox amount is reported separately, not folded into a to
 test('evidence recorded against a different manifest is refused', () => {
   assert.equal(reasonOf(() => validateRunEvidence(evidence({ manifestHash: 'a'.repeat(64) }))),
     'manifest-mismatch');
+});
+
+test('the v0.3.0 release manifest validates and prices at most USD 8', () => {
+  const m = JSON.parse(readFileSync('docs/demo/run-manifests/release-v0.3.0-benchmark.json', 'utf8'));
+  const valid = validateRunManifest(m);
+
+  assert.equal(m.identity.candidateCommit, 'c94eee2086b31450d975137a0102dda18522d0b8');
+  assert.equal(m.subjects.length, 51);
+  assert.equal(m.caps.subjects, 51);
+  assert.equal(valid.manifestHash, m.manifestHash);
+  assert.ok(manifestMaximumUsd(m) <= 8);
 });
 
 test('a run that spent past its own cap is refused', () => {

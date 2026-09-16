@@ -63,6 +63,7 @@ these four criteria.
 | Integration | Why used | Source or artifact and actual mode |
 | --- | --- | --- |
 | NVIDIA Nemotron through Nebius Token Factory | Separate diagnosis, proposal, and audit roles | [`DEFAULT_MODELS`](../../packages/core/src/config.ts#L10), [`createTokenFactoryClient`](../../packages/core/src/llm/token-factory.ts#L25): implemented runtime client; measured subjects remain in the reports below. Requested role and actual provider model are distinct. |
+| OpenAI GPT-6 Astra (optional second opinion) | Veto-only adversarial cross-check from a different provider; can only reject, never approve, so it cannot dilute the Nebius/Nemotron runtime gate | [`OpenAiClient`](../../packages/core/src/llm/openai.ts), [`secondOpinion`](../../packages/core/src/audit/adjudicate.ts): implemented, gated on `OPENAI_API_KEY`; absent, failed, or over its own USD 0.30 budget records `skipped` and the run proceeds on Nemotron alone. |
 | Nebius ConTree | Share prepared dependencies while isolating execution branches | [`prepareSandbox`](../../packages/core/src/heal.ts#L483): runtime implementation; image availability and dependency support constrain execution. |
 | Tavily | Ground dependency failures in release sources | [`ground`](../../packages/core/src/diagnose/tavily.ts#L500): runtime Search/Extract with validation; [versioned ablations](architecture.md#grounded-dependencies) retain failed arms. |
 | Nebius Data Lab | Execute a finite, manifest-bound quality experiment with recoverable submissions and exact output joins | [Runner](../../scripts/datalab-quality-experiment.mjs) and [dataset and request](../datalab/README.md): locally implemented and fixture tested; actual upload and batch inference remain pending. |
@@ -104,7 +105,7 @@ remain separate identities.
 | [Historical v0.2.0 baseline and matrices](../demo/sutura-v0.2.0-phase-0-evidence.md?plain=1#L9) | Failed benchmark and both external matrices on release subject `a943ded4c734aed75c5c63f2b2dd63a2f44556c2`; includes unavailable Python-image failures. |
 | [Counterfactual report](../demo/sutura-counterfactual-v0.2.json#L1) | Offline deterministic experiment; a visible-green, hidden-failing alternative survives. See [gate omissions](architecture.md#counterfactual-verification). |
 | [Arena report](../demo/sutura-arena-v0.2.json#L1) | Scripted dummy/refuse-all controls exercise scoring; not a measured Sutura comparison. |
-| [Demo identity](../../packages/case-lab/release.json#L1) | Action remains v0.2.0 at `a943ded4c734aed75c5c63f2b2dd63a2f44556c2`, separate from current source package v0.3.0 and later benchmark subjects. |
+| [Demo identity](../../packages/case-lab/release.json#L1) | Action is v0.3.0 at `c94eee2086b31450d975137a0102dda18522d0b8`, equal to the current release; recorded evidence `placebo-v0.3.0-live-2026-09-15.json`. |
 
 <a id="limitations"></a>
 ## Limitations and reproducing the review
@@ -120,7 +121,7 @@ Follow [contributor setup](../../README.md?plain=1#L235) and the existing
 [offline replay commands](../../README.md?plain=1#L262). The documentation check
 is `node --test scripts/submission-contract.test.mjs`; run project typecheck,
 lint, tests, and build sequentially. These local checks do not measure live
-repair quality. Final acceptance follows the [release evidence contract](../demo/sutura-v0.3.0-release-evidence-requirements.json#L1).
+repair quality. Final acceptance follows the [release evidence contract](../demo/sutura-v0.3.1-release-evidence-requirements.json#L1).
 
 On refresh, review changed source bytes and update inspected references. Keep
 reviewed source, historical benchmark subject, and demo Action identity separate;

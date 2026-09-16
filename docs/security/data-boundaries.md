@@ -1,6 +1,7 @@
 # Sutura data boundaries
 
-Status: v0.2 implementation contract, reviewed against repository behavior on 2026-08-28.
+Status: current implementation contract, revalidated against Sutura 0.3.0 on
+2026-09-15.
 
 Sutura is a bring-your-own-key tool. It does not proxy repository data through Sutura maintainer infrastructure. Provider terms and account settings still govern data after Sutura sends it.
 
@@ -12,8 +13,8 @@ Sutura is a bring-your-own-key tool. It does not proxy repository data through S
 | Nebius Token Factory | Bounded, redacted failure logs; diagnosis data; redacted non-editable evidence; and exact editable excerpts only when no known credential pattern is present | Requests go directly from the action with the repository owner's key. Zero Data Retention prevents inference-log collection when the account enables it. Sutura does not change ZDR settings. |
 | Nebius Data Lab | An explicit, allowlisted evaluation dataset and batch outputs, only after separate upload and spend authorization | Explicit dataset upload creates a retained Data Lab object even when inference ZDR is enabled. Data Lab processes datasets and batch outputs in EU-North1 (Finland). The repository owner must review the exact input hash and delete the dataset and outputs when they are no longer needed. |
 | Tavily | A bounded, redacted error query, public package names and versions, and public release or migration URLs | Tavily is optional. Requests go directly from the action with the repository owner's key. The owner's Tavily plan and provider policy govern retention. |
-| Nebius ConTree | A base image reference, dependency-input archive, repository-overlay archive, commands, and bounded command output | Only dependency preparation has outbound networking. Source is absent then. All source-bearing execution is network-disabled. ConTree beta documentation states that untagged, unreferenced images can remain for 180 days. Sutura v0.2 has no image-deletion control. |
-| Package registries | Package names, versions, lockfile resolution data, and normal package-manager request metadata | Registry access occurs only from the manifest-only dependency image. Lifecycle scripts are disabled. Sutura refuses `.npmrc`, embedded URL credentials, and Yarn auth fields. Private authenticated registries are unsupported in v0.2. |
+| Nebius ConTree | A base image reference, dependency-input archive, repository-overlay archive, commands, and bounded command output | Only dependency preparation has outbound networking. Source is absent then. All source-bearing execution is network-disabled. ConTree beta documentation states that untagged, unreferenced images can remain for 180 days. Sutura 0.3.0 has no image-deletion control. |
+| Package registries | Package names, versions, lockfile resolution data, and normal package-manager request metadata | Registry access occurs only from the manifest-only dependency image. Lifecycle scripts are disabled. Sutura refuses `.npmrc`, embedded URL credentials, and Yarn auth fields. Private authenticated registries are unsupported in Sutura 0.3.0. |
 
 ## Local CLI and action data
 

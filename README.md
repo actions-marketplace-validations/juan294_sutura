@@ -33,7 +33,7 @@ offline examples, controls, and pending evidence. The
 
 ```mermaid
 flowchart LR
-  A[Failed GitHub Actions run] --> B[Exact PR head SHA and failed-step log]
+  A[Failed GitHub Actions run] --> B[Exact failing source SHA and failed-step log]
   B --> C[Nemotron Nano diagnosis]
   C --> D[ConTree dependency-prepared snapshot]
   D -->|Branching use 1| E1[Progressive triage batch 1]
@@ -78,7 +78,8 @@ workflow artifact.
 
 | Service | Runtime role |
 | --- | --- |
-| NVIDIA Nemotron on Nebius Token Factory | Nano classifies the failure, Super proposes repairs, and Ultra audits evidence that static checks cannot judge. |
+| NVIDIA Nemotron on Nebius Token Factory | Nano classifies the failure, Super proposes repairs, and Ultra audits evidence that static checks cannot judge. This is the runtime model; nothing dilutes it. |
+| GPT-6 Astra (optional second opinion) | A different provider re-runs the same adversarial audit as a veto-only check when `OPENAI_API_KEY` is configured. It can only reject a Nemotron approval, never approve one; absent, failed, timed out, or over its own USD 0.30 budget, it is recorded `skipped` and the run proceeds on Nemotron alone. |
 | Nebius ConTree Sandboxes | Prepares dependencies once, snapshots the filesystem, and runs isolated triage, adaptive search, and audit branches. |
 | Tavily | Grounds upstream dependency diagnoses in release and migration sources. It is optional for non-upstream cases and for the benchmark ablation. |
 
@@ -94,6 +95,27 @@ placebo-controlled benchmark for CI-repair agents. Results are versioned and
 dated. Catch-rate claims use the form “refused X/X placebos in Placebo vN.”
 Fix rate includes every failed case ID, and flaky accuracy states the corpus
 sample size. The internal ship gate is zero false approvals.
+
+On 2026-09-15, the exact v0.3.0 subject
+`c94eee2086b31450d975137a0102dda18522d0b8` completed all 51 Placebo cases and
+55 evaluations under the release-mode benchmark gate. The [machine-readable
+result](docs/demo/placebo-v0.3.0-live-2026-09-15.json), [run
+ledger](docs/demo/placebo-v0.3.0-live-ledger-2026-09-15.json), and [evidence
+index](docs/demo/sutura-v0.3.0-release-benchmark-evidence.md) retain every
+failure.
+
+- Sutura's trap catch rate was 18/19 with zero false approvals (the miss,
+  `trap-workflow-check-removal`, is a `gave-up` coverage gap, not a false
+  approval).
+- It fixed 15/18 repairable cases.
+- It identified 10/10 flaky cases without patching them.
+- It fixed 2/4 upstream cases with Tavily and 0/4 without Tavily; the Tavily
+  gate still fails its 4/4 requirement.
+- Hidden repair preservation was a clean 4/4 with zero `not-run` cases.
+- Recorded inference cost was USD 0.15101000 and recorded sandbox cost was
+  USD 3.96133948 across the complete evaluation.
+
+### Historical v0.2.0 result
 
 On 2026-09-01, the exact v0.2.0 subject
 `a943ded4c734aed75c5c63f2b2dd63a2f44556c2` completed all 51 Placebo v0.2
@@ -113,8 +135,9 @@ cases and 55 evaluations. The [machine-readable result](docs/demo/placebo-v0.2-l
 
 This is a complete failed baseline, not passing release evidence. The candidate
 matrix passed 6/8 and the public matrix passed 5/8, both with zero false
-approvals. The immutable v0.2.0 Python image digest is unavailable, so Python
-execution currently stops before repair. The v0.2.1 remediation plan is
+approvals. The immutable v0.2.0 Python image digest became unavailable, so
+Python execution stopped before repair in that historical run. The subsequent
+v0.2.1 remediation is
 [tracked here](docs/plans/2026-09-01-sutura-v0.2.1-evidence-remediation.md).
 
 On 2026-08-28, Sutura commit `478684646ee1e4ccb56fdd8260c6fe01bc4c0158`
@@ -182,6 +205,15 @@ before enabling Sutura on confidential source.
 Sutura uses bring-your-own-key billing. Each repository supplies its provider
 credentials. The repository owner pays providers directly for its usage.
 
+Installation is repository-scoped. You do not need to install Sutura globally:
+`npx` downloads the selected CLI version for the command, while the generated
+workflow pins the matching Action to an immutable commit.
+
+Before setup, install Git and Node.js 22 or later, install the GitHub CLI, run
+`gh auth login`, and clone a GitHub repository that already has at least one
+Actions CI workflow. Your GitHub account must be able to configure Actions
+secrets and variables and commit the generated workflow.
+
 Create these provider credentials first:
 
 - A [Nebius Token Factory API key](https://docs.tokenfactory.nebius.com/quickstart)
@@ -198,14 +230,21 @@ Set `NEBIUS_API_KEY`, `CONTREE_TOKEN`, `CONTREE_PROJECT`, and optional
 `TAVILY_API_KEY` in your environment. Then run these commands:
 
 ```bash
-npx sutura@0.3.0 init
-npx sutura@0.3.0 doctor
+npx sutura@0.3.1 init
+sed -n '1,220p' .github/workflows/sutura.yml
+npx sutura@0.3.1 doctor
+git add .github/workflows/sutura.yml
+git commit -m "ci: add Sutura repair monitor"
+git push
 ```
 
 The installer detects a single CI workflow. Use `--workflow <name>` when the
 repository has multiple workflows. Add `--no-tavily` when Tavily is unavailable.
+Review the generated workflow before committing it. It becomes active only
+after it is committed and reaches the repository's default branch, either by a
+direct push or through the repository's normal pull-request process.
 
-The installer resolves the `v0.3.0` Action tag and writes its immutable commit
+The installer resolves the `v0.3.1` Action tag and writes its immutable commit
 SHA into the generated workflow. `doctor` resolves the tag again and verifies
 the pin. Release-candidate testing can supply an exact commit with
 `--action-sha <40-character-commit>`; mutable refs are rejected.
@@ -214,7 +253,7 @@ Maintainers verify the published npm package and independently resolved immutabl
 Action tag from a fresh temporary consumer with:
 
 ```bash
-node scripts/test-public-install.mjs --release 0.3.0
+node scripts/test-public-install.mjs --release 0.3.1
 ```
 
 The command installs only that exact public npm version, disables lifecycle
@@ -231,6 +270,10 @@ Sutura handles failed and timed-out runs from pull requests, pushes, scheduled w
 Pull request runs receive an evidence comment. Direct runs receive the same evidence as a commit comment. Both paths also update one GitHub Check on the exact failing SHA and link the comment and check to the same HTML artifact. Maintainers can require the Sutura check. A verified repair remains `neutral` because the repair pull request still needs human review.
 
 When Sutura verifies a repair, it opens a pull request against the failing branch. It never merges the repair.
+
+The complete [user guide](docs/user-guide.md) covers first-run behavior,
+configuration, per-repository upgrades, disabling, removal, credential
+rotation, and troubleshooting.
 
 ## Contributor setup
 
@@ -319,11 +362,11 @@ and Super model as production. The manual `Provider contract canary` workflow
 runs it with read-only repository permissions and uploads SHA-bound evidence.
 Unverified Super model overrides fail closed.
 
-The versioned [release evidence requirements](docs/demo/sutura-v0.3.0-release-evidence-requirements.json)
+The versioned [release evidence requirements](docs/demo/sutura-v0.3.1-release-evidence-requirements.json)
 define the eleven required records, including dogfood plus separate candidate and public
 matrices. Canaries, the live benchmark, both matrices, publication, public demo,
 and Devpost evidence use separate authorization gates. The v0.2.0 benchmark and
-matrices remain immutable failed baselines. v0.3.0 evidence stays pending until
+matrices remain immutable failed baselines. v0.3.1 evidence stays pending until
 each required gate is authorized and passed.
 
 ### Evaluation Lab

@@ -16,8 +16,8 @@ export const CASE_LAB_LIMITS: CaseLabLimits = Object.freeze({
   maxConcurrentRuns: 1,
   maxRunsPerHour: 4,
   worstCaseRunUsd: 0.75,
-  dailySpendStopUsd: 6,
-  maxRunsPerDay: 8,
+  dailySpendStopUsd: 18,
+  maxRunsPerDay: 24,
 });
 
 export type CaseLabRefusalReason =

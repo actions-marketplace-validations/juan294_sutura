@@ -13,10 +13,12 @@ import {
   createPlaceboCaseArtifact,
   createPlaceboLedger,
   finalizePlaceboEvidence,
+  gatePlaceboLive,
   placeboSpendDecision,
   redactPublicArtifact,
   main,
   orderedPlaceboCaseIds,
+  resolveReleaseTag,
   runSinglePlaceboCase,
   runPlaceboStreak,
   dispatchPlaceboWorkflow,
@@ -37,6 +39,15 @@ test('v0.2.1 controller state is ignored before the lock-protected gate runs', a
   assert.match(ignore, /^\.sutura\/placebo-v0\.2\.1-live\.lock$/mu);
   assert.match(ignore, /^\.sutura\/placebo-v0\.2\.1-live-artifacts\/$/mu);
   assert.match(ignore, /^\.sutura\/placebo-v0\.2\.1-failed-runs\/$/mu);
+});
+
+test('v0.3.1 controller state is ignored before the lock-protected gate runs', async () => {
+  const ignore = await readFile('.gitignore', 'utf8');
+  assert.match(ignore, /^\.sutura\/placebo-v0\.3\.1-live-ledger\.json$/mu);
+  assert.match(ignore, /^\.sutura\/placebo-v0\.3\.1-live\.lock$/mu);
+  assert.match(ignore, /^\.sutura\/placebo-v0\.3\.1-live\.lock\.recovery\/$/mu);
+  assert.match(ignore, /^\.sutura\/placebo-v0\.3\.1-live-artifacts\/$/mu);
+  assert.match(ignore, /^\.sutura\/placebo-v0\.3\.1-failed-runs\/$/mu);
 });
 
 function result(corpusCase, tavilyEnabled = true, overrides = {}) {
@@ -72,7 +83,7 @@ function artifact(caseId, overrides = {}) {
   return createPlaceboCaseArtifact({
     controllerSha: CONTROLLER_SHA,
     githubRunId: String(1000 + caseIndex),
-    subjectVersion: '0.3.0',
+    subjectVersion: '0.3.1',
     subjectSha: SUBJECT_SHA,
     packageContentHash: PACKAGE_HASH,
     packageIntegrity: PACKAGE_INTEGRITY,
@@ -281,6 +292,65 @@ test('workflow dispatch checks the active freeze at the final dispatch edge', as
     command: async () => { dispatched = true; },
   }), /freeze missing/u);
   assert.equal(dispatched, false);
+});
+
+test('release tag resolves an annotated tag to its commit and refuses a mismatched candidate', async () => {
+  const ref = JSON.parse(await readFile('scripts/__fixtures__/tag-ref-v0.3.0.json', 'utf8'));
+  const tagObject = JSON.parse(await readFile('scripts/__fixtures__/tag-object-v0.3.0.json', 'utf8'));
+  const calls = [];
+  const gh = async (args) => {
+    calls.push(args.join(' '));
+    if (args[1] === 'repos/juan294/sutura/git/ref/tags/v0.3.0') return JSON.stringify(ref);
+    if (args[1] === `repos/juan294/sutura/git/tags/${ref.object.sha}`) return JSON.stringify(tagObject);
+    throw new Error(`unexpected gh: ${args.join(' ')}`);
+  };
+  const resolved = await resolveReleaseTag('v0.3.0', { gh });
+  assert.equal(resolved.tag, 'v0.3.0');
+  assert.equal(resolved.version, '0.3.0');
+  assert.equal(resolved.sha, tagObject.object.sha);
+  assert.deepEqual(calls, [
+    'api repos/juan294/sutura/git/ref/tags/v0.3.0',
+    `api repos/juan294/sutura/git/tags/${ref.object.sha}`,
+  ]);
+
+  const mismatchedCandidate = 'b'.repeat(40);
+  await assert.rejects(
+    () => resolveReleaseTag('not-a-tag', { gh }),
+    /--release-tag must look like v0\.3\.0, got not-a-tag/u,
+  );
+  await assert.rejects(
+    () => gatePlaceboLive(mismatchedCandidate, mismatchedCandidate, { releaseTag: 'v0.3.0', gh }),
+    new RegExp(`Placebo release tag v0\\.3\\.0 points to ${tagObject.object.sha} but the candidate is ${mismatchedCandidate}`, 'u'),
+  );
+});
+
+test('workflow dispatch uses the release tag as ref', async () => {
+  const events = [];
+  await dispatchPlaceboWorkflow({
+    controllerSha: CONTROLLER_SHA,
+    subjectSha: CONTROLLER_SHA,
+    caseId: 'repair-off-by-one',
+    controllerId: 'pl-test-controller',
+    releaseTag: 'v0.3.0',
+  }, {
+    requireActivePushFreeze: async () => {},
+    command: async (name, args) => { events.push(args); },
+  });
+  assert.equal(events[0][events[0].indexOf('--ref') + 1], 'v0.3.0');
+});
+
+test('paid CLI commands require the release tag as both controller and subject', async () => {
+  const ref = JSON.parse(await readFile('scripts/__fixtures__/tag-ref-v0.3.0.json', 'utf8'));
+  const tagObject = JSON.parse(await readFile('scripts/__fixtures__/tag-object-v0.3.0.json', 'utf8'));
+  const gh = async (args) => {
+    if (args[1] === 'repos/juan294/sutura/git/ref/tags/v0.3.0') return JSON.stringify(ref);
+    if (args[1] === `repos/juan294/sutura/git/tags/${ref.object.sha}`) return JSON.stringify(tagObject);
+    throw new Error(`unexpected gh: ${args.join(' ')}`);
+  };
+  await assert.rejects(() => main([
+    'gate', '--release-tag', 'v0.3.0',
+    '--controller-sha', 'b'.repeat(40), '--subject-sha', 'b'.repeat(40),
+  ], { gh }), new RegExp(`--release-tag v0\\.3\\.0 points to ${tagObject.object.sha}; pass it as both --controller-sha and --subject-sha`, 'u'));
 });
 
 test('streak resumes and stops immediately after a false approval', async () => {
@@ -527,7 +597,7 @@ test('artifact/ledger crash recovery records a completed job once', async (t) =>
   const bytes = Buffer.from(JSON.stringify(value));
   const input = { artifact:value, bytes, run:{url:`https://github.com/juan294/sutura/actions/runs/${value.githubRunId}`}, stateDirectory:directory };
   await assert.rejects(recordRemoteArtifact(input, {afterArtifactWrite:async()=>{throw Error('simulated process death');}}), /process death/);
-  assert.deepEqual(JSON.parse(await readFile(join(directory,'placebo-v0.3.0-live-artifacts/repair-off-by-one.json'))), value);
+  assert.deepEqual(JSON.parse(await readFile(join(directory,'placebo-v0.3.1-live-artifacts/repair-off-by-one.json'))), value);
   const first = await recordRemoteArtifact(input);
   const resumed = await recordRemoteArtifact(input);
   assert.equal(first.entries.length,1); assert.deepEqual(resumed,first);

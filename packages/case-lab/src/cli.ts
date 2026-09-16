@@ -305,7 +305,7 @@ export async function runCaseLabCli(argv: readonly string[], dependencies: CliDe
           ...(elapsed === undefined ? {} : { elapsedMs: Number(elapsed) }),
           ...(dependencies.catalog?.release === undefined ? {} : { release: dependencies.catalog.release }),
           ...(dependencies.catalog?.now === undefined ? {} : { now: dependencies.catalog.now }),
-          secrets: [env.NEBIUS_API_KEY, env.TAVILY_API_KEY, env.CONTREE_TOKEN, env.CASE_LAB_GITHUB_TOKEN],
+          secrets: [env.NEBIUS_API_KEY, env.TAVILY_API_KEY, env.OPENAI_API_KEY, env.CONTREE_TOKEN, env.CASE_LAB_GITHUB_TOKEN],
         });
         const text = `${canonicalJson(result)}\n`;
         const out = valueAfter(args, '--out');
