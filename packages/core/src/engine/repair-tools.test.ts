@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -14,7 +14,7 @@ import { createDefaultRepositoryPolicy } from '../policy/load.js';
 import { RepairBudget, DEFAULT_REPAIR_BUDGET_LIMITS } from './repair-budget.js';
 import type { RepairSourceContext } from './repair.js';
 import { createRepairAuthorizationSession, deriveRepairAuthorization } from './repair-authorization.js';
-import { RepairToolRuntime } from './repair-tools.js';
+import { bounded, RepairToolRuntime } from './repair-tools.js';
 
 const diagnosis: Diagnosis = {
   class: 'test-assertion', confidence: 1, signals: [], failingCmd: 'pnpm test', errorExcerpt: 'failed',
@@ -507,14 +507,50 @@ describe('RepairToolRuntime', () => {
       .resolves.toMatchObject({ ok: true, submitted: true });
   });
 
-  it('rejects truncated diffs and test output without advancing or recording evidence', async () => {
+  it('rejects a truncated diff without advancing', async () => {
     const truncated = { ...runResult('partial', diff), truncated: true };
-    const { tools } = runtime([truncated, truncated]);
+    const { tools } = runtime([truncated]);
 
     await expect(tools.execute('apply_patch', { diff })).resolves.toMatchObject({ ok: false });
     expect(tools.state().editableImageId).toBe('baseline');
-    await expect(tools.execute('run_test', { commandId: 'diagnosed' })).resolves.toMatchObject({ ok: false });
-    expect(tools.state().latestTest).toBeUndefined();
+  });
+
+  it('run_test records a truncated trusted run as evidence instead of refusing', async () => {
+    const fixture = JSON.parse(
+      await readFile(
+        join(import.meta.dirname, '__fixtures__', 'case-lab-34977342282-run-test.json'),
+        'utf8',
+      ),
+    ) as { stdout: string; stderr: string; exitCode: number };
+    const { tools } = runtime([
+      { imageId: 'test-child', stdout: fixture.stdout, stderr: fixture.stderr, exitCode: fixture.exitCode, truncated: false, metrics: {} },
+    ]);
+
+    const result = await tools.execute('run_test', { commandId: 'diagnosed' });
+
+    expect(result.ok).toBe(true);
+    expect(result.exitCode).toBe(1);
+    const combined = [fixture.stdout, fixture.stderr].filter(Boolean).join('\n');
+    expect(result.message.endsWith(
+      `\n[output truncated to the last 16000 bytes; exit code 1 is authoritative]`,
+    )).toBe(true);
+    const state = tools.state();
+    expect(state.latestTest?.outputTruncated).toBe(true);
+    expect(state.latestTest?.exitCode).toBe(1);
+    expect(Buffer.byteLength(state.latestTest?.output ?? '', 'utf8')).toBeLessThanOrEqual(16_000);
+    expect(state.latestTest?.output).toBe(bounded(combined));
+  });
+
+  it("run_test keeps the executor's own truncation flag as evidence", async () => {
+    const { tools } = runtime([
+      { ...runResult('test-child', 'passed', 0), truncated: true },
+    ]);
+
+    const result = await tools.execute('run_test', { commandId: 'diagnosed' });
+
+    expect(result.ok).toBe(true);
+    expect(result.exitCode).toBe(0);
+    expect(tools.state().latestTest?.outputTruncated).toBe(true);
   });
 
   it('caps sandbox timeout by the remaining elapsed budget', async () => {
