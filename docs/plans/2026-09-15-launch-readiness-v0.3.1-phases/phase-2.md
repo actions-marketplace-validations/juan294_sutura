@@ -2,9 +2,9 @@
 
 Plan: [2026-09-15-launch-readiness-v0.3.1.md](../2026-09-15-launch-readiness-v0.3.1.md)
 
-Status: not started. `[batch-eligible]` with Phases 1 and 3. Touches
-`packages/core` → `pnpm run ci:local` before pushing and rebuild
-`packages/action/dist/index.cjs` in the same commit (`.claude/rules/ci-parity.md`).
+Status: done, merged to `develop` at `28c79b8`. Commit `fef7ddf` (branch
+`worktree-agent-ad8780961d76c7291`). Replay divergence resolved per the
+plan's own success-criteria fallback (see `docs/plans/2026-09-15-launch-readiness-v0.3.1-notes.md`).
 
 ## Goal
 

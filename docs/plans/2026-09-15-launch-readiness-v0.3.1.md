@@ -2,7 +2,7 @@
 
 Date: 2026-09-15 (Tuesday evening)
 
-Status: Approved scope; implementation not started
+Status: Phases 1-3 done, merged to `develop` at `28c79b8` (2026-09-16). Phases 4-5 not started.
 
 Owner: Juan
 

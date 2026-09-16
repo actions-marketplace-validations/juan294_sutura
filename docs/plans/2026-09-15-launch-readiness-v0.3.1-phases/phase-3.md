@@ -2,10 +2,9 @@
 
 Plan: [2026-09-15-launch-readiness-v0.3.1.md](../2026-09-15-launch-readiness-v0.3.1.md)
 
-Status: not started. `[batch-eligible]` with Phases 1 and 2. Touches
-`packages/core` and `packages/action` → `ci:local` before pushing; rebuild
-`packages/action/dist/index.cjs` in the same commit. Time-box: green by
-Wednesday 22:00 or v0.3.1 ships without it.
+Status: done, merged to `develop` at `28c79b8`. Commit `547b343` (branch
+`worktree-agent-a082a8593ab0705f4`). Live adjudication captured, measured
+cost USD 0.0067.
 
 ## Goal
 

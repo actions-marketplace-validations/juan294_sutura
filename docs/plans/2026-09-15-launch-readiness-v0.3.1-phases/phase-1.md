@@ -2,7 +2,7 @@
 
 Plan: [2026-09-15-launch-readiness-v0.3.1.md](../2026-09-15-launch-readiness-v0.3.1.md)
 
-Status: not started. `[batch-eligible]` with Phases 2 and 3.
+Status: done, merged to `develop` at `28c79b8`. `sutura-demo` `main` green at `79cb1884`. Local repo commit `ab24107` (branch `worktree-agent-a38b8b28f662db238`).
 
 Pushes to `juan294/sutura-demo` `main` are authorized by this plan (the repo is
 a public demo, its `main` is unprotected, and it has been red since
