@@ -30,6 +30,8 @@ const V090_COMMIT = '9999999999999999999999999999999999999f';
 const RESULT_PATH = 'docs/demo/placebo-v0.3.0-live-2026-09-16.json';
 const LEDGER_PATH = 'docs/demo/placebo-v0.3.0-live-ledger-2026-09-16.json';
 const EVIDENCE_URL = `https://github.com/juan294/sutura/blob/develop/${RESULT_PATH}`;
+const DEMO_REPOSITORY = 'juan294/sutura-demo';
+const DEMO_COMMIT = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 async function withTempDirectory(callback) {
   const directory = await mkdtemp(join(tmpdir(), 'sutura-release-case-lab-'));
@@ -163,6 +165,48 @@ test('newest release tag resolves a lightweight tag (no ^{} line) to its ref sha
   };
   const release = await newestReleaseTag({ git });
   assert.deepEqual(release, { tag: 'v0.2.0', version: '0.2.0', commit: V020_COMMIT });
+});
+
+/** git ls-remote stub that fails with a transport error `failures` times before succeeding. */
+function flakyLsRemoteGitStub(failures) {
+  let lsRemoteCalls = 0;
+  return async (args) => {
+    if (args[0] === 'ls-remote') {
+      lsRemoteCalls += 1;
+      if (lsRemoteCalls <= failures) {
+        throw new Error('fatal: unable to access \'https://github.com/juan294/sutura.git/\': SSL_ERROR_SYSCALL in connection to github.com:443');
+      }
+      return [
+        `1234567890123456789012345678901234567890\trefs/tags/${NEWEST_TAG}`,
+        `${NEWEST_COMMIT}\trefs/tags/${NEWEST_TAG}^{}`,
+      ].join('\n');
+    }
+    if (args[0] === 'fetch') return '';
+    if (args[0] === 'merge-base') return '';
+    throw new Error(`unstubbed git command: ${args.join(' ')}`);
+  };
+}
+
+test('newest release tag retries a transient transport error before succeeding', async () => {
+  const sleepCalls = [];
+  const release = await newestReleaseTag({
+    git: flakyLsRemoteGitStub(2),
+    sleep: async (ms) => { sleepCalls.push(ms); },
+  });
+  assert.deepEqual(release, { tag: NEWEST_TAG, version: '0.3.0', commit: NEWEST_COMMIT });
+  assert.deepEqual(sleepCalls, [2_000, 4_000], 'backs off 2s then 4s between the three attempts');
+});
+
+test('newest release tag refuses after three consecutive transport errors', async () => {
+  const sleepCalls = [];
+  await assert.rejects(
+    newestReleaseTag({
+      git: flakyLsRemoteGitStub(3),
+      sleep: async (ms) => { sleepCalls.push(ms); },
+    }),
+    /unable to access.*SSL_ERROR_SYSCALL/su,
+  );
+  assert.deepEqual(sleepCalls, [2_000, 4_000], 'retried twice (three attempts total) before refusing');
 });
 
 test('check passes when every binding names the newest tag', async () => {
@@ -337,20 +381,66 @@ test('publish-demo requires literal --authorize and re-verifies byte identity', 
     const local = await readFile(join(directory, FILES.workflow), 'utf8');
     const calls = [];
     let putBody;
+    let runsCall = 0;
     dependencies.gh = async (args) => {
+      const endpoint = args[1] ?? '';
       if (args.includes('-X')) {
         calls.push('PUT');
         putBody = args.find((arg) => arg.startsWith('content='))?.slice('content='.length);
         return JSON.stringify({ sha: 'new-sha' });
       }
+      if (endpoint.includes(`repos/${DEMO_REPOSITORY}/commits/main`)) {
+        calls.push('COMMIT');
+        return JSON.stringify({ sha: DEMO_COMMIT });
+      }
+      if (endpoint.includes(`repos/${DEMO_REPOSITORY}/actions/workflows/ci.yml/runs`)) {
+        runsCall += 1;
+        calls.push('RUNS');
+        if (runsCall === 1) return JSON.stringify({ workflow_runs: [{ status: 'queued' }] });
+        return JSON.stringify({ workflow_runs: [{ status: 'completed', conclusion: 'success' }] });
+      }
       calls.push('GET');
       return JSON.stringify({ sha: 'old-sha', content: Buffer.from(local, 'utf8').toString('base64') });
     };
+    const sleepCalls = [];
+    dependencies.sleep = async (ms) => { sleepCalls.push(ms); };
     const release = await publishDemo({ authorize: true }, dependencies);
-    assert.deepEqual(calls, ['GET', 'PUT', 'GET']);
+    assert.deepEqual(calls, ['GET', 'PUT', 'GET', 'COMMIT', 'RUNS', 'RUNS']);
+    assert.deepEqual(sleepCalls, [30_000], 'polled once while the run was still queued');
     assert.equal(release.tag, NEWEST_TAG);
     assert.equal(Buffer.from(putBody, 'base64').toString('utf8'), local, 'PUT body carries the local bytes');
     assert.equal(dependencies.io.err.length, 0);
+  });
+});
+
+test('publish-demo refuses when the demo CI on the published commit is red', async () => {
+  await withTempDirectory(async (directory) => {
+    await buildConsistentTree(directory);
+    const dependencies = dependenciesFor(directory);
+    const local = await readFile(join(directory, FILES.workflow), 'utf8');
+    const runUrl = `https://github.com/${DEMO_REPOSITORY}/actions/runs/999`;
+    dependencies.gh = async (args) => {
+      const endpoint = args[1] ?? '';
+      if (args.includes('-X')) return JSON.stringify({ sha: 'new-sha' });
+      if (endpoint.includes(`repos/${DEMO_REPOSITORY}/commits/main`)) return JSON.stringify({ sha: DEMO_COMMIT });
+      if (endpoint.includes(`repos/${DEMO_REPOSITORY}/actions/workflows/ci.yml/runs`)) {
+        return JSON.stringify({
+          workflow_runs: [{ status: 'completed', conclusion: 'failure', html_url: runUrl }],
+        });
+      }
+      return JSON.stringify({ sha: 'old-sha', content: Buffer.from(local, 'utf8').toString('base64') });
+    };
+    await assert.rejects(
+      publishDemo({ authorize: true }, dependencies),
+      (error) => {
+        assert.ok(error.message.includes(DEMO_REPOSITORY), 'names the repo');
+        assert.ok(error.message.includes('ci.yml'), 'names the workflow');
+        assert.ok(error.message.includes(DEMO_COMMIT), 'names the commit');
+        assert.ok(error.message.includes('failure'), 'names the conclusion');
+        assert.ok(error.message.includes(runUrl), 'names the run URL');
+        return true;
+      },
+    );
   });
 });
 

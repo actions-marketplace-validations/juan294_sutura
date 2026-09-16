@@ -73,11 +73,28 @@ function compareSemverDesc(a, b) {
   return 0;
 }
 
+// Transport errors seen intermittently in the pre-push hook (2026-09-15); a
+// network blip must not block a push, so these get retried before refusing.
+const TRANSPORT_ERROR_PATTERN = /SSL_ERROR_SYSCALL|Could not resolve host|Connection reset|unable to access/u;
+const TRANSPORT_RETRY_BACKOFF_MS = [2_000, 4_000];
+
+async function withTransportRetry(dependencies, action) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await action();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (attempt > TRANSPORT_RETRY_BACKOFF_MS.length || !TRANSPORT_ERROR_PATTERN.test(message)) throw error;
+      await dependencies.sleep(TRANSPORT_RETRY_BACKOFF_MS[attempt - 1]);
+    }
+  }
+}
+
 /** Newest semver v* tag whose peeled commit is reachable from origin/main. */
 export async function newestReleaseTag(dependencies) {
   const [tagsOutput] = await Promise.all([
-    dependencies.git(['ls-remote', '--tags', 'origin', 'refs/tags/v*']),
-    dependencies.git(['fetch', '--quiet', 'origin', 'main']),
+    withTransportRetry(dependencies, () => dependencies.git(['ls-remote', '--tags', 'origin', 'refs/tags/v*'])),
+    withTransportRetry(dependencies, () => dependencies.git(['fetch', '--quiet', 'origin', 'main'])),
   ]);
   const lines = tagsOutput.split('\n').filter(Boolean);
   // "<sha>\trefs/tags/v0.3.0" (annotated tag object) and "<sha>\trefs/tags/v0.3.0^{}" (peeled commit)
@@ -263,6 +280,26 @@ export async function publishDemo({ authorize }, dependencies) {
   const remoteText = Buffer.from(after.content, 'base64').toString('utf8');
   if (remoteText !== local) {
     throw new ReleaseCaseLabError(`${DEMO_REPOSITORY} ${DEMO_WORKFLOW_PATH}: remote is not byte-identical to ${FILES.workflow} after publish`);
+  }
+  // The push landed; refuse to report success until the demo's own CI on the
+  // published commit is actually green (the Case Lab cannot repair anything
+  // while the demo suite it races against is red).
+  const commit = after.sha ? (JSON.parse(await dependencies.gh(['api', `repos/${DEMO_REPOSITORY}/commits/main`]))).sha : undefined;
+  const deadline = Date.now() + 15 * 60_000;
+  for (;;) {
+    const runs = JSON.parse(await dependencies.gh(['api', `repos/${DEMO_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${commit}&per_page=5`]));
+    const run = runs.workflow_runs?.[0];
+    if (run?.status === 'completed') {
+      if (run.conclusion !== 'success') {
+        throw new ReleaseCaseLabError(
+          `${DEMO_REPOSITORY} ci.yml on ${commit} concluded ${run.conclusion}: ${run.html_url}. `
+          + 'The Case Lab cannot repair anything while the demo suite is red.',
+        );
+      }
+      break;
+    }
+    if (Date.now() > deadline) throw new ReleaseCaseLabError(`${DEMO_REPOSITORY} ci.yml on ${commit} did not complete within 15 minutes`);
+    await dependencies.sleep(30_000);
   }
   return release;
 }
