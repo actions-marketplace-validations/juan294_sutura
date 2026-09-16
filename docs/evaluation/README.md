@@ -121,7 +121,7 @@ Follow [contributor setup](../../README.md?plain=1#L235) and the existing
 [offline replay commands](../../README.md?plain=1#L262). The documentation check
 is `node --test scripts/submission-contract.test.mjs`; run project typecheck,
 lint, tests, and build sequentially. These local checks do not measure live
-repair quality. Final acceptance follows the [release evidence contract](../demo/sutura-v0.3.0-release-evidence-requirements.json#L1).
+repair quality. Final acceptance follows the [release evidence contract](../demo/sutura-v0.3.1-release-evidence-requirements.json#L1).
 
 On refresh, review changed source bytes and update inspected references. Keep
 reviewed source, historical benchmark subject, and demo Action identity separate;

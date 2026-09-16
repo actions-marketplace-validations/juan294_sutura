@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-17
+
 ### Added
 
 - Optional GPT-6 Astra second opinion on the adjudication gate: when `OPENAI_API_KEY` is configured, a different provider re-runs the same adversarial audit as a veto-only check (it can reject a Nemotron approval but never approve on its own); absent, failed, timed out, or over its own USD 0.30 budget, it is recorded `skipped` and the run proceeds on Nemotron alone. The runtime model remains Nemotron on Nebius Token Factory.
@@ -13,6 +15,8 @@
 - `release:case-lab deploy` links to the correct Vercel project by name before building or deploying, instead of silently creating a new one when no local link exists.
 - Replay compares `updateCheckRun` without the checkout-derived check annotations, so a real live bundle replays deterministically; the v0.3.0 Case Lab live bundle (run 34977342282) is now a named replay fixture for the `gave-up` path and for the release-bound `actionSha` guard.
 - `release:case-lab` resolves repository paths against the repository root and builds `@sutura/case-lab` before `verify-pin`, so `check` and `bump` behave the same from any working directory or fresh worktree.
+- `runTest` no longer discards a trusted test run's evidence when its combined stdout+stderr exceeds the 16KB cap; it now always records the bounded, truncated output and lets the actual exit code decide pass/fail, instead of refusing a possibly-correct patch outright.
+- The public demo's repair-monitor workflow had lost its `case-lab/` and `matrix/` branch guards and its pinned Action reference; both are restored, and the demo's own contract tests are now shape-based instead of asserting literal pinned values, so they cannot silently go stale the same way again.
 
 ## [0.3.0] - 2026-09-14
 

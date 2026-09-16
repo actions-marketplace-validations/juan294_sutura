@@ -24,7 +24,7 @@ test('security docs distinguish ZDR inference from explicit Data Lab retention',
   assert.match(privateRepositories, /publicReviewConfirmed/u);
   assert.match(readme, /docs\/security\/provider-processing\.md/u);
   assert.match(readme, /datalab-experiment\.mjs prepare/u);
-  assert.match(readme, /test-public-install\.mjs --release 0\.3\.0/u);
+  assert.match(readme, /test-public-install\.mjs --release 0\.3\.1/u);
   assert.match(await readFile('docs/adoption/ws-3-marketplace-checklist.md', 'utf8'),
     /MARKETPLACE-INSTALL-CONFIRMED/u);
 });

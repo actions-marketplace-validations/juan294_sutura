@@ -24,7 +24,7 @@
 
 - [Latest completed repair-quality benchmark](demo/sutura-v0.2.1-repair-quality-evidence.md):
   the dated candidate identity and retained failed gates; it is historical
-  evidence rather than v0.3.0 release acceptance.
+  evidence rather than v0.3.1 release acceptance.
 - [Historical release evidence](demo/sutura-v0.2.0-phase-0-evidence.md): benchmark,
   external matrices, and dogfood records for the earlier release.
 - [Replay provenance](../packages/case-lab/replay/README.md): deterministic bundles

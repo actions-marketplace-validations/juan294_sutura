@@ -1,6 +1,6 @@
 {
   "name": "@sutura/monorepo",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "AI agents make CI pass. Sutura verifies the fix, filters flaky failures, rejects unsafe shortcuts, and opens an evidence-backed PR for human review.",
   "type": "module",

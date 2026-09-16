@@ -8,14 +8,14 @@ an existing Actions CI workflow, and permission to configure repository
 secrets, variables, and workflows.
 
 ```bash
-npx sutura@0.3.0 init
-npx sutura@0.3.0 doctor
+npx sutura@0.3.1 init
+npx sutura@0.3.1 doctor
 git add .github/workflows/sutura.yml
 git commit -m "ci: add Sutura repair monitor"
 git push
 ```
 
-`init` resolves the `v0.3.0` Action tag to one immutable commit and writes that
+`init` resolves the `v0.3.1` Action tag to one immutable commit and writes that
 SHA into the workflow. `doctor` verifies the pin against the tag. Release
 candidate checks can pass `--action-sha <40-character-commit>` to both commands;
 mutable refs are rejected.
@@ -24,7 +24,7 @@ Review the generated workflow before committing it. The monitor becomes active
 only after `.github/workflows/sutura.yml` reaches the repository's default
 branch.
 
-Every repository pins its own Action commit. Sutura 0.3.0 has no automatic
+Every repository pins its own Action commit. Sutura 0.3.1 has no automatic
 `upgrade` command, and `init --force` replaces the whole workflow. Preserve
 customized inputs and conditions by updating their immutable `uses` commit
 manually, then run `doctor` and review the diff.

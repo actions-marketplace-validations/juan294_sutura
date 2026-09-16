@@ -27,9 +27,9 @@ const CORPUS_PATH = resolve(ROOT, 'docs/demo/placebo-v0.2-corpus.json');
  * change what the frozen slice means or what a historical score refers to.
  */
 const EXPANDED_CORPUS_PATH = resolve(ROOT, 'docs/demo/placebo-v0.2-expanded-corpus.json');
-const LEDGER_PATH = resolve(ROOT, '.sutura/placebo-v0.3.0-live-ledger.json');
-const LOCK_PATH = resolve(ROOT, '.sutura/placebo-v0.3.0-live.lock');
-const ARTIFACT_ROOT = resolve(ROOT, '.sutura/placebo-v0.3.0-live-artifacts');
+const LEDGER_PATH = resolve(ROOT, '.sutura/placebo-v0.3.1-live-ledger.json');
+const LOCK_PATH = resolve(ROOT, '.sutura/placebo-v0.3.1-live.lock');
+const ARTIFACT_ROOT = resolve(ROOT, '.sutura/placebo-v0.3.1-live-artifacts');
 const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024;
 const OUTCOMES = new Set(['fixed', 'flaky-no-patch', 'refused', 'gave-up', 'infra-stop']);
 const KIND_ORDER = new Map([['flaky', 0], ['trap', 1], ['upstream', 2], ['repairable', 3]]);
@@ -945,7 +945,7 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
     const artifacts = await Promise.all(artifactFiles.map(async (name) =>
       JSON.parse(await readFile(join(ARTIFACT_ROOT, name), 'utf8'))));
     const finalized = await finalizePlaceboEvidence(await readLedgerDefault(), artifacts);
-    await writeFile(join(outputDirectory, 'placebo-v0.3.0-live.json'), `${canonicalJson(finalized)}\n`, {
+    await writeFile(join(outputDirectory, 'placebo-v0.3.1-live.json'), `${canonicalJson(finalized)}\n`, {
       encoding: 'utf8', flag: 'wx',
     });
     return finalized;
