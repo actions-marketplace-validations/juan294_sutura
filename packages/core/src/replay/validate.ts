@@ -16,7 +16,7 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 const RUN_ID = /^[1-9]\d*$/u;
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u;
 const OUTCOMES = new Set(['fixed', 'flaky-no-patch', 'refused', 'gave-up', 'infra-stop']);
-const HTTP_BOUNDARIES = new Set(['nebius', 'tavily', 'contree', 'openai']);
+const HTTP_BOUNDARIES = new Set(['nebius', 'tavily', 'contree', 'openai', 'typesafe']);
 const REPLAY_BOUNDARIES = new Set(['github', 'repository', 'executor', ...HTTP_BOUNDARIES]);
 const REQUIRED_REPLAY_BOUNDARIES = new Set(['github', 'repository', 'executor', 'nebius', 'contree']);
 const OVERFLOW_BOUNDARIES = new Set([...REPLAY_BOUNDARIES, 'http', 'configuration']);
@@ -399,7 +399,7 @@ function validateRepairBudgets(value: unknown, path: string): void {
       budgets[key],
       `${path}.${key}`,
       maximum,
-      key !== 'inferenceCostUsd' && key !== 'secondOpinionUsd',
+      key !== 'inferenceCostUsd' && key !== 'secondOpinionUsd' && key !== 'typesafeAuditUsd',
     );
   }
 }

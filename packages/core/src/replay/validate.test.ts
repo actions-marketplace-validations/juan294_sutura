@@ -84,11 +84,28 @@ describe('parseReplayBundle', () => {
     expect(parseReplayBundle(value)).toEqual(value);
   });
 
+  it('accepts a complete bundle when the optional TypeSafe Jev calibrated audit did not run', () => {
+    const value = clone(complete);
+    value.http = value.http.filter((exchange) => exchange.boundary !== 'typesafe');
+    expect(parseReplayBundle(value)).toEqual(value);
+  });
+
   it('accepts an openai HTTP exchange', () => {
     const value = clone(PARTIAL);
     value.http = [{
       boundary: 'openai', sequence: 1,
       request: { method: 'POST', url: 'https://api.openai.com/v1/chat/completions', headers: {}, body: '{}' },
+      response: { status: 200, headers: {}, body: '{}' },
+      latencyMs: 12,
+    }];
+    expect(parseReplayBundle(value)).toEqual(value);
+  });
+
+  it('accepts a typesafe HTTP exchange', () => {
+    const value = clone(PARTIAL);
+    value.http = [{
+      boundary: 'typesafe', sequence: 1,
+      request: { method: 'POST', url: 'https://api.typesafe.ai/v1/systemone', headers: {}, body: '{}' },
       response: { status: 200, headers: {}, body: '{}' },
       latencyMs: 12,
     }];
