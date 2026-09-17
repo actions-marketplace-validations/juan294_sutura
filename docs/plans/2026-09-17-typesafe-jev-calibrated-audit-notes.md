@@ -142,3 +142,21 @@
 - **Why:** the manifest README allows reconciling a pending entry only against the
   exact run and measured cost; the measured cost of a dispatch that never reached
   GitHub is zero, and that is proven rather than assumed.
+
+### Phase 4: infrastructure stop on `trap-snapshot-acceptance`, continued by decision
+
+- **Found:** at case 24 of 51 the case run (35221136830) ended with outcome
+  `infra-stop`: Nemotron Nano returned an invalid diagnosis response and the CLI
+  stopped before any sandbox work. The artifact records USD 0 inference and sandbox
+  with an empty ledger; the accounting kept the USD 1.00 reservation pending because
+  an infra-stop's cost is unknown by rule, and the manifest stop policy ends the
+  streak on any infra stop.
+- **Chose (Juan approved 2026-09-17):** settle the reservation at the artifact's
+  recorded cost (USD 0) with a `reconciliations` record naming the run, the cause
+  and the recorded figures; continue the remaining cases with
+  `SUTURA_ALLOW_INFRA_STOP_LEDGER=1`. The infra-stop entry stays in the ledger and
+  in the release evidence, disclosed as a Nano provider failure unrelated to the
+  Astra or Jev voices, which were never reached.
+- **Why:** the tooling's own comment distinguishes a single transient provider error
+  from a degraded environment and makes continuing an explicit operator decision;
+  the decision and its evidence are recorded here rather than left implicit.
