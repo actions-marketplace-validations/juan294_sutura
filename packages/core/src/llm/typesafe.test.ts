@@ -24,6 +24,9 @@ const QUESTIONS: Record<string, TypeSafeQuestion> = {
 
 const STATE = { diagnosis: 'test-assertion', candidateDiff: 'diff --git a/x b/x\n' };
 
+/** The resolved model id the vendor actually routed to, distinct from the requested alias -- matches the live fixtures. */
+const RESOLVED_MODEL = 'jev-1.13.0';
+
 function response(
   body: unknown,
   status = 200,
@@ -51,10 +54,10 @@ function response(
 
 function successBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    model: TYPESAFE_AUDIT_MODEL,
+    model: RESOLVED_MODEL,
     answers: {
-      verdict: { choice: 'legitimate_repair', probabilities: { legitimate_repair: 0.9, green_wash: 0.1 }, confidence: 0.95 },
-      touches_only_tests: { noul: 0.02 },
+      verdict: { type: 'choice', choice: 'legitimate_repair', probabilities: { legitimate_repair: 0.9, green_wash: 0.1 }, confidence: 0.95 },
+      touches_only_tests: { type: 'noul', noul: 0.02 },
     },
     usage: { input_tokens: 900, output_tokens: 0 },
     ...overrides,
@@ -83,7 +86,7 @@ describe('TypeSafeClient', () => {
     expect(fetch.mock.calls[0]?.[0]).toBe('https://api.typesafe.ai/v1/systemone');
   });
 
-  it('records usage on the ledger as an ultra jev-latest entry at the Jev price', async () => {
+  it('records usage on the ledger under the resolved model id, not the requested alias', async () => {
     const fetch = vi.fn().mockResolvedValue(response(successBody()));
     const ledger = new Ledger(DEFAULT_MODEL_PRICES);
     const decision = await client({ fetch }, ledger).decide(STATE, QUESTIONS);
@@ -91,7 +94,7 @@ describe('TypeSafeClient', () => {
     const expectedUsd = calculateModelCostUsd(TYPESAFE_PRICE, { inTok: 900, outTok: 0, reasoningTok: 0 });
     expect(ledger.entries).toEqual([{
       role: 'ultra',
-      model: TYPESAFE_AUDIT_MODEL,
+      model: RESOLVED_MODEL,
       inTok: 900,
       outTok: 0,
       reasoningTok: 0,
@@ -99,7 +102,8 @@ describe('TypeSafeClient', () => {
     }]);
     expect(decision.usd).toBe(expectedUsd);
     expect(decision.usage).toEqual({ inTok: 900, outTok: 0, reasoningTok: 0 });
-    expect(decision.model).toBe(TYPESAFE_AUDIT_MODEL);
+    expect(decision.model).toBe(RESOLVED_MODEL);
+    expect(decision.model).not.toBe(TYPESAFE_AUDIT_MODEL);
     expect(decision.answers.verdict).toEqual({
       type: 'choice',
       choice: 'legitimate_repair',
@@ -140,7 +144,7 @@ describe('TypeSafeClient', () => {
     const sleep = vi.fn().mockResolvedValue(undefined);
 
     await expect(client({ fetch, sleep, random: () => 0 }).decide(STATE, QUESTIONS))
-      .resolves.toMatchObject({ model: TYPESAFE_AUDIT_MODEL });
+      .resolves.toMatchObject({ model: RESOLVED_MODEL });
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
@@ -166,12 +170,28 @@ describe('TypeSafeClient', () => {
   }, 30_000);
 
   it.each([
-    ['an out-of-range probability', { verdict: { choice: 'legitimate_repair', probabilities: { legitimate_repair: -0.2, green_wash: 1.2 }, confidence: 0.9 }, touches_only_tests: { noul: 0.02 } }],
-    ['a choice not present in its probabilities', { verdict: { choice: 'unknown_option', probabilities: { legitimate_repair: 0.9, green_wash: 0.1 }, confidence: 0.9 }, touches_only_tests: { noul: 0.02 } }],
+    ['an out-of-range probability', { verdict: { type: 'choice', choice: 'legitimate_repair', probabilities: { legitimate_repair: -0.2, green_wash: 1.2 }, confidence: 0.9 }, touches_only_tests: { type: 'noul', noul: 0.02 } }],
+    ['a choice not present in its probabilities', { verdict: { type: 'choice', choice: 'unknown_option', probabilities: { legitimate_repair: 0.9, green_wash: 0.1 }, confidence: 0.9 }, touches_only_tests: { type: 'noul', noul: 0.02 } }],
   ])('throws TypeSafeResponseError for %s', async (_label, answers) => {
     const fetch = vi.fn().mockResolvedValue(response(successBody({ answers })));
     const error = await client({ fetch }).decide(STATE, QUESTIONS).catch((cause: unknown) => cause);
     expect(error).toBeInstanceOf(TypeSafeResponseError);
+  });
+
+  it('throws TypeSafeResponseError naming both types when an answer type does not match its question', async () => {
+    const fetch = vi.fn().mockResolvedValue(response(successBody({
+      answers: {
+        verdict: { type: 'noul', noul: 0.5 },
+        touches_only_tests: { type: 'noul', noul: 0.02 },
+      },
+    })));
+
+    const error = await client({ fetch }).decide(STATE, QUESTIONS).catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(TypeSafeResponseError);
+    expect((error as Error).message).toContain('answers.verdict.type');
+    expect((error as Error).message).toContain('"noul"');
+    expect((error as Error).message).toContain('"choice"');
   });
 
   it('throws TypeSafeResponseError when usage is missing', async () => {
@@ -192,12 +212,15 @@ describe('TypeSafeClient', () => {
 
     const decision = await client({ fetch }, ledger).decide(STATE, fixture.request.questions);
 
-    expect(decision.model.length).toBeGreaterThan(0);
+    // The vendor resolves the "jev-latest" alias sent in the request to this
+    // concrete snapshot; the ledger and the decision must both record it, not
+    // the alias, since the calibration probe is only valid for this snapshot.
+    expect(decision.model).toBe(RESOLVED_MODEL);
     expect(decision.usage.inTok).toBeGreaterThan(0);
     expect(decision.usd).toBe(calculateModelCostUsd(TYPESAFE_PRICE, decision.usage));
     expect(ledger.entries).toEqual([{
       role: 'ultra',
-      model: TYPESAFE_AUDIT_MODEL,
+      model: RESOLVED_MODEL,
       ...decision.usage,
       usd: decision.usd,
     }]);

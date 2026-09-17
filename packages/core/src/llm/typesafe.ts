@@ -130,6 +130,11 @@ function parseAnswer(id: string, question: TypeSafeQuestion, raw: unknown): Type
     throw new TypeSafeResponseError(`Missing or invalid answer "${id}" in TypeSafe response`);
   }
   const value = raw as Record<string, unknown>;
+  if (value.type !== question.type) {
+    throw new TypeSafeResponseError(
+      `answers.${id}.type "${String(value.type)}" does not match its question type "${question.type}" in TypeSafe response`,
+    );
+  }
   if (question.type === 'noul') {
     return { type: 'noul', noul: unitInterval(value.noul, `answers.${id}.noul`) };
   }
@@ -322,7 +327,7 @@ export class TypeSafeClient implements TypeSafeAuditClient {
     const inTok = nonNegativeInteger(response.usage?.input_tokens, 'usage.input_tokens');
     const outTok = nonNegativeInteger(response.usage?.output_tokens, 'usage.output_tokens');
     const usage = { inTok, outTok, reasoningTok: 0 as const };
-    const entry = this.ledger.add('ultra', this.model, usage, TYPESAFE_PRICE);
+    const entry = this.ledger.add('ultra', response.model, usage, TYPESAFE_PRICE);
     return {
       model: response.model,
       answers,
