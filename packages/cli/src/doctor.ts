@@ -188,6 +188,9 @@ export async function doctorSutura(
     if (secrets.has('OPENAI_API_KEY')) {
       lines.push(line(true, 'Optional GitHub secret OPENAI_API_KEY is configured.'));
     }
+    if (secrets.has('TYPESAFE_API_KEY')) {
+      lines.push(line(true, 'Optional GitHub secret TYPESAFE_API_KEY is configured.'));
+    }
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     lines.push(line(false, `GitHub configuration could not be inspected: ${detail}`));

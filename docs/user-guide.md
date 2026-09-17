@@ -40,6 +40,8 @@ export NEBIUS_API_KEY="..."
 export CONTREE_TOKEN="..."
 export CONTREE_PROJECT="..."
 export TAVILY_API_KEY="..."
+export OPENAI_API_KEY="..."
+export TYPESAFE_API_KEY="..."
 ```
 
 Then generate and inspect the workflow:
@@ -174,11 +176,14 @@ putting it in the command line:
 gh secret set NEBIUS_API_KEY
 gh secret set CONTREE_TOKEN
 gh secret set TAVILY_API_KEY
+gh secret set OPENAI_API_KEY
+gh secret set TYPESAFE_API_KEY
 gh variable set CONTREE_PROJECT
 npx sutura@0.3.1 doctor
 ```
 
-Omit Tavily when the installation uses `--no-tavily`.
+Omit Tavily when the installation uses `--no-tavily`. `OPENAI_API_KEY` and
+`TYPESAFE_API_KEY` are optional.
 
 ## Remove Sutura
 
@@ -199,6 +204,8 @@ repository secrets and variables:
 gh secret delete NEBIUS_API_KEY
 gh secret delete CONTREE_TOKEN
 gh secret delete TAVILY_API_KEY
+gh secret delete OPENAI_API_KEY
+gh secret delete TYPESAFE_API_KEY
 gh variable delete CONTREE_PROJECT
 gh variable delete SUTURA_DISABLED
 ```
@@ -221,8 +228,8 @@ Run the command from the repository root. Confirm that
 ### `doctor` reports a missing secret or variable
 
 Configure the named value with `gh secret set` or `gh variable set`, then run
-`doctor` again. `TAVILY_API_KEY` is optional; the other reported credentials
-are required.
+`doctor` again. `TAVILY_API_KEY`, `OPENAI_API_KEY`, and `TYPESAFE_API_KEY` are
+optional; the other reported credentials are required.
 
 ### The monitor does not run
 

@@ -66,6 +66,26 @@ an incomplete record as an honest attempted session, but do not pass it to the
 terminal three-valid-session finalizer or recruit a replacement beyond the
 three-person cap without fresh authorization.
 
+## GPT-6 Astra second opinion
+
+The optional veto-only second opinion sends the same bounded, redacted context
+the Nemotron audit receives. It is optional: absent `OPENAI_API_KEY`, no
+request is made.
+
+## TypeSafe Jev calibrated audit
+
+The optional veto-only calibrated audit sends the same bounded, redacted
+context the Nemotron and Astra audits receive. Facts read from the vendor on
+2026-09-17: TypeSafe's services are hosted in the United States; its privacy
+policy commits not to train on inputs and not to disclose inputs beyond
+service providers; retention is "as long as reasonably necessary" with no
+stated period; a Data Processing Addendum is published at
+[typesafe.ai/legal/data-processing](https://typesafe.ai/legal/data-processing)
+and the sub-processor list at
+[trust.typesafe.ai/subprocessors](https://trust.typesafe.ai/subprocessors); no
+zero-data-retention option is published. It is optional: absent
+`TYPESAFE_API_KEY`, no request is made.
+
 ## Threat summary
 
 - Pattern redaction is not secret scanning; ordinary-looking confidential text

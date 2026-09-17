@@ -76,12 +76,13 @@ workflow artifact.
 
 ## Runtime roles
 
-| Service | Runtime role |
-| --- | --- |
-| NVIDIA Nemotron on Nebius Token Factory | Nano classifies the failure, Super proposes repairs, and Ultra audits evidence that static checks cannot judge. This is the runtime model; nothing dilutes it. |
-| GPT-6 Astra (optional second opinion) | A different provider re-runs the same adversarial audit as a veto-only check when `OPENAI_API_KEY` is configured. It can only reject a Nemotron approval, never approve one; absent, failed, timed out, or over its own USD 0.30 budget, it is recorded `skipped` and the run proceeds on Nemotron alone. |
-| Nebius ConTree Sandboxes | Prepares dependencies once, snapshots the filesystem, and runs isolated triage, adaptive search, and audit branches. |
-| Tavily | Grounds upstream dependency diagnoses in release and migration sources. It is optional for non-upstream cases and for the benchmark ablation. |
+| Service                                  | Runtime role                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NVIDIA Nemotron on Nebius Token Factory  | Nano classifies the failure, Super proposes repairs, and Ultra audits evidence that static checks cannot judge. This is the runtime model; nothing dilutes it.                                                                                                                                                                                                                                                                                                            |
+| GPT-6 Astra (optional second opinion)    | A different provider re-runs the same adversarial audit as a veto-only check when `OPENAI_API_KEY` is configured. It can only reject a Nemotron approval, never approve one; absent, failed, timed out, or over its own USD 0.30 budget, it is recorded `skipped` and the run proceeds on Nemotron alone.                                                                                                                                                                 |
+| TypeSafe Jev (optional calibrated audit) | A System One decision model answers the same adversarial question as a typed choice with calibrated probabilities when `TYPESAFE_API_KEY` is configured. It can only reject a Nemotron approval (P(green-wash) at or above 0.5 at confidence at or above 0.7), never approve one; uncertain, absent, failed, or over its own USD 0.02 budget, it is recorded and the run proceeds on the other gates. Thresholds were measured on 88 labeled Placebo diffs on 2026-09-17. |
+| Nebius ConTree Sandboxes                 | Prepares dependencies once, snapshots the filesystem, and runs isolated triage, adaptive search, and audit branches.                                                                                                                                                                                                                                                                                                                                                      |
+| Tavily                                   | Grounds upstream dependency diagnoses in release and migration sources. It is optional for non-upstream cases and for the benchmark ablation.                                                                                                                                                                                                                                                                                                                             |
 
 The report identifies the model calls that actually occurred. Cost is reported
 as **inference cost** from the token ledger. Each entry keeps the abstract
@@ -227,7 +228,7 @@ Export the values only in your current shell. The installer sends secret values
 to GitHub through standard input. It does not write them into repository files.
 
 Set `NEBIUS_API_KEY`, `CONTREE_TOKEN`, `CONTREE_PROJECT`, and optional
-`TAVILY_API_KEY` in your environment. Then run these commands:
+`TAVILY_API_KEY`, `OPENAI_API_KEY`, and `TYPESAFE_API_KEY` in your environment. Then run these commands:
 
 ```bash
 npx sutura@0.3.1 init
@@ -281,6 +282,7 @@ Prerequisites: Git, Node.js 22 or later, and pnpm 11.22.0. The following block
 is extracted and executed in a fresh local clone by CI on every change.
 
 <!-- sutura:verify-setup -->
+
 ```bash
 git clone https://github.com/juan294/sutura.git
 cd sutura
@@ -290,14 +292,14 @@ pnpm run build
 
 Run the complete local gate before you open a pull request:
 
-| Check | Command |
-| --- | --- |
-| Types | `pnpm run typecheck` |
-| Lint | `pnpm run lint` |
-| Tests | `pnpm run test` |
-| Build | `pnpm run build` |
+| Check             | Command                           |
+| ----------------- | --------------------------------- |
+| Types             | `pnpm run typecheck`              |
+| Lint              | `pnpm run lint`                   |
+| Tests             | `pnpm run test`                   |
+| Build             | `pnpm run build`                  |
 | Release contracts | `pnpm run test:release-contracts` |
-| Candidate package | `pnpm run test:package` |
+| Candidate package | `pnpm run test:package`           |
 
 Live tests are opt-in with `SUTURA_LIVE=1` and require the corresponding
 credentials. Normal tests use recorded fixtures and do not spend API credit.
@@ -417,8 +419,9 @@ explicit Data Lab dataset transient. Read the
 ## GitHub Action configuration
 
 The action needs `actions: read`, `checks: write`, `contents: write`, and `pull-requests: write`.
-Configure `NEBIUS_API_KEY`, `CONTREE_TOKEN`, and optional `TAVILY_API_KEY` as
-repository secrets. Configure `CONTREE_PROJECT` as a repository variable. The
+Configure `NEBIUS_API_KEY`, `CONTREE_TOKEN`, and optional `TAVILY_API_KEY`,
+`OPENAI_API_KEY`, and `TYPESAFE_API_KEY` as repository secrets. Configure
+`CONTREE_PROJECT` as a repository variable. The
 checked-in [workflow](.github/workflows/sutura.yml) shows the complete wiring.
 Pin external use to an exact commit SHA so replay evidence can identify the
 executed Action code rather than the consumer workflow commit.
