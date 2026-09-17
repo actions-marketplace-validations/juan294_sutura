@@ -42,3 +42,15 @@
   reviewed diff and the launch time-box is fixed.
 - **Why:** both are pre-existing duplication this diff extends rather than creates;
   they are recorded here as follow-ups for v0.3.2.
+
+### Phase 2: the Action bundle is rebuilt on the integration branch, not in Phase 3
+
+- **Plan said:** Phase 2 does not rebuild `packages/action/dist/index.cjs`; Phase 3
+  rebuilds it once.
+- **Found:** `scripts/verify-bundle.mjs` (in `ci:fast`, `ci:local`, and `ci.yml`)
+  fails whenever the committed bundle lags the source, and Phase 2 changed
+  `packages/action/src/input.ts`; `ci:local` on the merged branch stopped there.
+- **Chose:** rebuild and commit the bundle on `jev-phases-1-2` before review; Phase 3
+  rebuilds it again with its own changes.
+- **Why:** `.claude/rules/ci-parity.md` requires the bundle in the same commit as any
+  core or action source change; deferring it would have left the branch unpushable.
