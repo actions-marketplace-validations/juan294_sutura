@@ -2,7 +2,7 @@
 
 Plan: [2026-09-17-typesafe-jev-calibrated-audit.md](../2026-09-17-typesafe-jev-calibrated-audit.md)
 
-Status: done on branch `jev-phases-1-2` (core `60edd7d`, surfaces `678e37e`, both reviewed); simplify pass and `ci:local` pending, then STOP for review.
+Status: done on branch `jev-phases-1-2` (core `60edd7d`, surfaces `678e37e`, both reviewed); simplify pass applied (`e679ad3`); `ci:local` green except the pre-existing local Placebo self-check failure recorded in the notes. Awaiting review before Phase 4.
 
 ## Goal
 
