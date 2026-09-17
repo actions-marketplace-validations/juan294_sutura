@@ -2,7 +2,7 @@
 
 Plan: [2026-09-17-typesafe-jev-calibrated-audit.md](../2026-09-17-typesafe-jev-calibrated-audit.md)
 
-Status: not started. Depends on Phase 3 pushed and green.
+Status: Part A done (tag `v0.3.1` on `e724f3b`, GitHub release, npm 0.3.1). Part B: benchmark complete 2026-09-17 (51/51, zero false approvals, two infra-stops disclosed, optional voices unexercised by the benchmark workflow), Case Lab bumped; publish-demo, deploy, re-enable and smoke pending authorization.
 
 Template: `docs/plans/2026-09-15-launch-readiness-v0.3.1-phases/phase-4.md`,
 resumed with Jev included and its stale premises corrected. Paid and

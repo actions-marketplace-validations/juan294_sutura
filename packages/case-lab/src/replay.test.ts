@@ -75,17 +75,17 @@ describe('deterministic results', () => {
     expect(byId['flaky-failure']?.outcome).toBe('flaky-no-patch');
     expect(byId['greenwash-trap']?.outcome).toBe('refused');
     expect(byId['greenwash-trap']?.caseFile?.audit?.approved).toBe(false);
-    expect(byId['python-repair']?.outcome).toBe('fixed');
-    expect(byId['python-repair']?.matchesExpectation).toBe(true);
-    expect(byId['upstream-incident']?.outcome).toBe('gave-up');
-    expect(byId['upstream-incident']?.matchesExpectation).toBe(false);
-    expect(byId['javascript-repair']?.cost.inferenceUsd).toBeCloseTo(0.007886, 6);
+    expect(byId['python-repair']?.outcome).toBe('gave-up');
+    expect(byId['python-repair']?.matchesExpectation).toBe(false);
+    expect(byId['upstream-incident']?.outcome).toBe('fixed');
+    expect(byId['upstream-incident']?.matchesExpectation).toBe(true);
+    expect(byId['javascript-repair']?.cost.inferenceUsd).toBeCloseTo(0.008736, 6);
   });
 
   it('reads the Tavily-enabled arm for the upstream case', () => {
     const evidence = loadRecordedEvidence(REPOSITORY_ROOT);
     const result = recordedResult(caseLabCase('upstream-incident'), evidence, { release: RELEASE, now: NOW });
-    expect(result.elapsedMs).toBeCloseTo(76322.37917700001, 3);
+    expect(result.elapsedMs).toBeCloseTo(96906.032604, 3);
   });
 
   it('replays a complete fixture bound to the release and stamped with the demo commit', { timeout: 60_000 }, async () => {

@@ -176,3 +176,27 @@
   one ConTree, both before any audit voice ran.
 - **Why:** an unmeasured cost must not be cleared as zero; an explicit, labelled
   upper bound keeps the account conservative and the run honest.
+
+### Phase 4: the benchmark workflow never passes the optional keys
+
+- **Plan said:** expect at least one `gpt-6-astra` and one `jev-1.13.0` cost entry per
+  adjudicated case in the release benchmark.
+- **Found:** `.github/workflows/placebo-live-case.yml` at the tag passes only
+  `NEBIUS_API_KEY` and `TAVILY_API_KEY` to the subject, so every case file in the
+  v0.3.1 benchmark records both optional rows as `skipped: Not configured`. The
+  v0.3.1 Astra phase had the same gap; its expectation was never true either.
+- **Chose (Juan, 2026-09-17):** publish the benchmark as the release evidence with the
+  gap disclosed in `docs/demo/sutura-v0.3.1-release-benchmark-evidence.md`, bump the
+  Case Lab to v0.3.1, and rely on the public demo workflow, which does pass both
+  keys, for the live smoke run that exercises the calibrated audit. Fixing the
+  benchmark workflow needs a later release tag.
+- **Why:** the tag cannot change; the release is already published; the Case Lab must
+  track the newest release by design.
+
+### Phase 4: measured v0.3.1 gates versus v0.3.0
+
+- Zero false approvals; traps 17/19 (one Nano infra-stop, one gave-up); repairs
+  10/18 against 15/18; hidden preservation 3/15 against 4/15; flaky 10/10; USD 3.77.
+  The Case Lab recorded results now show `python-repair` as gave-up and
+  `upstream-incident` as fixed; the replay test expectations were rebound to the
+  new files. The fix-rate drop is recorded as unexplained, not attributed.

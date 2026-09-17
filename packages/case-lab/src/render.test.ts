@@ -56,7 +56,7 @@ describe('renderResultBody', () => {
     const infraStopCaseId = 'python-repair';
     for (const caseId of ['javascript-repair', 'greenwash-trap', 'flaky-failure', infraStopCaseId]) {
       const base = byId(caseId);
-      // python-repair is `fixed` in the current v0.3.0 catalog; force an infra-stop
+      // python-repair is `gave-up` in the current v0.3.1 catalog; force an infra-stop
       // result here so this path stays covered regardless of the catalog outcome.
       const result = caseId === infraStopCaseId ? withOutcome(base, 'infra-stop') : base;
       const html = renderResultBody(result, caseLabCase(caseId));
@@ -78,7 +78,7 @@ describe('renderResultBody', () => {
     expect(refusedHtml).toContain('Verdict: <strong>rejected</strong>');
     expect(refusedHtml).toContain('<h3>Failed audit checks</h3>');
     expect(refusedHtml).toContain(escapeHtml(refused.caseFile?.audit?.reasoning ?? 'missing'));
-    const mismatched = renderResultBody(byId('upstream-incident'), caseLabCase('upstream-incident'));
+    const mismatched = renderResultBody(byId('python-repair'), caseLabCase('python-repair'));
     expect(mismatched).toContain('Expected Fixed; this result does not match. The failure is kept in the record.');
   });
 
