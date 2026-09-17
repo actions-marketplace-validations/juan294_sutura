@@ -183,7 +183,51 @@ constructed only with the key (mirror the Astra assertions).
   veto-only, the two thresholds and their measured basis, why `uncertain` does
   not block, why routing does not consume the confidence yet.
 
-### 8. Dist
+### 8. Replay reconstructs the optional audit clients — `replay/replay-orchestrate.ts`
+
+VERIFIED 2026-09-17: `replay-orchestrate.ts:86-90` puts every non-`contree`
+exchange into one shared HTTP cursor, `:111-118` builds only the Nebius and
+Tavily replay clients, and `:155` calls `assertConsumed()` with no `optional`
+predicate. A bundle recorded with `OPENAI_API_KEY` set therefore cannot replay
+today: the run passes `secondOpinion: undefined`, the `openai` exchange is never
+consumed, and replay throws `ReplayMismatchError` "openai remains". No committed
+bundle carries an `openai` exchange, which is why nothing has caught it. Case
+Lab renders live results by replaying their bundles, so Phase 4's smoke result
+would fail to publish without this fix.
+
+```ts
+const hasBoundary = (boundary: RecordedHttpBoundary) =>
+  validated.http.some((exchange) => exchange.boundary === boundary);
+const secondOpinion = hasBoundary("openai")
+  ? new OpenAiClient(
+      { apiKey: "replay-only", ledger: llm.ledger },
+      { fetch: replayFetch(validated, "openai", httpCursor) },
+    )
+  : undefined;
+const typesafeAudit = hasBoundary("typesafe")
+  ? new TypeSafeClient(
+      { apiKey: "replay-only", ledger: llm.ledger },
+      { fetch: replayFetch(validated, "typesafe", httpCursor) },
+    )
+  : undefined;
+// orchestrate({ ..., ...(secondOpinion ? { secondOpinion } : {}), ...(typesafeAudit ? { typesafeAudit } : {}) })
+```
+
+Tests (`replay-orchestrate.test.ts`, pattern of "replays every recorded
+boundary through the real offline orchestration path" at `:80`): a synthetic
+bundle with one `openai` and one `typesafe` exchange replays to the recorded
+outcome and both cursors report consumed; a bundle without them still replays
+(the clients are not constructed). The `packages/cli/src/replay.ts` and
+`packages/case-lab/src/replay.ts` callers need no change.
+
+### 9. Evidence line label — `packages/action/src/evidence.ts:22`
+
+The line is labeled `Nemotron runtime:` but groups every ledger entry by role
+and model, so it already prints `ultra=gpt-6-astra` and will print
+`ultra=jev-latest`. Relabel it `Model runtime:`; update the assertion in
+`packages/action/src/evidence.test.ts` (or wherever the string is asserted).
+
+### 10. Dist
 
 `pnpm run build` → `packages/action/dist/index.cjs` rebuilt and committed in
 the same commit as the wiring.
@@ -197,6 +241,7 @@ the same commit as the wiring.
   4. Jev refuses but Nemotron already refused → gate failed, reasoning is Nemotron's, Jev row still recorded.
   5. Fresh rerun fails → `typesafe-audit` "Not run" row present.
 - `audit-report.test.ts:31-62`: expected rows += `| typesafe-audit | PASS | jev-latest: skipped: Not configured: TYPESAFE\_API\_KEY absent |`.
+- `replay-orchestrate.test.ts`: the two cases in §8.
 - `heal.test.ts` or `trace/recorder.test.ts`: `tracedTypeSafeAudit` records one `model-request` and one `model-response` with `stage: 'audit'`, `model: 'jev-latest'`, `costUsd` and `latencyMs` from the decision.
 - `packages/action/src/main.test.ts`, `packages/cli/src/setup.test.ts`, `doctor.test.ts`, `packages/case-lab/src/dispatcher.test.ts` updated as listed.
 

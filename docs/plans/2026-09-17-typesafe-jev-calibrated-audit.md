@@ -111,7 +111,9 @@ context builder) and `packages/core/src/index.ts`. Phase 2 edits
 `domain.ts`, `verification/runtime.ts`, `audit-only.ts`, `heal.ts`,
 `orchestrate.ts`, `verification/external.ts`, `packages/action/src/main.ts`,
 `verify-execution.ts`, `packages/cli/src/heal.ts`, `setup.ts`, `doctor.ts`,
-Case Lab secret lists, the demo workflow, docs, and `packages/action/dist/index.cjs`.
+Case Lab secret lists, the demo workflow, docs, `replay/replay-orchestrate.ts`
+(replay must reconstruct the optional `openai` and `typesafe` clients, a latent
+v0.3.1 gap), `packages/action/src/evidence.ts`, and `packages/action/dist/index.cjs`.
 
 ## Schedule (Europe/Madrid, 2026-09-17)
 
