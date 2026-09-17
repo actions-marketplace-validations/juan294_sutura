@@ -2,7 +2,7 @@
 
 Date: 2026-09-17 (Thursday, early morning CEST)
 
-Status: Planned. No phase started.
+Status: Phases 1 and 2 done on `jev-phases-1-2` (2026-09-17), awaiting review before Phase 3. Deviations in `2026-09-17-typesafe-jev-calibrated-audit-notes.md`.
 
 Owner: Juan
 

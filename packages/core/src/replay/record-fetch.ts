@@ -16,6 +16,7 @@ import {
   boundedText,
   rawBody,
   type RecordedBody,
+  type RecordedHttpBoundary,
   type RecordedHttpExchange,
   type ReplayRecorder,
 } from './bundle.js';
@@ -164,15 +165,17 @@ function recordedBodyReader(
   };
 }
 
-export function recordingNebiusFetch(
+/** One recorder for every OpenAI-shaped HTTP boundary; the boundary name is the only difference between them. */
+function recordingHttpFetch(
+  boundary: Exclude<RecordedHttpBoundary, 'contree' | 'tavily'>,
   recorder: ReplayRecorder,
   fetch: NebiusFetch,
 ): NebiusFetch {
   return async (input: string, init: HttpRequestInit): Promise<HttpResponse> => {
-    const sequence = recorder.reserveHttpSequence('nebius');
+    const sequence = recorder.reserveHttpSequence(boundary);
     const startedAt = Date.now();
     const request = {
-      boundary: 'nebius' as const,
+      boundary,
       request: {
         method: init.method,
         url: input,
@@ -213,108 +216,27 @@ export function recordingNebiusFetch(
       text: body.text,
     };
   };
+}
+
+export function recordingNebiusFetch(
+  recorder: ReplayRecorder,
+  fetch: NebiusFetch,
+): NebiusFetch {
+  return recordingHttpFetch('nebius', recorder, fetch);
 }
 
 export function recordingOpenAiFetch(
   recorder: ReplayRecorder,
   fetch: NebiusFetch,
 ): NebiusFetch {
-  return async (input: string, init: HttpRequestInit): Promise<HttpResponse> => {
-    const sequence = recorder.reserveHttpSequence('openai');
-    const startedAt = Date.now();
-    const request = {
-      boundary: 'openai' as const,
-      request: {
-        method: init.method,
-        url: input,
-        headers: objectHeaders(init.headers),
-        body: boundedText(init.body),
-      },
-    };
-    let response: HttpResponse;
-    try {
-      response = await fetch(input, init);
-    } catch (error) {
-      recorder.recordHttp({
-        ...request,
-        response: { transportError: errorMessage(error) },
-        latencyMs: Date.now() - startedAt,
-      }, sequence);
-      throw error;
-    }
-    const record = recordResponseOnce(
-      recorder,
-      request,
-      startedAt,
-      response,
-      selectedHeaders(response.headers),
-      sequence,
-    );
-    const body = recordedBodyReader(
-      recorder,
-      record,
-      responseBytes(response),
-      response,
-    );
-    return {
-      ok: response.ok,
-      status: response.status,
-      headers: response.headers,
-      json: body.json,
-      text: body.text,
-    };
-  };
+  return recordingHttpFetch('openai', recorder, fetch);
 }
 
 export function recordingTypeSafeFetch(
   recorder: ReplayRecorder,
   fetch: NebiusFetch,
 ): NebiusFetch {
-  return async (input: string, init: HttpRequestInit): Promise<HttpResponse> => {
-    const sequence = recorder.reserveHttpSequence('typesafe');
-    const startedAt = Date.now();
-    const request = {
-      boundary: 'typesafe' as const,
-      request: {
-        method: init.method,
-        url: input,
-        headers: objectHeaders(init.headers),
-        body: boundedText(init.body),
-      },
-    };
-    let response: HttpResponse;
-    try {
-      response = await fetch(input, init);
-    } catch (error) {
-      recorder.recordHttp({
-        ...request,
-        response: { transportError: errorMessage(error) },
-        latencyMs: Date.now() - startedAt,
-      }, sequence);
-      throw error;
-    }
-    const record = recordResponseOnce(
-      recorder,
-      request,
-      startedAt,
-      response,
-      selectedHeaders(response.headers),
-      sequence,
-    );
-    const body = recordedBodyReader(
-      recorder,
-      record,
-      responseBytes(response),
-      response,
-    );
-    return {
-      ok: response.ok,
-      status: response.status,
-      headers: response.headers,
-      json: body.json,
-      text: body.text,
-    };
-  };
+  return recordingHttpFetch('typesafe', recorder, fetch);
 }
 
 export function recordingTavilyFetch(

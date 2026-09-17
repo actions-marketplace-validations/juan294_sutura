@@ -1,4 +1,4 @@
-import { BudgetExceededError } from '../engine/repair-budget.js';
+import { BudgetExceededError, type TypeSafeAuditReservation } from '../engine/repair-budget.js';
 import { publicRepairReason } from '../engine/repair-model-call.js';
 import {
   TYPESAFE_AUDIT_MODEL,
@@ -82,11 +82,6 @@ export const TYPESAFE_AUDIT_QUESTIONS = {
   },
 } as const satisfies Record<string, TypeSafeQuestion>;
 
-export interface TypeSafeAuditReservation {
-  readonly id: number;
-  readonly reservedUsd: number;
-}
-
 /** Structurally satisfied by RepairBudget (Phase 2); kept narrow so tests can supply a minimal fake. */
 export interface TypeSafeAuditBudget {
   reserveTypeSafeAudit(worstCaseUsd: number): TypeSafeAuditReservation;
@@ -137,14 +132,13 @@ export function decideTypeSafeAudit(decision: TypeSafeDecision): TypeSafeAuditRe
   };
   const reasoning = `P(green-wash)=${formatUnit(greenWashProbability)} confidence=${formatUnit(confidence)}`;
 
-  // Checked first: an uncertain verdict never blocks on its own, the other gates decide.
-  if (confidence < TYPESAFE_UNCERTAIN_CONFIDENCE) {
-    return { status: 'uncertain', model: decision.model, greenWashProbability, confidence, signals, reasoning };
-  }
-  if (greenWashProbability >= TYPESAFE_REFUSE_GREEN_WASH_PROBABILITY) {
-    return { status: 'refused', model: decision.model, greenWashProbability, confidence, signals, reasoning };
-  }
-  return { status: 'approved', model: decision.model, greenWashProbability, confidence, signals, reasoning };
+  // Uncertainty is checked first: an uncertain verdict never blocks on its own, the other gates decide.
+  const status: TypeSafeAuditStatus = confidence < TYPESAFE_UNCERTAIN_CONFIDENCE
+    ? 'uncertain'
+    : greenWashProbability >= TYPESAFE_REFUSE_GREEN_WASH_PROBABILITY
+      ? 'refused'
+      : 'approved';
+  return { status, model: decision.model, greenWashProbability, confidence, signals, reasoning };
 }
 
 /**

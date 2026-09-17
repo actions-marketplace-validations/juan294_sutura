@@ -2,7 +2,7 @@
 
 Plan: [2026-09-17-typesafe-jev-calibrated-audit.md](../2026-09-17-typesafe-jev-calibrated-audit.md)
 
-Status: not started. `[batch-eligible]` with Phase 2 (no shared files).
+Status: done on branch `jev-phases-1-2` (commit `f81ff11`, reviewed, simplify pass applied). `[batch-eligible]` with Phase 2 (no shared files).
 
 ## Goal
 

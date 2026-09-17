@@ -54,26 +54,22 @@ function positiveInteger(value, name) {
   return value;
 }
 
-function positiveAmount(value, name) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    refuse('unbounded-cap', `${name} must be a stated positive amount`);
+/**
+ * A stated USD amount. With `allowZero`, exactly zero is accepted: some
+ * providers (for example TypeSafe's Jev, 2026-09-17) price output at USD 0 per
+ * million tokens, and that is a known price, distinct from an absent one.
+ * undefined and non-numbers always refuse, so a missing price is never treated
+ * as zero.
+ */
+function amount(value, name, { allowZero = false } = {}) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || (!allowZero && value === 0)) {
+    refuse('unbounded-cap', `${name} must be a stated ${allowZero ? 'nonnegative' : 'positive'} amount`);
   }
   return value;
 }
 
-/**
- * Like positiveAmount, but a stated zero is accepted: some providers (for
- * example TypeSafe's Jev, 2026-09-17) price output at exactly USD 0 per
- * million tokens, and that is a known price, distinct from an absent one.
- * undefined and non-numbers still refuse, so a missing price is never
- * silently treated as zero.
- */
-function nonNegativeAmount(value, name) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    refuse('unbounded-cap', `${name} must be a stated nonnegative amount`);
-  }
-  return value;
-}
+const positiveAmount = (value, name) => amount(value, name);
+const nonNegativeAmount = (value, name) => amount(value, name, { allowZero: true });
 
 /**
  * Validates a run manifest.

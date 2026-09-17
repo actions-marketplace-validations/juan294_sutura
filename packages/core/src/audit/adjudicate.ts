@@ -73,10 +73,7 @@ function validateAdjudication(value: unknown): AdjudicationResult {
   };
 }
 
-/** Redacted, bounded adjudication context as a JSON value, or null when it exceeds the 64,000 char/byte cap (never truncated). */
-export function boundedAdjudicationContext(
-  context: AdjudicationContext,
-): Record<string, unknown> | null {
+function encodeBoundedContext(context: AdjudicationContext): { value: Record<string, unknown>; encoded: string } | null {
   const value = redactExternalJsonValue({
     diagnosis: context.diagnosis,
     candidateDiff: context.diff,
@@ -87,13 +84,19 @@ export function boundedAdjudicationContext(
   const encoded = JSON.stringify(value);
   return encoded.length <= MAX_CONTEXT_CHARACTERS &&
     Buffer.byteLength(encoded, 'utf8') <= MAX_CONTEXT_BYTES
-    ? value
+    ? { value, encoded }
     : null;
 }
 
+/** Redacted, bounded adjudication context as a JSON value, or null when it exceeds the 64,000 char/byte cap (never truncated). */
+export function boundedAdjudicationContext(
+  context: AdjudicationContext,
+): Record<string, unknown> | null {
+  return encodeBoundedContext(context)?.value ?? null;
+}
+
 function contextMessage(context: AdjudicationContext): string | null {
-  const value = boundedAdjudicationContext(context);
-  return value === null ? null : JSON.stringify(value);
+  return encodeBoundedContext(context)?.encoded ?? null;
 }
 
 const CONTEXT_EXCEEDS_LIMIT_REASON =
