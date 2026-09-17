@@ -160,3 +160,19 @@
 - **Why:** the tooling's own comment distinguishes a single transient provider error
   from a degraded environment and makes continuing an explicit operator decision;
   the decision and its evidence are recorded here rather than left implicit.
+
+### Phase 4: second infrastructure stop on `repair-null-guard`, settled at an estimate
+
+- **Found:** at case 47 of 51 the case run (35230408690) ended with outcome
+  `infra-stop`: ConTree sandbox preparation failed with a socket timeout before any
+  model call. The artifact states provider cost is unavailable, so the reservation
+  could not be settled at a measured figure. The `streak` command always stops on an
+  infra-stop ledger regardless of the operator flag, so the remaining cases were run
+  one at a time through the single-case path, which honours it.
+- **Chose (Juan approved 2026-09-17):** settle the reservation at an explicit
+  upper-bound estimate, the highest per-case cost recorded in this run (USD 0.189624,
+  `upstream-formatter-release`), marked `measured: false` in the account, and finish
+  the last four cases. The release evidence discloses two infra-stops, one Nano and
+  one ConTree, both before any audit voice ran.
+- **Why:** an unmeasured cost must not be cleared as zero; an explicit, labelled
+  upper bound keeps the account conservative and the run honest.
