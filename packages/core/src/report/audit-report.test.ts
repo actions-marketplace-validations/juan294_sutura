@@ -61,5 +61,8 @@ describe('reduced-assurance audit reports', () => {
     expect(renderAuditMarkdown(result)).toContain(
       '| second-opinion | PASS | gpt-6-astra: skipped: Not configured: OPENAI\\_API\\_KEY absent |',
     );
+    expect(renderAuditMarkdown(result)).toContain(
+      '| typesafe-audit | PASS | jev-latest: skipped: Not configured: TYPESAFE\\_API\\_KEY absent |',
+    );
   });
 });

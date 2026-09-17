@@ -78,6 +78,7 @@ describe('domain model', () => {
       | 'module-syntax'
       | 'llm-adjudication'
       | 'second-opinion'
+      | 'typesafe-audit'
       | 'policy-required-command'
       | 'policy-resource-limit'
       | 'paired-evidence'

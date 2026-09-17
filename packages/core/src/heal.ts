@@ -81,6 +81,7 @@ import {
   type SnapshotOptions,
 } from './executor/types.js';
 import type { AuditLlm } from './audit/audit.js';
+import type { TypeSafeAuditClient, TypeSafeDecision, TypeSafeQuestion, JsonValue } from './llm/typesafe.js';
 import type { DiagnosisLlm } from './diagnose/classify.js';
 import type { CapacitySnapshot } from './llm/types.js';
 import type { ChatMessage, ChatOptions, TierLlm } from './llm/types.js';
@@ -131,6 +132,8 @@ export interface RepairFailureContext {
   llm: HealLlm;
   /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
   secondOpinion?: AuditLlm;
+  /** Optional veto-only TypeSafe Jev calibrated audit. Absent when TYPESAFE_API_KEY is unconfigured. */
+  typesafeAudit?: TypeSafeAuditClient;
   cost: CostLedger;
   triageN: number;
   raceK: number;
@@ -328,6 +331,55 @@ export function tracedLlm(llm: HealLlm, trace: TraceRecorder): HealLlm {
 /** Traces the optional GPT-6 Astra second opinion the same way as the primary Nemotron llm (stage 'audit'). */
 export function tracedAuditLlm(llm: AuditLlm, trace: TraceRecorder): AuditLlm {
   return tracedTierLlm(llm, trace);
+}
+
+/**
+ * Traces the optional TypeSafe Jev calibrated audit with the existing
+ * model-request / model-response events (stage 'audit'); no new trace event
+ * type. The response summary carries only the calibrated answers
+ * (probabilities, confidence, and the noul signals), never the request state.
+ */
+export function tracedTypeSafeAudit(
+  client: TypeSafeAuditClient,
+  trace: TraceRecorder,
+): TypeSafeAuditClient {
+  return {
+    modelId: () => client.modelId(),
+    async decide(state: JsonValue, questions: Record<string, TypeSafeQuestion>, options?: { signal?: AbortSignal }): Promise<TypeSafeDecision> {
+      const serialized = JSON.stringify({ state, questions });
+      const verdictQuestion = questions.verdict;
+      trace.record({
+        type: 'model-request',
+        stage: 'audit',
+        role: 'user',
+        model: client.modelId(),
+        summary: `Calibrated audit request with ${Object.keys(questions).length} questions and ${Buffer.byteLength(serialized, 'utf8')} bytes`,
+        promptHash: createHash('sha256').update(serialized).digest('hex'),
+        promptExcerpt: String(verdictQuestion?.instructions ?? '[no public instructions]').slice(0, 160),
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        latencyMs: 0,
+        costUsd: 0,
+        requestId: null,
+      });
+      const decision = await client.decide(state, questions, options);
+      trace.record({
+        type: 'model-response',
+        stage: 'audit',
+        role: 'assistant',
+        model: decision.model,
+        summary: JSON.stringify(decision.answers),
+        inputTokens: decision.usage.inTok,
+        outputTokens: decision.usage.outTok,
+        reasoningTokens: 0,
+        latencyMs: decision.latencyMs,
+        costUsd: decision.usd,
+        requestId: decision.requestId,
+      });
+      return decision;
+    },
+  };
 }
 
 function publicSearchEvidence(nodes: readonly SearchNode[]): SearchEvidence[] {
@@ -843,6 +895,7 @@ export async function repairFailure(ctx: RepairFailureContext): Promise<CaseFile
   const fullContext = {
     ...ctx, policy, llm: tracedLlm(ctx.llm, trace),
     ...(ctx.secondOpinion === undefined ? {} : { secondOpinion: tracedAuditLlm(ctx.secondOpinion, trace) }),
+    ...(ctx.typesafeAudit === undefined ? {} : { typesafeAudit: tracedTypeSafeAudit(ctx.typesafeAudit, trace) }),
     stageLedger: ledger, traceRecorder: trace,
   };
   const charged = budgetedRecoveryPorts({ budget, llm: fullContext.llm, executor: ctx.executor, operationIdPrefix: `repair-${ctx.runId}-initial` });
@@ -1204,6 +1257,7 @@ async function repairFailureWithinBudget(
             const result = await evaluateRuntimeCandidate({
               ...ports, prepared, policy, baselineImage: ctx.failingImage,
               ...(fullContext.secondOpinion === undefined ? {} : { secondOpinion: fullContext.secondOpinion, secondOpinionBudget: budget }),
+              ...(fullContext.typesafeAudit === undefined ? {} : { typesafeAudit: fullContext.typesafeAudit, typesafeAuditBudget: budget }),
               winner: {candidate, imageId: expansion.imageId, nodeId,
                 held: true, exitCode: expansion.testEvidence.exitCode},
               diagnosis: target.diagnosis, beforeLog: providerLog, suiteCommand: verificationCommand,
@@ -1524,6 +1578,7 @@ async function repairFailureWithinBudget(
   const suppliedVerification = await evaluateRuntimeCandidate({
     ...suppliedAudit, winner, prepared, policy, baselineImage: ctx.failingImage,
     ...(fullContext.secondOpinion === undefined ? {} : { secondOpinion: fullContext.secondOpinion, secondOpinionBudget: budget }),
+    ...(fullContext.typesafeAudit === undefined ? {} : { typesafeAudit: fullContext.typesafeAudit, typesafeAuditBudget: budget }),
     diagnosis, beforeLog: providerLog, suiteCommand: verificationCommand, runtime,
     observe: (result, parentImageId, note) => { ledger.record({stage:'audit',attempt:1,network:'disabled',result,parentImageId,note}); },
   });

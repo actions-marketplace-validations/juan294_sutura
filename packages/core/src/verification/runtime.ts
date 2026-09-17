@@ -4,6 +4,8 @@ import type { AuditVerdict, Diagnosis, RaceResult } from '../domain.js';
 import type { Executor, ImageId, RunResult } from '../executor/types.js';
 import type { AuditLlm } from '../audit/audit.js';
 import { adjudicate, secondOpinion, type SecondOpinionBudget } from '../audit/adjudicate.js';
+import { typesafeAudit, typesafeAuditEvidence, type TypeSafeAuditBudget } from '../audit/typesafe-audit.js';
+import type { TypeSafeAuditClient } from '../llm/typesafe.js';
 import { runMechanicalChecks } from '../audit/mechanical.js';
 import { enforceRepositoryPolicy } from '../audit/repository-policy.js';
 import { validateCandidateDiff } from '../engine/candidate-validation.js';
@@ -21,6 +23,9 @@ export interface RuntimeCandidateInput {
   /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
   secondOpinion?: AuditLlm;
   secondOpinionBudget?: SecondOpinionBudget;
+  /** Optional veto-only TypeSafe Jev calibrated audit. Absent when TYPESAFE_API_KEY is unconfigured. */
+  typesafeAudit?: TypeSafeAuditClient;
+  typesafeAuditBudget?: TypeSafeAuditBudget;
   winner: RaceResult;
   baselineImage: ImageId;
   diagnosis: Diagnosis;
@@ -74,6 +79,7 @@ export async function evaluateRuntimeCandidate(input: RuntimeCandidateInput): Pr
               verdict.reasoning = `REFUSED: fresh suite rerun exited ${result.exitCode}: ${afterLog}`;
               verdict.checks.push({ name: 'llm-adjudication', passed: false, evidence: 'Not run: the fresh suite rerun failed' });
               verdict.checks.push({ name: 'second-opinion', passed: false, evidence: 'Not run: the fresh suite rerun failed' });
+              verdict.checks.push({ name: 'typesafe-audit', passed: false, evidence: 'Not run: the fresh suite rerun failed' });
             }
             return { ...(result.exitCode === 0 ? passed : { status: 'failed' as const, reasons: ['command-failed' as const] }), artifacts: artifact('fresh-suite', { command: input.suiteCommand, parentImage: input.winner.imageId, result }) };
           }
@@ -85,11 +91,19 @@ export async function evaluateRuntimeCandidate(input: RuntimeCandidateInput): Pr
             const adjudicationContext = { diagnosis: input.diagnosis, diff: input.winner.candidate.diff, beforeLog: input.beforeLog, afterLog, ...(challenges === null ? {} : { challengeEvidence: { setHash: input.prepared.set?.setHash ?? null, status: challenges.status, observations: challenges.observations } }) };
             const result = await adjudicate(input.llm, adjudicationContext);
             const second = await secondOpinion(input.secondOpinion, adjudicationContext, input.secondOpinionBudget);
-            const approved = result.approved && second.status !== 'refused';
+            const third = await typesafeAudit(input.typesafeAudit, adjudicationContext, input.typesafeAuditBudget);
+            const approved = result.approved && second.status !== 'refused' && third.status !== 'refused';
             verdict.checks.push({ name: 'llm-adjudication', passed: result.approved, evidence: result.reasoning });
             verdict.checks.push({ name: 'second-opinion', passed: second.status !== 'refused', evidence: `${second.model}: ${second.status}: ${second.reasoning}` });
-            verdict.reasoning = approved ? result.reasoning : second.status === 'refused' && result.approved ? `REFUSED by second opinion (${second.model}): ${second.reasoning}` : result.reasoning;
-            return { ...(approved ? passed : { status: 'failed' as const, reasons: ['audit-refused' as const] }), artifacts: artifact('adjudication', { nemotron: result, secondOpinion: second }) };
+            verdict.checks.push({ name: 'typesafe-audit', passed: third.status !== 'refused', evidence: typesafeAuditEvidence(third) });
+            verdict.reasoning = approved
+              ? result.reasoning
+              : result.approved && second.status === 'refused'
+                ? `REFUSED by second opinion (${second.model}): ${second.reasoning}`
+                : result.approved && second.status !== 'refused' && third.status === 'refused'
+                  ? `REFUSED by calibrated audit (${third.model}): ${third.reasoning}`
+                  : result.reasoning;
+            return { ...(approved ? passed : { status: 'failed' as const, reasons: ['audit-refused' as const] }), artifacts: artifact('adjudication', { nemotron: result, secondOpinion: second, typesafeAudit: third }) };
           }
           case 'repository-policy': {
             verdict = await enforceRepositoryPolicy({ executor: input.executor, baselineImageId: input.baselineImage, policy: input.policy, ...(input.runtime === undefined ? {} : { runtime: input.runtime }), observe: o => input.observe?.(o.result, o.parentImageId, o.note) }, input.winner, verdict);

@@ -6,6 +6,42 @@ import { GitHubAdapter, type GitHubApi } from './github.js';
 import { withFailureSafeCheck } from './failure-safe.js';
 import { runAction } from './main.js';
 
+/** No live GitHub REST calls in this file: every octokit call rejects synchronously. */
+function unreachableOctokit(): unknown {
+  const target = (): void => undefined;
+  return new Proxy(target, {
+    get: () => unreachableOctokit(),
+    apply: () => { throw new Error('network is disabled in this test'); },
+  });
+}
+
+vi.mock('@actions/github', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@actions/github')>();
+  return { ...actual, getOctokit: () => unreachableOctokit() };
+});
+
+const { mockOrchestrate, mockTypeSafeClient, mockReplayRecorderCalls } = vi.hoisted(() => ({
+  mockOrchestrate: vi.fn<(...args: unknown[]) => never>(() => { throw new Error('stop before repair orchestration'); }),
+  mockTypeSafeClient: vi.fn().mockImplementation(function (config: { apiKey: string }) { return { __typesafeApiKey: config.apiKey }; }),
+  mockReplayRecorderCalls: [] as unknown[][],
+}));
+
+vi.mock('@sutura/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@sutura/core')>();
+  class SpyReplayRecorder extends actual.ReplayRecorder {
+    constructor(...args: ConstructorParameters<typeof actual.ReplayRecorder>) {
+      super(...args);
+      mockReplayRecorderCalls.push(args);
+    }
+  }
+  return {
+    ...actual,
+    orchestrate: (...args: unknown[]) => mockOrchestrate(...args),
+    TypeSafeClient: mockTypeSafeClient,
+    ReplayRecorder: SpyReplayRecorder,
+  };
+});
+
 const SHA = 'a'.repeat(40);
 const REPLAY_CONFIG = {
   triageN: 1, raceK: 1,
@@ -173,3 +209,85 @@ describe('runAction input guards', () => {
  await runAction({readAction:()=>({mode:'verify',githubToken:'token',runId:'77',triageN:1,requireFixed:false,captureReplay:false,environment:{}}),loadConfiguration:()=>({contreeToken:'token',contreeProject:'project'} as never),repository:()=>({owner:'owner',repo:'repo'}),environment:{GITHUB_RUN_ID:'88'},readVerification:()=>({sourceSha:SHA,policyBaseSha:SHA,candidateDiff:'diff',failingCommandId:'diagnosed'}),verify,setFailed});
  expect(verify).toHaveBeenCalledOnce();expect(setFailed).toHaveBeenCalledWith('Sutura verification: refused');
  });
+
+describe('TypeSafe Jev calibrated audit construction', () => {
+  const action = {
+    githubToken: 'github-test',
+    runId: '77',
+    triageN: 1,
+    requireFixed: false,
+    captureReplay: false,
+    environment: {},
+  } as const;
+
+  it('constructs the TypeSafe client only when TYPESAFE_API_KEY is configured, and passes it into orchestrate', async () => {
+    mockOrchestrate.mockClear();
+    mockTypeSafeClient.mockClear();
+    const setFailed = vi.fn();
+
+    await runAction({
+      readAction: () => action,
+      loadConfiguration: () => loadConfig({
+        NEBIUS_API_KEY: 'nebius-test',
+        CONTREE_TOKEN: 'contree-test',
+        CONTREE_PROJECT: 'project-test',
+        TYPESAFE_API_KEY: 'typesafe-secret',
+      }),
+      repository: () => ({ owner: 'acme', repo: 'widget' }),
+      environment: { GITHUB_RUN_ID: '88' },
+      setFailed,
+    });
+
+    expect(mockTypeSafeClient).toHaveBeenCalledTimes(1);
+    expect(mockTypeSafeClient.mock.calls[0]?.[0]).toMatchObject({ apiKey: 'typesafe-secret' });
+    expect(mockOrchestrate).toHaveBeenCalledTimes(1);
+    expect(mockOrchestrate.mock.calls[0]?.[0]).toMatchObject({
+      typesafeAudit: { __typesafeApiKey: 'typesafe-secret' },
+    });
+  });
+
+  it('does not construct the TypeSafe client when TYPESAFE_API_KEY is unconfigured', async () => {
+    mockOrchestrate.mockClear();
+    mockTypeSafeClient.mockClear();
+    const setFailed = vi.fn();
+
+    await runAction({
+      readAction: () => action,
+      loadConfiguration: () => loadConfig({
+        NEBIUS_API_KEY: 'nebius-test',
+        CONTREE_TOKEN: 'contree-test',
+        CONTREE_PROJECT: 'project-test',
+      }),
+      repository: () => ({ owner: 'acme', repo: 'widget' }),
+      environment: { GITHUB_RUN_ID: '88' },
+      setFailed,
+    });
+
+    expect(mockTypeSafeClient).not.toHaveBeenCalled();
+    expect(mockOrchestrate).toHaveBeenCalledTimes(1);
+    expect(mockOrchestrate.mock.calls[0]?.[0]).not.toHaveProperty('typesafeAudit');
+  });
+
+  it('records the TypeSafe key in the replay recorder secrets when capture-replay is enabled', async () => {
+    mockOrchestrate.mockClear();
+    mockReplayRecorderCalls.length = 0;
+    const setFailed = vi.fn();
+
+    await runAction({
+      readAction: () => ({ ...action, captureReplay: true }),
+      loadConfiguration: () => loadConfig({
+        NEBIUS_API_KEY: 'nebius-test',
+        CONTREE_TOKEN: 'contree-test',
+        CONTREE_PROJECT: 'project-test',
+        TYPESAFE_API_KEY: 'typesafe-secret',
+      }),
+      repository: () => ({ owner: 'acme', repo: 'widget' }),
+      environment: { GITHUB_RUN_ID: '88', GITHUB_ACTION_REF: SHA },
+      setFailed,
+    });
+
+    expect(mockReplayRecorderCalls).toHaveLength(1);
+    const secrets = mockReplayRecorderCalls[0]?.[4];
+    expect(secrets).toContain('typesafe-secret');
+  });
+});
