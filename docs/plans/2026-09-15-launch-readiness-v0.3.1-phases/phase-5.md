@@ -2,9 +2,11 @@
 
 Plan: [2026-09-15-launch-readiness-v0.3.1.md](../2026-09-15-launch-readiness-v0.3.1.md)
 
-Status: not started. Asset and copy preparation can run alongside Phases 1–3;
-creating the draft is fine at any time; **scheduling waits for Phase 4's
-smoke run** and Juan's explicit go.
+Status: **done 2026-09-17.** Scheduled for 2026-09-18 00:01 PT with the
+GPT-6 Astra Challenge opt-in after the v0.3.1 smoke run (see
+`docs/release/v0.3.1-case-lab-record.md`). Listing copy, the challenge
+answer, the gallery and the launch URL are in
+`docs/launch/product-hunt-2026-09-18/listing.md`.
 
 Contest facts (Juan's research, 2026-09-15; the contest page has no rules
 page — the embedded contest JSON and Product Hunt staff replies are the

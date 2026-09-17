@@ -8,6 +8,8 @@
 
 Try it: [Sutura Case Lab](https://sutura-case-lab.vercel.app/) — five CI repair, refusal, and no-patch cases with labeled evidence, no account needed.
 
+Launching on [Product Hunt](https://www.producthunt.com/products/sutura?launch=sutura) on 2026-09-18 as a GPT-6 Astra Challenge entry.
+
 AI agents make CI pass. Sutura verifies the fix, filters flaky failures,
 rejects unsafe shortcuts, and opens an evidence-backed PR for human review.
 

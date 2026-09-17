@@ -6,8 +6,11 @@ Status: Phases 1-3 done, merged to `develop` at `28c79b8` (2026-09-16). Phase
 4 blocked: `main` tagged `v0.3.1` (`3fd99d8`) but npm publish deferred pending
 Nebius/Nemotron provider drift (unrelated to this release) blocking the Case
 Lab benchmark — see `docs/plans/2026-09-15-launch-readiness-v0.3.1-notes.md`.
-Phase 5 not started. **2026-09-17:** the tag was deleted and the cycle resumes
-under `docs/plans/2026-09-17-typesafe-jev-calibrated-audit.md` Phase 4 (see the notes addendum).
+**2026-09-17:** the tag was deleted and the cycle resumed
+under `docs/plans/2026-09-17-typesafe-jev-calibrated-audit.md` Phase 4 (see the notes addendum);
+v0.3.1 shipped and Phase 5 is done: the Product Hunt launch is scheduled for
+2026-09-18 00:01 PT with the GPT-6 Astra Challenge opt-in
+(`docs/launch/product-hunt-2026-09-18/listing.md`).
 
 Owner: Juan
 
