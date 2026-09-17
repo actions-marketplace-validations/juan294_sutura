@@ -96,6 +96,13 @@ export async function newestReleaseTag(dependencies) {
     withTransportRetry(dependencies, () => dependencies.git(['ls-remote', '--tags', 'origin', 'refs/tags/v*'])),
     withTransportRetry(dependencies, () => dependencies.git(['fetch', '--quiet', 'origin', 'main'])),
   ]);
+  // CI checks out one commit. In a shallow clone, origin/main has no history, so
+  // every earlier tag reads as unreachable and the only tag the check could ever
+  // accept is one sitting at HEAD. Deepen before testing ancestry.
+  const shallow = (await dependencies.git(['rev-parse', '--is-shallow-repository'])).trim() === 'true';
+  if (shallow) {
+    await withTransportRetry(dependencies, () => dependencies.git(['fetch', '--quiet', '--unshallow', 'origin', 'main']));
+  }
   const lines = tagsOutput.split('\n').filter(Boolean);
   // "<sha>\trefs/tags/v0.3.0" (annotated tag object) and "<sha>\trefs/tags/v0.3.0^{}" (peeled commit)
   const tags = new Map();

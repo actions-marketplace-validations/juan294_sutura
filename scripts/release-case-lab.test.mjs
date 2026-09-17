@@ -99,6 +99,7 @@ function simpleGitStub() {
         `${NEWEST_COMMIT}\trefs/tags/${NEWEST_TAG}^{}`,
       ].join('\n');
     }
+    if (args[0] === 'rev-parse') return 'false\n';
     if (args[0] === 'fetch') return '';
     if (args[0] === 'merge-base') return '';
     throw new Error(`unstubbed git command: ${args.join(' ')}`);
@@ -120,6 +121,7 @@ function multiTagGitStub() {
         `${V090_COMMIT}\trefs/tags/v0.9.0^{}`,
       ].join('\n');
     }
+    if (args[0] === 'rev-parse') return 'false\n';
     if (args[0] === 'fetch') return '';
     if (args[0] === 'merge-base') {
       mergeBaseCalls.push(args[2]);
@@ -156,9 +158,30 @@ test('newest release tag picks the highest semver whose commit is on main', asyn
   assert.deepEqual(mergeBaseCalls, [V090_COMMIT, NEWEST_COMMIT]);
 });
 
+test('newest release tag deepens a shallow checkout before testing reachability', async () => {
+  const fetches = [];
+  const git = async (args) => {
+    if (args[0] === 'ls-remote') return `${V020_COMMIT}\trefs/tags/v0.2.0`;
+    if (args[0] === 'rev-parse') return 'true\n';
+    if (args[0] === 'fetch') { fetches.push(args); return ''; }
+    if (args[0] === 'merge-base') {
+      if (!fetches.some((call) => call.includes('--unshallow'))) throw new Error('not an ancestor');
+      return '';
+    }
+    throw new Error(`unstubbed git command: ${args.join(' ')}`);
+  };
+  const newest = await newestReleaseTag(dependenciesFor('.', { git }));
+  assert.equal(newest.tag, 'v0.2.0');
+  assert.deepEqual(fetches.map((call) => call.join(' ')), [
+    'fetch --quiet origin main',
+    'fetch --quiet --unshallow origin main',
+  ]);
+});
+
 test('newest release tag resolves a lightweight tag (no ^{} line) to its ref sha', async () => {
   const git = async (args) => {
     if (args[0] === 'ls-remote') return `${V020_COMMIT}\trefs/tags/v0.2.0`;
+    if (args[0] === 'rev-parse') return 'false\n';
     if (args[0] === 'fetch') return '';
     if (args[0] === 'merge-base') return '';
     throw new Error(`unstubbed git command: ${args.join(' ')}`);
@@ -181,6 +204,7 @@ function flakyLsRemoteGitStub(failures) {
         `${NEWEST_COMMIT}\trefs/tags/${NEWEST_TAG}^{}`,
       ].join('\n');
     }
+    if (args[0] === 'rev-parse') return 'false\n';
     if (args[0] === 'fetch') return '';
     if (args[0] === 'merge-base') return '';
     throw new Error(`unstubbed git command: ${args.join(' ')}`);

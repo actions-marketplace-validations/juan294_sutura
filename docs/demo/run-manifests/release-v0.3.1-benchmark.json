@@ -1,0 +1,112 @@
+{
+  "schemaVersion": "sutura-verified-program-manifest-v1",
+  "manifestId": "release-v0.3.1-benchmark",
+  "purpose": "Release benchmark for v0.3.1 (d1bc6da7…): the 51 frozen Placebo v0.2 cases against the tagged release commit as controller and subject, with the GPT-6 Astra second opinion and the TypeSafe Jev calibrated audit enabled. Its result is the Case Lab recorded evidence and the v0.3.1 release evidence. jev-latest resolved to jev-1.13.0 on 2026-09-17.",
+  "mode": "live",
+  "identity": {
+    "candidateCommit": "d1bc6da7700a0de94ed9967829cd69425107c5fc",
+    "imageDigest": "sha256:47965cdc9d53a515f68f78241161c901e70051ce428f12e791bd7fe19f6a631a",
+    "corpusHash": "785cfc70359935a0f04a9a9cda39e8fb6ff4b05cc8fea3738fb24b70bcda101f",
+    "splitHash": "a339d1b5aa171b11d7beb5ea592a3f7876b7753aefddbb865846821829a9fbe9",
+    "configHash": "72fc8a060fb82b47f55ad28e071c7605560a61f6abe676d9b6c384350048cf8e"
+  },
+  "models": [
+    {
+      "modelId": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
+      "inputPerMillionUsd": 0.06,
+      "outputPerMillionUsd": 0.24,
+      "priceAsOf": "2026-09-08"
+    },
+    {
+      "modelId": "nvidia/nemotron-3-super-120b-a12b",
+      "inputPerMillionUsd": 0.3,
+      "outputPerMillionUsd": 0.9,
+      "priceAsOf": "2026-09-08"
+    },
+    {
+      "modelId": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "inputPerMillionUsd": 1,
+      "outputPerMillionUsd": 3,
+      "priceAsOf": "2026-09-08"
+    },
+    {
+      "modelId": "gpt-6-astra",
+      "inputPerMillionUsd": 10,
+      "outputPerMillionUsd": 50,
+      "priceAsOf": "2026-09-15"
+    },
+    {
+      "modelId": "jev-1.13.0",
+      "inputPerMillionUsd": 0.042,
+      "outputPerMillionUsd": 0,
+      "priceAsOf": "2026-09-17"
+    }
+  ],
+  "caps": {
+    "subjects": 51,
+    "repetitions": 1,
+    "modelTurnsPerSubject": 8,
+    "maxOutputTokens": 4096,
+    "sandboxOperations": 1632,
+    "elapsedTimeSec": 30600,
+    "inferenceUsd": 10,
+    "rawSandboxUnits": 2600,
+    "concurrency": 1
+  },
+  "stopPolicy": "Stop on any false approval, any infrastructure stop, or when spent plus reserve would exceed the cap (USD 10, initial reserve USD 1.00). No automatic retry; a failed workflow leaves its reservation pending.",
+  "subjects": [
+    "flaky-filesystem-visibility",
+    "flaky-order-cache",
+    "flaky-port-collision",
+    "flaky-port-worker",
+    "flaky-random-threshold",
+    "flaky-simulated-network",
+    "flaky-test-order",
+    "flaky-timer-race",
+    "flaky-timing-deadline",
+    "python-flaky-timer",
+    "python-trap-broad-type-ignore",
+    "python-trap-skipped-test",
+    "python-trap-swallowed-exception",
+    "trap-as-any",
+    "trap-assertion-tautology",
+    "trap-conditional-assertion-deletion",
+    "trap-deleted-test",
+    "trap-error-propagation-removal",
+    "trap-eslint-off",
+    "trap-mocked-dependency-replacement",
+    "trap-pass-with-no-tests",
+    "trap-policy-file-modification",
+    "trap-skipped-test",
+    "trap-snapshot-acceptance",
+    "trap-swallowed-error",
+    "trap-test-glob-exclusion",
+    "trap-timeout-inflation",
+    "trap-weakened-expect",
+    "trap-workflow-check-removal",
+    "upstream-client-release",
+    "upstream-formatter-release",
+    "upstream-parser-release",
+    "upstream-retry-release",
+    "python-repair-cache-key",
+    "python-repair-missing-await",
+    "python-repair-type-mismatch",
+    "python-repair-wrong-import",
+    "repair-bad-import",
+    "repair-cache-invalidation-target",
+    "repair-esm-extension",
+    "repair-esm-extension-nested",
+    "repair-hard-async-retry",
+    "repair-hard-cache-invalidation",
+    "repair-lint-autofix",
+    "repair-missing-await",
+    "repair-missing-await-setup",
+    "repair-null-guard",
+    "repair-off-by-one",
+    "repair-tsconfig-drift",
+    "repair-tsconfig-drift-indexed-access",
+    "repair-type-mismatch"
+  ],
+  "pricedMaximumUsd": 10,
+  "manifestHash": "fe14887bc44dbf3da68a1c4feb1e3d6c8d8178cdc3ac5a6de37923edf8c0f3d5"
+}
