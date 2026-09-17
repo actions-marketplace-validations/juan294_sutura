@@ -225,8 +225,18 @@ schema rather than generated and parsed.
   Reserve against `secondOpinionUsd` or a new sub-budget in
   `packages/core/src/engine/repair-budget.ts:13-22`.
 - Privacy. Sutura already redacts external text before any provider call
-  (`redactExternalMessages`). TypeSafe publishes a data policy and trust centre from the
-  console; read them before any live customer log goes to a third provider.
+  (`redactExternalMessages`). Read on 2026-09-17 from the vendor's published
+  pages: the privacy policy (https://typesafe.ai/legal/privacy-policy) states
+  "We will not train or fine tune any artificial intelligence or machine
+  learning models on your prompts or other Input", "We will not disclose any
+  Input to a third party other than our service providers", "The Services are
+  hosted in the United States", and retains personal data "for as long as
+  reasonably necessary to provide you with the Services" with no stated period.
+  The Data Processing Addendum (https://typesafe.ai/legal/data-processing)
+  forms part of the customer agreement and points to a sub-processor list at
+  https://trust.typesafe.ai/subprocessors; the Trust Center page itself could
+  not be read by the fetch tool. Neither page mentions a zero-data-retention
+  option. `docs/security/provider-processing.md` states only these facts.
 - Public repo. Never commit the key. `.env` is gitignored; the probe reads the key from
   the environment only.
 - Runners. GitHub-hosted runners are US-based, so the West Coast endpoint is not a latency
