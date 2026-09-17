@@ -2,7 +2,7 @@
 
 Plan: [2026-09-17-typesafe-jev-calibrated-audit.md](../2026-09-17-typesafe-jev-calibrated-audit.md)
 
-Status: not started. Depends on Phases 1 and 2 merged.
+Status: done on branch `jev-phases-1-2` (core `60edd7d`, surfaces `678e37e`, both reviewed); simplify pass and `ci:local` pending, then STOP for review.
 
 ## Goal
 

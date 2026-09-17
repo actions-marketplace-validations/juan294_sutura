@@ -72,3 +72,36 @@
   which does not include this suite; CI on Linux is the gate of record.
 - **Why:** a failure that is byte-for-byte independent of the change cannot be
   evidence about the change; investigating the darwin runtime is separate work.
+
+### Phase 3: evidence row detail, construction tests, and the replay capture helper
+
+- **Plan said:** `typesafeAuditEvidence` renders one string; `main.test.ts` mirrors
+  "the Astra assertions"; the replay test builds a synthetic bundle.
+- **Found:** no Astra construction assertions exist in `main.test.ts`; no existing
+  test helper drives a run as far as the adjudication gate, so no bundle with audit
+  exchanges could be synthesised from the old helper; the run-level wrapper in
+  `evaluateRuntimeCandidate` overwrites any reasoning not prefixed `REFUSED` with
+  `FAILED: adjudication: audit-refused` (pre-existing, identical for Astra).
+- **Chose:** the row's detail is the short reasoning (`P(green-wash)=… confidence=…`)
+  plus the four signals when not skipped, and `REFUSED by calibrated audit` uses the
+  short form; three new construction tests with a mocked `orchestrate` and a
+  network-free octokit fake; a new `complete-audit-bundle.test-helper.ts` that
+  records a real `orchestrate()` run through the real recording wrappers so the
+  replay test replays genuinely captured `openai` and `typesafe` exchanges (two
+  pre-existing quirks are worked around inside the helper only: the git-apply tool
+  echoes the diff on stdout, and replay reconstructs a Tavily client unconditionally);
+  the Nemotron-and-Jev-both-refuse test asserts the reasoning is not attributed to
+  Jev rather than asserting Nemotron's literal text.
+- **Why:** each follows the existing mechanism instead of bending production code to
+  fit the plan's wording; reviewers confirmed no production path was changed for a
+  test.
+
+### Phase 3: provider facts recorded in the research doc before the docs cited them
+
+- **Plan said:** `docs/security/provider-processing.md` states the vendor facts read on
+  2026-09-17.
+- **Found:** the research doc's privacy bullet still said those pages remained to be
+  read, so the docs cited facts with no recorded source.
+- **Chose:** a dated addendum in the research doc (§5) quoting the privacy policy and
+  naming the DPA and sub-processor URLs, committed before the docs merge.
+- **Why:** verified claims name their evidence.
