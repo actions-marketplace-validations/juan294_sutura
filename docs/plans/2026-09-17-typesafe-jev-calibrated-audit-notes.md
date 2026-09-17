@@ -121,3 +121,24 @@
   the bundle schema and both test helpers. (2) Astra and Jev are awaited sequentially;
   running them concurrently would save one round trip per audit but collides with the
   strictly ordered shared replay cursor. Both are follow-ups for v0.3.2.
+
+### Phase 4: benchmark controller crash and a never-dispatched reservation
+
+- **Found:** after 16 cases the streak controller died because its `gh run list
+--limit 100` poll exceeded the 120 s subprocess timeout (killed with SIGTERM) and the
+  script treats that as fatal. The manifest-spend account held a USD 1.00 pending
+  reservation for `trap-deleted-test` (controller id `pl-1789641869467-00ba8524`,
+  started 10:44:29Z). The resumed controller polled silently for a run with that
+  title until its own 35-minute deadline.
+- **Evidence:** `gh run list --workflow placebo-live-case.yml --limit 200` shows zero
+  runs created after 10:40:00Z and zero runs whose title carries that controller id;
+  the last case run is `trap-conditional-assertion-deletion` at 10:39:17Z. No run,
+  no provider billing.
+- **Chose (Juan approved 2026-09-17):** preserve copies of the account and the case
+  ledger, set the pending entry to null with a `reconciliations` record naming the
+  case, controller id, resolution `never-dispatched`, the evidence counts and
+  `measuredUsd: 0`, then restart the streak from the 16-entry ledger with the freeze
+  still on.
+- **Why:** the manifest README allows reconciling a pending entry only against the
+  exact run and measured cost; the measured cost of a dispatch that never reached
+  GitHub is zero, and that is proven rather than assumed.
