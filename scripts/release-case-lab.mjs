@@ -76,7 +76,7 @@ function compareSemverDesc(a, b) {
 
 // Transport errors seen intermittently in the pre-push hook (2026-09-15); a
 // network blip must not block a push, so these get retried before refusing.
-const TRANSPORT_ERROR_PATTERN = /SSL_ERROR_SYSCALL|Could not resolve host|Connection reset|unable to access/u;
+const TRANSPORT_ERROR_PATTERN = /SSL_ERROR_SYSCALL|Could not resolve host|Connection reset|unable to access|shallow\.lock|index\.lock|Another git process seems to be running/u;
 const TRANSPORT_RETRY_BACKOFF_MS = [2_000, 4_000];
 
 async function withTransportRetry(dependencies, action) {

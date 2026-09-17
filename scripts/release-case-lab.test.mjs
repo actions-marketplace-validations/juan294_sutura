@@ -186,6 +186,27 @@ test('newest release tag deepens a shallow checkout before testing reachability'
   ]);
 });
 
+test('newest release tag retries the deepen fetch when another git process holds the shallow lock', async () => {
+  let unshallowAttempts = 0;
+  const sleepCalls = [];
+  const git = async (args) => {
+    if (args[0] === 'ls-remote') return `${V020_COMMIT}\trefs/tags/v0.2.0`;
+    if (args[0] === 'rev-parse') return 'true\n';
+    if (args[0] === 'fetch' && args.includes('--unshallow')) {
+      unshallowAttempts += 1;
+      if (unshallowAttempts === 1) throw new Error("fatal: Unable to create '.git/shallow.lock': File exists.\n\nAnother git process seems to be running in this repository");
+      return '';
+    }
+    if (args[0] === 'fetch') return '';
+    if (args[0] === 'merge-base') return '';
+    throw new Error(`unstubbed git command: ${args.join(' ')}`);
+  };
+  const newest = await newestReleaseTag(dependenciesFor('.', { git, sleep: async (ms) => { sleepCalls.push(ms); } }));
+  assert.equal(newest.tag, 'v0.2.0');
+  assert.equal(unshallowAttempts, 2, 'retried the deepen fetch once');
+  assert.deepEqual(sleepCalls, [2_000]);
+});
+
 test('newest release tag resolves a lightweight tag (no ^{} line) to its ref sha', async () => {
   const git = async (args) => {
     if (args[0] === 'ls-remote') return `${V020_COMMIT}\trefs/tags/v0.2.0`;
