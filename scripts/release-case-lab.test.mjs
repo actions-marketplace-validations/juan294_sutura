@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -139,7 +140,14 @@ function dependenciesFor(directory, overrides = {}) {
     readFile: (path, encoding) => readFile(join(directory, path), encoding),
     writeFile: (path, data, encoding) => writeFile(join(directory, path), data, encoding),
     git: simpleGitStub(),
-    gh: async () => { throw new Error('gh not stubbed'); },
+    gh: async (args) => {
+      const contents = /^repos\/juan294\/sutura\/contents\/packages\/case-lab\/release\.json\?ref=([a-f0-9]{40})$/u.exec(args[1] ?? '');
+      if (args[0] === 'api' && contents) {
+        if (contents[1] !== NEWEST_COMMIT) throw new Error(`gh: Not Found (HTTP 404) for ${contents[1]}`);
+        return Buffer.from(JSON.stringify({ version: '0.3.0', actionSha: NEWEST_COMMIT })).toString('base64');
+      }
+      throw new Error('gh not stubbed');
+    },
     vercel: async () => { throw new Error('vercel not stubbed'); },
     fetch: async () => { throw new Error('fetch not stubbed'); },
     command: async () => 'PASS (stub verify-pin)\n',
@@ -324,7 +332,7 @@ test('check names the file, observed and expected value for each drift', async (
   }
 });
 
-test('bump rewrites all six bindings and refuses to write on a stale result', async () => {
+test('bump rewrites the five release bindings, leaves the controller pin, and refuses to write on a stale result', async () => {
   await withTempDirectory(async (directory) => {
     // Start from a stale (v0.2.0) tree; bump should bring every binding to v0.3.0.
     await buildConsistentTree(directory);
@@ -364,8 +372,15 @@ test('bump rewrites all six bindings and refuses to write on a stale result', as
       ['node', 'packages/case-lab/bin/case-lab.js', 'verify-pin', '--tag', NEWEST_TAG],
     ]);
 
-    const release = await check(dependenciesFor(directory));
+    const workflowAfter = await readFile(join(directory, FILES.workflow), 'utf8');
+    assert.match(workflowAfter, new RegExp(`SUTURA_CONTROLLER_SHA: ${V020_COMMIT}`, 'u'), 'bump leaves the controller pin for the follow-up commit');
+    const release = await check(dependenciesFor(directory), { controller: 'skip' });
     assert.deepEqual(release, { tag: NEWEST_TAG, version: '0.3.0', commit: NEWEST_COMMIT });
+    await assert.rejects(
+      check(dependenciesFor(directory)),
+      /SUTURA_CONTROLLER_SHA .* release\.json version is unreadable/u,
+      'the full check refuses until the controller names a commit whose release.json carries the release',
+    );
 
     // A stale result (wrong subjectSha) must not touch any file.
     await writeFixtureFile(directory, 'docs/demo/stale-result.json', `${JSON.stringify({
@@ -406,7 +421,9 @@ test('publish-demo requires literal --authorize and re-verifies byte identity', 
     const calls = [];
     let putBody;
     let runsCall = 0;
+    const defaultGh = dependencies.gh;
     dependencies.gh = async (args) => {
+      if (args[0] === 'api' && /^repos\/juan294\/sutura\/contents\/packages\/case-lab\/release\.json\?ref=/u.test(args[1] ?? '')) return defaultGh(args);
       const endpoint = args[1] ?? '';
       if (args.includes('-X')) {
         calls.push('PUT');
@@ -443,7 +460,9 @@ test('publish-demo refuses when the demo CI on the published commit is red', asy
     const dependencies = dependenciesFor(directory);
     const local = await readFile(join(directory, FILES.workflow), 'utf8');
     const runUrl = `https://github.com/${DEMO_REPOSITORY}/actions/runs/999`;
+    const defaultGh = dependencies.gh;
     dependencies.gh = async (args) => {
+      if (args[0] === 'api' && /^repos\/juan294\/sutura\/contents\/packages\/case-lab\/release\.json\?ref=/u.test(args[1] ?? '')) return defaultGh(args);
       const endpoint = args[1] ?? '';
       if (args.includes('-X')) return JSON.stringify({ sha: 'new-sha' });
       if (endpoint.includes(`repos/${DEMO_REPOSITORY}/commits/main`)) return JSON.stringify({ sha: DEMO_COMMIT });
@@ -473,7 +492,9 @@ test('publish-demo refuses when the remote is not byte-identical after publish',
     await buildConsistentTree(directory);
     const dependencies = dependenciesFor(directory);
     let call = 0;
-    dependencies.gh = async () => {
+    const defaultGh = dependencies.gh;
+    dependencies.gh = async (args) => {
+      if (args[0] === 'api' && /^repos\/juan294\/sutura\/contents\/packages\/case-lab\/release\.json\?ref=/u.test(args[1] ?? '')) return defaultGh(args);
       call += 1;
       if (call === 2) return JSON.stringify({ sha: 'old-sha' });
       return JSON.stringify({ sha: 'old-sha', content: Buffer.from('different text', 'utf8').toString('base64') });

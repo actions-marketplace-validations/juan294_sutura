@@ -37,7 +37,7 @@ env:
   # Must equal packages/case-lab/release.json actionSha and the literal in the Action step.
   SUTURA_ACTION_SHA: e724f3b22de79d6ab3f40cffa96de7776c256ce9
   # A juan294/sutura commit that contains packages/case-lab. Updated by `case-lab verify-pin`.
-  SUTURA_CONTROLLER_SHA: e724f3b22de79d6ab3f40cffa96de7776c256ce9
+  SUTURA_CONTROLLER_SHA: 88446895c17d9d9809ccedab5d47f1a8c4e7e29b
   CASE_LAB_DAILY_RUN_CAP: '24'
   RESULTS_BRANCH: case-lab-results
 

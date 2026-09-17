@@ -200,3 +200,23 @@
   The Case Lab recorded results now show `python-repair` as gave-up and
   `upstream-incident` as fixed; the replay test expectations were rebound to the
   new files. The fix-rate drop is recorded as unexplained, not attributed.
+
+### Phase 4: the live publish path could never pass on a fresh tag; controller pin redefined
+
+- **Found:** the first live smoke run at v0.3.1 repaired the case (`Sutura outcome:
+fixed`, with the Astra and Jev voices configured) but the demo's
+  `publish-result` step refused: "replay bundle actionSha e724f3b… must equal the
+  release actionSha c94eee2…". The demo checks out the Sutura controller at
+  `SUTURA_CONTROLLER_SHA`, and the release gate required that pin to equal the tag
+  commit, whose own `packages/case-lab/release.json` is written before the tag exists
+  and therefore names the previous release. Every first live publish after a tag
+  failed by construction; the v0.3.0 record's Incident 2 fixed a different half of
+  the same problem.
+- **Chose:** `release:case-lab check` now requires the controller pin to name a commit
+  whose committed `release.json` (read through the GitHub contents API, so a shallow
+  CI checkout works) names the newest tag; `bump` no longer rewrites the controller
+  pin, which is set in a follow-up commit once the bump commit exists; the demo
+  workflow copy pins the controller to the bump commit `88446895…`. Tests cover the
+  new rule and the bump semantics.
+- **Why:** the controller must know the release it publishes; only a commit after
+  the bump can. The Action pin and the subject identity are unchanged.
