@@ -8,7 +8,7 @@
   Criteria): "Replay of the committed bundle
   `packages/case-lab/src/__fixtures__/live-34977342282-javascript-repair-gave-up.json`
   still reproduces `gave-up` (it is recorded evidence; the fix changes
-  behaviour of *new* runs only, and the named test stays green because the
+  behaviour of _new_ runs only, and the named test stays green because the
   recorded tool result is replayed, not recomputed — verify this explicitly
   in Phase 2; if the replay diverges, the fixture's test asserts the new
   mismatch message and the phase report explains why)."
@@ -22,12 +22,12 @@
   `ReplayMismatchError` before the test reaches its old success assertions.
 - **Chose:** left the recorded bundle byte-for-byte untouched, and changed
   `src/replay.test.ts`'s `replays Case Lab live run 34977342282
-  (javascript-repair gave-up) from the real bundle` test — renamed to
+(javascript-repair gave-up) from the real bundle` test — renamed to
   `detects that the fixed code's search diverges from the recorded gave-up
-  run` — to assert that replay rejects with `ReplayMismatchError` at
+run` — to assert that replay rejects with `ReplayMismatchError` at
   sequence 16, path `$[1]`, with the real observed `expected`/`actual`
   checkpoint-lineage lines distinguishing the pre-fix (`search-002 …
-  repeated-state`) and post-fix (`search-002 … frontier`) reports.
+repeated-state`) and post-fix (`search-002 … frontier`) reports.
 - **Why:** the plan explicitly pre-authorized this exact path. It also
   avoids a worse alternative we considered and rejected: patching the
   bundle's self-generated GitHub report fields (exchanges 16/17) to match
@@ -36,7 +36,7 @@
   surfaced a further, deeper mismatch in the same recorded bundle — an
   outbound Nebius/LLM request mid-search (`bundle.http` sequence 88) whose
   content also depends on which checkpoint nodes the fixed code visits.
-  Patching that would require pairing a new LLM request with the *old*
+  Patching that would require pairing a new LLM request with the _old_
   recorded LLM response (captured for a different prompt in the original
   live run), which would fabricate a search trace that never happened.
   Asserting the mismatch error instead requires no bundle edits at all and
@@ -45,8 +45,8 @@
 ### Phase 4 Part A: `develop` had never been reconciled after the v0.3.0 squash
 
 - **Plan said:** step 6 anticipated a post-squash reconcile ("as `79d510c`
-  did") happening *after* the v0.3.1 squash merge.
-- **Found:** the equivalent reconcile after the *v0.3.0* squash (`c94eee2`)
+  did") happening _after_ the v0.3.1 squash merge.
+- **Found:** the equivalent reconcile after the _v0.3.0_ squash (`c94eee2`)
   was never done in the previous release cycle — `origin/develop` had no
   ancestor path to `c94eee2`, so the `develop → main` release PR (#144) was
   reported `CONFLICTING` by GitHub. All ~38 conflicting files were pure
@@ -83,7 +83,7 @@
   where newlines render as literal `n` characters (e.g.
   `{n  return left + right;n}`), causing
   `runSuperRepairProviderContractCanary` to fail with `gave-up: Repair
-  proposal patch was not accepted: unexpected canary patch`. Reproduced 4/4:
+proposal patch was not accepted: unexpected canary patch`. Reproduced 4/4:
   twice in CI at the `v0.3.1` tag, twice locally — including once against
   the **unmodified `v0.3.0` commit (`c94eee2`)**, which passed this same
   canary as recently as 2026-09-15 and now fails identically. No code path
@@ -102,6 +102,18 @@
   show for it.
 - **Unblocks when:** the provider-contract canary passes again (retry
   `gh workflow run provider-contract-canary.yml --ref v0.3.1 -R
-  juan294/sutura`, or run `node scripts/provider-contract-canary.mjs`
+juan294/sutura`, or run `node scripts/provider-contract-canary.mjs`
   locally with `NEBIUS_API_KEY` sourced from `.env`) — then resume at Part B
   step 1 (canaries) of `docs/plans/2026-09-15-launch-readiness-v0.3.1-phases/phase-4.md`.
+
+### Addendum 2026-09-17: the v0.3.1 tag no longer exists; the cycle resumes with Jev
+
+- **Notes said (above):** "The `v0.3.1` git tag exists and is pushed."
+- **Found (verified 2026-09-17 04:30Z):** no `v0.3.1` tag locally or on origin, no
+  GitHub release, npm at 0.3.0; `origin/main` holds the un-tagged squash `3fd99d8`.
+  The tag was deleted after the 2026-09-16 decision; two canary runs still carry
+  `headBranch: v0.3.1`.
+- **Now:** the provider-contract canary passed on `develop` at 2026-09-17T03:32Z
+  after `3397eac`, so Part B is unblocked. The release cycle resumes under
+  `docs/plans/2026-09-17-typesafe-jev-calibrated-audit.md` Phase 4 with the TypeSafe
+  Jev calibrated audit included, from a fresh `develop → main` squash.
