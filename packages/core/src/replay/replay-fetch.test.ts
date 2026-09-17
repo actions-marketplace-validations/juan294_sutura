@@ -56,6 +56,16 @@ describe('replayFetch', () => {
     await expect(response.json()).resolves.toEqual({ answer: 42 });
   });
 
+  it('replays the typesafe boundary the same way as nebius', async () => {
+    const typesafeBundle = bundle();
+    typesafeBundle.http[0]!.boundary = 'typesafe';
+    const fetch = replayFetch(typesafeBundle, 'typesafe');
+    const response = await fetch('https://example.test/chat', {
+      method: 'POST', headers: {}, body: '{"a":1,"b":2}',
+    });
+    await expect(response.json()).resolves.toEqual({ answer: 42 });
+  });
+
   it('treats a recorded json_schema request and a live json_object request as the same request', async () => {
     // Bundles captured before 2026-09-16 carry json_schema; the live path now sends json_object.
     const recorded = {

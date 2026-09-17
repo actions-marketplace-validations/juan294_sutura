@@ -111,6 +111,21 @@ test('a manifest needs exact identities, models with prices and a stop policy', 
   assert.equal(reasonOf(() => validateRunManifest(manifest({ stopPolicy: '  ' }))), 'missing-stop-policy');
 });
 
+test('a manifest accepts a stated zero output price but still refuses a missing one', () => {
+  assert.ok(validateRunManifest(manifest({
+    models: [{
+      modelId: 'jev-latest', inputPerMillionUsd: 0.042, outputPerMillionUsd: 0,
+      priceAsOf: '2026-09-17',
+    }],
+  })));
+  assert.equal(reasonOf(() => validateRunManifest(manifest({
+    models: [{ modelId: 'jev-latest', inputPerMillionUsd: 0.042, priceAsOf: '2026-09-17' }],
+  }))), 'unbounded-cap');
+  assert.equal(reasonOf(() => validateRunManifest(manifest({
+    models: [{ modelId: 'nemotron-super', inputPerMillionUsd: 0, outputPerMillionUsd: 1.5, priceAsOf: '2026-09-06' }],
+  }))), 'unbounded-cap');
+});
+
 test('a manifest cannot list more subjects than it capped, or list one twice', () => {
   assert.equal(reasonOf(() => validateRunManifest(manifest({
     subjects: ['case-a', 'case-b', 'case-c'],

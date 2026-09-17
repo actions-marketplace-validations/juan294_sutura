@@ -130,6 +130,11 @@ export function replayFetch(
 ): NebiusFetch;
 export function replayFetch(
   bundle: ReplayBundle,
+  boundary: 'typesafe',
+  cursor?: RecordedCallCursor<RecordedHttpExchange>,
+): NebiusFetch;
+export function replayFetch(
+  bundle: ReplayBundle,
   boundary: Exclude<RecordedHttpBoundary, 'contree'>,
   sharedCursor?: RecordedCallCursor<RecordedHttpExchange>,
 ): NebiusFetch | TavilyFetch {

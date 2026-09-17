@@ -37,6 +37,26 @@ describe('RepairBudget', () => {
     expect(() => budget.reserveModelTurn(0.01)).toThrowError(new BudgetExceededError('modelTurns'));
   });
 
+  it('reserves worst-case TypeSafe audit cost and settles actual cost, releasing the difference', () => {
+    const budget = new RepairBudget({ ...DEFAULT_REPAIR_BUDGET_LIMITS, typesafeAuditUsd: 0.02 });
+    const reservation = budget.reserveTypeSafeAudit(0.0013);
+
+    expect(() => budget.reserveTypeSafeAudit(0.02)).toThrowError(new BudgetExceededError('typesafeAuditUsd'));
+    budget.settleTypeSafeAudit(reservation, 0.0004);
+    expect(budget.snapshot().typesafeAuditUsd).toBeCloseTo(0.0004, 10);
+    expect(() => budget.reserveTypeSafeAudit(0.0196)).not.toThrow();
+  });
+
+  it('rejects a typesafeAuditUsd override above the default cap', () => {
+    expect(() => repairBudgetLimits({ typesafeAuditUsd: 0.03 })).toThrow(/at most 0.02/u);
+    expect(() => new RepairBudget({ typesafeAuditUsd: 0.03 })).toThrow(/at most 0.02/u);
+  });
+
+  it('lists typesafeAuditUsd in the budget snapshot', () => {
+    const budget = new RepairBudget();
+    expect(budget.snapshot()).toMatchObject({ typesafeAuditUsd: 0 });
+  });
+
   it('rejects a 65,537-byte diff', () => {
     const budget = new RepairBudget();
     expect(() => budget.assertDiffBytes(65_537)).toThrowError(new BudgetExceededError('diffBytes'));

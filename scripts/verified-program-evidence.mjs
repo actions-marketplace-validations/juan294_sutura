@@ -62,6 +62,20 @@ function positiveAmount(value, name) {
 }
 
 /**
+ * Like positiveAmount, but a stated zero is accepted: some providers (for
+ * example TypeSafe's Jev, 2026-09-17) price output at exactly USD 0 per
+ * million tokens, and that is a known price, distinct from an absent one.
+ * undefined and non-numbers still refuse, so a missing price is never
+ * silently treated as zero.
+ */
+function nonNegativeAmount(value, name) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    refuse('unbounded-cap', `${name} must be a stated nonnegative amount`);
+  }
+  return value;
+}
+
+/**
  * Validates a run manifest.
  *
  * The stop policy is required because a run with no stated stop is a run that
@@ -87,7 +101,7 @@ export function validateRunManifest(manifest) {
   for (const model of manifest.models) {
     if (!model?.modelId?.trim()) refuse('missing-models', 'Each model needs an exact id');
     positiveAmount(model.inputPerMillionUsd, `models.${model.modelId}.inputPerMillionUsd`);
-    positiveAmount(model.outputPerMillionUsd, `models.${model.modelId}.outputPerMillionUsd`);
+    nonNegativeAmount(model.outputPerMillionUsd, `models.${model.modelId}.outputPerMillionUsd`);
     if (!model.priceAsOf?.trim()) refuse('missing-price-date', `models.${model.modelId} needs a price date`);
   }
 

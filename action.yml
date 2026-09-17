@@ -22,6 +22,9 @@ inputs:
   openai-api-key:
     description: Optional OpenAI key for the GPT-6 Astra second-opinion audit. Veto-only; never widens acceptance.
     required: false
+  typesafe-api-key:
+    description: Optional TypeSafe API key for the Jev calibrated audit. Veto-only; never widens acceptance.
+    required: false
   contree-token:
     description: Nebius ConTree token used for sandbox operations.
     required: true
@@ -88,6 +91,10 @@ inputs:
     description: Lower-only GPT-6 Astra second-opinion cost limit in USD, separate from repair-inference-cost-usd.
     required: false
     default: '0.30'
+  repair-typesafe-audit-usd:
+    description: Lower-only TypeSafe Jev calibrated audit cost limit in USD, separate from repair-inference-cost-usd and repair-second-opinion-usd.
+    required: false
+    default: '0.02'
   repair-diff-bytes:
     description: Lower-only cumulative repair diff limit in bytes.
     required: false

@@ -60,7 +60,7 @@ export type RecordedBody =
   | StreamBody
   | RawBody;
 
-export type RecordedHttpBoundary = 'nebius' | 'tavily' | 'contree' | 'openai';
+export type RecordedHttpBoundary = 'nebius' | 'tavily' | 'contree' | 'openai' | 'typesafe';
 export type ReplayBoundary =
   | 'github'
   | 'repository'

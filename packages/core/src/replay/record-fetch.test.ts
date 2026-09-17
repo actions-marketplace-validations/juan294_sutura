@@ -5,6 +5,7 @@ import {
   recordingContreeFetch,
   recordingNebiusFetch,
   recordingTavilyFetch,
+  recordingTypeSafeFetch,
 } from './record-fetch.js';
 
 const CONFIG = {
@@ -115,6 +116,25 @@ describe('recording transport adapters', () => {
         { boundary: 'tavily', sequence: 2 },
         { boundary: 'contree', sequence: 3 },
       ]);
+  });
+
+  it('reserves a typesafe sequence and strips the Authorization header from the recorded exchange', async () => {
+    const recorder = new ReplayRecorder('77001', 'acme/widget', 'a'.repeat(40), CONFIG);
+    const wrapped = recordingTypeSafeFetch(recorder, vi.fn(async () => new Response(
+      '{"decision":"approved"}', { status: 200, headers: { 'content-type': 'application/json' } },
+    )));
+
+    const response = await wrapped('https://api.typesafe.ai/v1/systemone', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer typesafe-secret' },
+      body: '{}',
+    });
+    await expect(response.json()).resolves.toEqual({ decision: 'approved' });
+
+    const bundle = recorder.finish('fixed');
+    expect(bundle.http).toEqual([expect.objectContaining({ boundary: 'typesafe', sequence: 1 })]);
+    expect(bundle.http[0]?.request.headers).not.toHaveProperty('authorization');
+    expect(JSON.stringify(bundle)).not.toContain('typesafe-secret');
   });
 
   it('records a transport error and rethrows the same rejection', async () => {

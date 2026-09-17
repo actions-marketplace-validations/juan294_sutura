@@ -1,7 +1,8 @@
 export const CAPTURED_FIXTURES_SCHEMA_VERSION = 'sutura-captured-fixtures-v1' as const;
 
 export type CapturedFixtureBoundary =
-  | 'github' | 'nebius' | 'tavily' | 'contree' | 'repository' | 'executor';
+  | 'github' | 'nebius' | 'tavily' | 'contree' | 'repository' | 'executor'
+  | 'openai' | 'typesafe';
 
 export interface CapturedFixtureEntry {
   workflowRunId: string;
@@ -37,7 +38,9 @@ const KINDS = new Set([
   'ci-failure', 'ci-success', 'provider-capture', 'tavily-capture',
   'sandbox-capture', 'dogfood-gave-up', 'dogfood-refused',
 ]);
-const BOUNDARIES = new Set(['github', 'nebius', 'tavily', 'contree', 'repository', 'executor']);
+const BOUNDARIES = new Set([
+  'github', 'nebius', 'tavily', 'contree', 'repository', 'executor', 'openai', 'typesafe',
+]);
 const ENTRY_KEYS = new Set([
   'workflowRunId', 'targetRunId', 'suturaRunId', 'kind', 'headSha', 'capturedAt',
   'source', 'capturedBy', 'bundleSha256', 'boundaries', 'notes',

@@ -7,6 +7,8 @@ export interface RepairBudgetLimits {
   inferenceCostUsd: number;
   /** Separate from inferenceCostUsd: caps the optional GPT-6 Astra veto-only second opinion. */
   secondOpinionUsd: number;
+  /** Separate cap for the optional TypeSafe Jev calibrated audit. */
+  typesafeAuditUsd: number;
   diffBytes: number;
 }
 
@@ -18,6 +20,7 @@ export const DEFAULT_REPAIR_BUDGET_LIMITS = Object.freeze({
   elapsedTimeSec: 600,
   inferenceCostUsd: 0.25,
   secondOpinionUsd: 0.30,
+  typesafeAuditUsd: 0.02,
   diffBytes: 65_536,
 }) satisfies Readonly<RepairBudgetLimits>;
 
@@ -39,7 +42,10 @@ function boundedLimit<K extends keyof RepairBudgetLimits>(
   if (!Number.isFinite(resolved) || resolved <= 0 || resolved > maximum) {
     throw new RangeError(`Repair ${key} must be greater than 0 and at most ${maximum}`);
   }
-  if (key !== 'inferenceCostUsd' && key !== 'secondOpinionUsd' && !Number.isSafeInteger(resolved)) {
+  if (
+    key !== 'inferenceCostUsd' && key !== 'secondOpinionUsd' && key !== 'typesafeAuditUsd' &&
+    !Number.isSafeInteger(resolved)
+  ) {
     throw new RangeError(`Repair ${key} must be an integer`);
   }
   return resolved;
@@ -56,6 +62,7 @@ export function repairBudgetLimits(
     elapsedTimeSec: boundedLimit('elapsedTimeSec', overrides.elapsedTimeSec),
     inferenceCostUsd: boundedLimit('inferenceCostUsd', overrides.inferenceCostUsd),
     secondOpinionUsd: boundedLimit('secondOpinionUsd', overrides.secondOpinionUsd),
+    typesafeAuditUsd: boundedLimit('typesafeAuditUsd', overrides.typesafeAuditUsd),
     diffBytes: boundedLimit('diffBytes', overrides.diffBytes),
   };
 }
@@ -66,6 +73,11 @@ export interface ModelTurnReservation {
 }
 
 export interface SecondOpinionReservation {
+  readonly id: number;
+  readonly reservedUsd: number;
+}
+
+export interface TypeSafeAuditReservation {
   readonly id: number;
   readonly reservedUsd: number;
 }
@@ -84,6 +96,7 @@ export interface RepairBudgetSnapshot {
   elapsedTimeSec: number;
   inferenceCostUsd: number;
   secondOpinionUsd: number;
+  typesafeAuditUsd: number;
 }
 
 export class RepairBudget {
@@ -94,9 +107,11 @@ export class RepairBudget {
   private sandboxOperations = 0;
   private inferenceCostUsd = 0;
   private secondOpinionUsd = 0;
+  private typesafeAuditUsd = 0;
   private nextReservationId = 1;
   private readonly unsettled = new Map<number, number>();
   private readonly unsettledSecondOpinion = new Map<number, number>();
+  private readonly unsettledTypeSafeAudit = new Map<number, number>();
   private readonly held = new Map<RepairCapacityReservation, Record<CapacityKey, number>>();
   private readonly startedAt: number;
 
@@ -226,6 +241,32 @@ export class RepairBudget {
     this.secondOpinionUsd -= reserved - actualUsd;
   }
 
+  /** Independent of inferenceCostUsd and secondOpinionUsd: caps only the optional TypeSafe Jev calibrated audit. */
+  reserveTypeSafeAudit(worstCaseUsd: number): TypeSafeAuditReservation {
+    this.assertElapsed();
+    if (!Number.isFinite(worstCaseUsd) || worstCaseUsd <= 0) {
+      throw new RangeError('Worst-case TypeSafe audit cost must be positive');
+    }
+    if (this.typesafeAuditUsd + worstCaseUsd > this.limits.typesafeAuditUsd) {
+      throw new BudgetExceededError('typesafeAuditUsd');
+    }
+    this.typesafeAuditUsd += worstCaseUsd;
+    const reservation = { id: this.nextReservationId, reservedUsd: worstCaseUsd };
+    this.nextReservationId += 1;
+    this.unsettledTypeSafeAudit.set(reservation.id, worstCaseUsd);
+    return reservation;
+  }
+
+  settleTypeSafeAudit(reservation: TypeSafeAuditReservation, actualUsd: number): void {
+    const reserved = this.unsettledTypeSafeAudit.get(reservation.id);
+    if (reserved === undefined) throw new Error('TypeSafe audit reservation is not active');
+    if (!Number.isFinite(actualUsd) || actualUsd < 0 || actualUsd > reserved) {
+      throw new RangeError('Actual TypeSafe audit cost must be between zero and the reservation');
+    }
+    this.unsettledTypeSafeAudit.delete(reservation.id);
+    this.typesafeAuditUsd -= reserved - actualUsd;
+  }
+
   assertDiffBytes(bytes: number): void {
     this.assertElapsed();
     if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > this.limits.diffBytes) {
@@ -251,6 +292,7 @@ export class RepairBudget {
       elapsedTimeSec: Math.max(0, (this.now() - this.startedAt) / 1_000),
       inferenceCostUsd: this.committed('inferenceCostUsd'),
       secondOpinionUsd: this.secondOpinionUsd,
+      typesafeAuditUsd: this.typesafeAuditUsd,
     };
   }
 }
