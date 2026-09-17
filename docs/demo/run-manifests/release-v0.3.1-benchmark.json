@@ -1,10 +1,10 @@
 {
   "schemaVersion": "sutura-verified-program-manifest-v1",
   "manifestId": "release-v0.3.1-benchmark",
-  "purpose": "Release benchmark for v0.3.1 (d1bc6da7…): the 51 frozen Placebo v0.2 cases against the tagged release commit as controller and subject, with the GPT-6 Astra second opinion and the TypeSafe Jev calibrated audit enabled. Its result is the Case Lab recorded evidence and the v0.3.1 release evidence. jev-latest resolved to jev-1.13.0 on 2026-09-17.",
+  "purpose": "Release benchmark for v0.3.1 (e724f3b2…): the 51 frozen Placebo v0.2 cases against the tagged release commit as controller and subject, with the GPT-6 Astra second opinion and the TypeSafe Jev calibrated audit enabled. Its result is the Case Lab recorded evidence and the v0.3.1 release evidence. jev-latest resolved to jev-1.13.0 on 2026-09-17.",
   "mode": "live",
   "identity": {
-    "candidateCommit": "d1bc6da7700a0de94ed9967829cd69425107c5fc",
+    "candidateCommit": "e724f3b22de79d6ab3f40cffa96de7776c256ce9",
     "imageDigest": "sha256:47965cdc9d53a515f68f78241161c901e70051ce428f12e791bd7fe19f6a631a",
     "corpusHash": "785cfc70359935a0f04a9a9cda39e8fb6ff4b05cc8fea3738fb24b70bcda101f",
     "splitHash": "a339d1b5aa171b11d7beb5ea592a3f7876b7753aefddbb865846821829a9fbe9",
@@ -108,5 +108,5 @@
     "repair-type-mismatch"
   ],
   "pricedMaximumUsd": 10,
-  "manifestHash": "fe14887bc44dbf3da68a1c4feb1e3d6c8d8178cdc3ac5a6de37923edf8c0f3d5"
+  "manifestHash": "f7532925da4f0329b41100bb08c921f62759af1050c6f25bb9b19bb7e6a90669"
 }

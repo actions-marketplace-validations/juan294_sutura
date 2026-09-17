@@ -255,7 +255,7 @@ test('the v0.3.1 release manifest validates and prices at most USD 10', () => {
   const m = JSON.parse(readFileSync('docs/demo/run-manifests/release-v0.3.1-benchmark.json', 'utf8'));
   const valid = validateRunManifest(m);
 
-  assert.equal(m.identity.candidateCommit, 'd1bc6da7700a0de94ed9967829cd69425107c5fc');
+  assert.equal(m.identity.candidateCommit, 'e724f3b22de79d6ab3f40cffa96de7776c256ce9');
   assert.equal(m.subjects.length, 51);
   assert.equal(m.caps.subjects, 51);
   assert.equal(valid.manifestHash, m.manifestHash);
