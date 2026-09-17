@@ -29,6 +29,7 @@ const BOUNDARY_TESTS = [
   ['packages/core/src/llm/nebius.test.ts', 'nebius'],
   ['packages/core/src/llm/json.test.ts', 'nebius'],
   ['packages/core/src/llm/openai.test.ts', 'openai'],
+  ['packages/core/src/llm/typesafe.test.ts', 'typesafe'],
   ['packages/core/src/executor/contree.test.ts', 'contree'],
   ['packages/core/src/diagnose/tavily.test.ts', 'tavily'],
   ['packages/core/src/runtime/detect.test.ts', 'repository'],
@@ -47,6 +48,7 @@ export const PENDING_CAPTURE_IMPORTS = new Set([
   'packages/core/src/runtime/detect.test.ts',
   'packages/core/src/runtime/python.test.ts',
   'packages/core/src/llm/openai.test.ts',
+  'packages/core/src/llm/typesafe.test.ts',
 ]);
 
 function sha256(bytes) {

@@ -7,6 +7,8 @@ export interface RepairBudgetLimits {
   inferenceCostUsd: number;
   /** Separate from inferenceCostUsd: caps the optional GPT-6 Astra veto-only second opinion. */
   secondOpinionUsd: number;
+  /** Separate cap for the optional TypeSafe Jev calibrated audit. */
+  typesafeAuditUsd: number;
   diffBytes: number;
 }
 
@@ -18,10 +20,19 @@ export const DEFAULT_REPAIR_BUDGET_LIMITS = Object.freeze({
   elapsedTimeSec: 600,
   inferenceCostUsd: 0.25,
   secondOpinionUsd: 0.30,
+  typesafeAuditUsd: 0.02,
   diffBytes: 65_536,
 }) satisfies Readonly<RepairBudgetLimits>;
 
 export type RepairBudgetOverrides = Partial<RepairBudgetLimits>;
+
+/** Limits denominated in USD; every other limit is an integer count. Shared with replay validation. */
+export const USD_BUDGET_KEYS: ReadonlySet<keyof RepairBudgetLimits> = new Set<keyof RepairBudgetLimits>([
+  'inferenceCostUsd', 'secondOpinionUsd', 'typesafeAuditUsd',
+]);
+
+/** The two optional veto-only audit pools, each reserved and settled independently of inferenceCostUsd. */
+type UsdPoolKey = 'secondOpinionUsd' | 'typesafeAuditUsd';
 
 export class BudgetExceededError extends Error {
   constructor(readonly budget: keyof RepairBudgetLimits) {
@@ -39,7 +50,7 @@ function boundedLimit<K extends keyof RepairBudgetLimits>(
   if (!Number.isFinite(resolved) || resolved <= 0 || resolved > maximum) {
     throw new RangeError(`Repair ${key} must be greater than 0 and at most ${maximum}`);
   }
-  if (key !== 'inferenceCostUsd' && key !== 'secondOpinionUsd' && !Number.isSafeInteger(resolved)) {
+  if (!USD_BUDGET_KEYS.has(key) && !Number.isSafeInteger(resolved)) {
     throw new RangeError(`Repair ${key} must be an integer`);
   }
   return resolved;
@@ -56,6 +67,7 @@ export function repairBudgetLimits(
     elapsedTimeSec: boundedLimit('elapsedTimeSec', overrides.elapsedTimeSec),
     inferenceCostUsd: boundedLimit('inferenceCostUsd', overrides.inferenceCostUsd),
     secondOpinionUsd: boundedLimit('secondOpinionUsd', overrides.secondOpinionUsd),
+    typesafeAuditUsd: boundedLimit('typesafeAuditUsd', overrides.typesafeAuditUsd),
     diffBytes: boundedLimit('diffBytes', overrides.diffBytes),
   };
 }
@@ -66,6 +78,11 @@ export interface ModelTurnReservation {
 }
 
 export interface SecondOpinionReservation {
+  readonly id: number;
+  readonly reservedUsd: number;
+}
+
+export interface TypeSafeAuditReservation {
   readonly id: number;
   readonly reservedUsd: number;
 }
@@ -84,6 +101,7 @@ export interface RepairBudgetSnapshot {
   elapsedTimeSec: number;
   inferenceCostUsd: number;
   secondOpinionUsd: number;
+  typesafeAuditUsd: number;
 }
 
 export class RepairBudget {
@@ -94,9 +112,13 @@ export class RepairBudget {
   private sandboxOperations = 0;
   private inferenceCostUsd = 0;
   private secondOpinionUsd = 0;
+  private typesafeAuditUsd = 0;
   private nextReservationId = 1;
   private readonly unsettled = new Map<number, number>();
-  private readonly unsettledSecondOpinion = new Map<number, number>();
+  private readonly unsettledPools: Record<UsdPoolKey, Map<number, number>> = {
+    secondOpinionUsd: new Map(),
+    typesafeAuditUsd: new Map(),
+  };
   private readonly held = new Map<RepairCapacityReservation, Record<CapacityKey, number>>();
   private readonly startedAt: number;
 
@@ -200,30 +222,49 @@ export class RepairBudget {
     this.inferenceCostUsd -= reserved - actualUsd;
   }
 
-  /** Independent of inferenceCostUsd: caps only the optional veto-only second opinion. */
-  reserveSecondOpinion(worstCaseUsd: number): SecondOpinionReservation {
+  private reserveUsdPool(key: UsdPoolKey, label: string, worstCaseUsd: number): SecondOpinionReservation {
     this.assertElapsed();
     if (!Number.isFinite(worstCaseUsd) || worstCaseUsd <= 0) {
-      throw new RangeError('Worst-case second-opinion cost must be positive');
+      throw new RangeError(`Worst-case ${label} cost must be positive`);
     }
-    if (this.secondOpinionUsd + worstCaseUsd > this.limits.secondOpinionUsd) {
-      throw new BudgetExceededError('secondOpinionUsd');
+    if (this[key] + worstCaseUsd > this.limits[key]) {
+      throw new BudgetExceededError(key);
     }
-    this.secondOpinionUsd += worstCaseUsd;
+    this[key] += worstCaseUsd;
     const reservation = { id: this.nextReservationId, reservedUsd: worstCaseUsd };
     this.nextReservationId += 1;
-    this.unsettledSecondOpinion.set(reservation.id, worstCaseUsd);
+    this.unsettledPools[key].set(reservation.id, worstCaseUsd);
     return reservation;
   }
 
-  settleSecondOpinion(reservation: SecondOpinionReservation, actualUsd: number): void {
-    const reserved = this.unsettledSecondOpinion.get(reservation.id);
-    if (reserved === undefined) throw new Error('Second-opinion reservation is not active');
-    if (!Number.isFinite(actualUsd) || actualUsd < 0 || actualUsd > reserved) {
-      throw new RangeError('Actual second-opinion cost must be between zero and the reservation');
+  private settleUsdPool(key: UsdPoolKey, label: string, reservation: SecondOpinionReservation, actualUsd: number): void {
+    const reserved = this.unsettledPools[key].get(reservation.id);
+    if (reserved === undefined) {
+      throw new Error(`${label.charAt(0).toUpperCase()}${label.slice(1)} reservation is not active`);
     }
-    this.unsettledSecondOpinion.delete(reservation.id);
-    this.secondOpinionUsd -= reserved - actualUsd;
+    if (!Number.isFinite(actualUsd) || actualUsd < 0 || actualUsd > reserved) {
+      throw new RangeError(`Actual ${label} cost must be between zero and the reservation`);
+    }
+    this.unsettledPools[key].delete(reservation.id);
+    this[key] -= reserved - actualUsd;
+  }
+
+  /** Independent of inferenceCostUsd: caps only the optional veto-only second opinion. */
+  reserveSecondOpinion(worstCaseUsd: number): SecondOpinionReservation {
+    return this.reserveUsdPool('secondOpinionUsd', 'second-opinion', worstCaseUsd);
+  }
+
+  settleSecondOpinion(reservation: SecondOpinionReservation, actualUsd: number): void {
+    this.settleUsdPool('secondOpinionUsd', 'second-opinion', reservation, actualUsd);
+  }
+
+  /** Independent of inferenceCostUsd and secondOpinionUsd: caps only the optional TypeSafe Jev calibrated audit. */
+  reserveTypeSafeAudit(worstCaseUsd: number): TypeSafeAuditReservation {
+    return this.reserveUsdPool('typesafeAuditUsd', 'TypeSafe audit', worstCaseUsd);
+  }
+
+  settleTypeSafeAudit(reservation: TypeSafeAuditReservation, actualUsd: number): void {
+    this.settleUsdPool('typesafeAuditUsd', 'TypeSafe audit', reservation, actualUsd);
   }
 
   assertDiffBytes(bytes: number): void {
@@ -251,6 +292,7 @@ export class RepairBudget {
       elapsedTimeSec: Math.max(0, (this.now() - this.startedAt) / 1_000),
       inferenceCostUsd: this.committed('inferenceCostUsd'),
       secondOpinionUsd: this.secondOpinionUsd,
+      typesafeAuditUsd: this.typesafeAuditUsd,
     };
   }
 }

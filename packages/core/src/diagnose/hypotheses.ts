@@ -98,34 +98,10 @@ function hypothesisOptions(): ChatOptions {
     purpose: 'diagnosis-recovery',
     maxTokens: 2048,
     temperature: 0,
-    responseFormat: {
-      type: 'json_schema',
-      jsonSchema: {
-        name: 'sutura_diagnosis_hypotheses',
-        strict: true,
-        schema: {
-          type: 'object',
-          properties: {
-            hypotheses: {
-              type: 'array', maxItems: 2,
-              items: {
-                type: 'object',
-                properties: {
-                  signalIndex: { type: 'integer' },
-                  sourceIndex: { type: 'integer' },
-                  intent: { type: 'string', enum: INTENTS },
-                  probeId: { type: 'string', enum: ['async-completion', 'strict-json'] },
-                },
-                required: [...HYPOTHESIS_FIELDS],
-                additionalProperties: false,
-              },
-            },
-          },
-          required: ['hypotheses'],
-          additionalProperties: false,
-        },
-      },
-    },
+    // json_object, not json_schema: see repair-attempt.ts proposalOptions (Token
+    // Factory schema-guided decoding drops string escapes since 2026-09-16).
+    // validateHypotheses enforces the bounded contract locally.
+    responseFormat: { type: 'json_object' },
   };
 }
 

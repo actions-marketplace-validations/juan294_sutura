@@ -56,6 +56,36 @@ describe('replayFetch', () => {
     await expect(response.json()).resolves.toEqual({ answer: 42 });
   });
 
+  it('replays the typesafe boundary the same way as nebius', async () => {
+    const typesafeBundle = bundle();
+    typesafeBundle.http[0]!.boundary = 'typesafe';
+    const fetch = replayFetch(typesafeBundle, 'typesafe');
+    const response = await fetch('https://example.test/chat', {
+      method: 'POST', headers: {}, body: '{"a":1,"b":2}',
+    });
+    await expect(response.json()).resolves.toEqual({ answer: 42 });
+  });
+
+  it('treats a recorded json_schema request and a live json_object request as the same request', async () => {
+    // Bundles captured before 2026-09-16 carry json_schema; the live path now sends json_object.
+    const recorded = {
+      model: 'super', messages: [{ role: 'user', content: 'repair' }],
+      response_format: { type: 'json_schema', json_schema: { name: 'sutura_repair_proposal', strict: true, schema: { type: 'object' } } },
+    };
+    const drifted = bundle();
+    drifted.http[0]!.request.body = JSON.stringify(recorded);
+    const response = await replayFetch(drifted, 'nebius')('https://example.test/chat', {
+      method: 'POST', headers: {}, body: JSON.stringify({ ...recorded, response_format: { type: 'json_object' } }),
+    });
+    await expect(response.json()).resolves.toEqual({ answer: 42 });
+
+    const stillStrict = bundle();
+    stillStrict.http[0]!.request.body = JSON.stringify(recorded);
+    await expect(replayFetch(stillStrict, 'nebius')('https://example.test/chat', {
+      method: 'POST', headers: {}, body: JSON.stringify({ ...recorded, model: 'other', response_format: { type: 'json_object' } }),
+    })).rejects.toMatchObject({ path: '$.model', expected: 'super', actual: 'other' });
+  });
+
   it('names the first differing JSON path', async () => {
     const fetch = replayFetch(bundle(), 'nebius');
     await expect(fetch('https://example.test/chat', {

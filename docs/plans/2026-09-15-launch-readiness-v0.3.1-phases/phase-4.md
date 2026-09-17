@@ -2,7 +2,14 @@
 
 Plan: [2026-09-15-launch-readiness-v0.3.1.md](../2026-09-15-launch-readiness-v0.3.1.md)
 
-Status: not started. Requires Phases 1–3 merged on `develop` with green CI.
+Status: **blocked, in progress.** Part A steps 1-6 done: `main` at `3fd99d8`
+(squash-merged PR #144), tagged `v0.3.1`, `develop` reconciled. Part A's
+GitHub release / npm publish (step 5's tail) is deferred: `ci.yml` on `main`
+correctly refuses (`release:case-lab check` — the Case Lab still names
+v0.3.0) until Part B's `bump` lands, and Part B is blocked on Nebius/Nemotron
+provider drift unrelated to this release (see `docs/plans/2026-09-15-launch-readiness-v0.3.1-notes.md`
+Deviations). Juan decided 2026-09-16: ship without the live benchmark for
+now; resume Part B when the provider-contract canary passes again.
 Paid and outward-facing: npm publish, ~USD 10 cap benchmark, demo publish,
 Vercel deploy, re-enabling live runs. Each authorization is requested in this
 phase's conversation at the marked steps.

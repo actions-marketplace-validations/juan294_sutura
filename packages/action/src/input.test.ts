@@ -33,6 +33,7 @@ describe('mapActionInputs', () => {
         SUTURA_REPAIR_ELAPSED_TIME_SEC: '600',
         SUTURA_REPAIR_INFERENCE_COST_USD: '0.25',
         SUTURA_SECOND_OPINION_USD: '0.3',
+        SUTURA_TYPESAFE_AUDIT_USD: '0.02',
         SUTURA_REPAIR_DIFF_BYTES: '65536',
         SUTURA_SEARCH_INITIAL_BRANCHES: '4',
         SUTURA_SEARCH_BEAM_WIDTH: '2',
@@ -66,11 +67,12 @@ describe('mapActionInputs', () => {
     }
   });
 
-  it('maps optional Tavily, OpenAI, and model selectors without exposing the GitHub token', () => {
+  it('maps optional Tavily, OpenAI, TypeSafe, and model selectors without exposing the GitHub token', () => {
     const values = {
       ...REQUIRED,
       'tavily-api-key': 'tav_test',
       'openai-api-key': 'sk-openai_test',
+      'typesafe-api-key': 'typesafe_test',
       'triage-n': '7',
       'model-nano': 'nano-override',
       'model-super': 'nvidia/nemotron-3-super-120b-a12b',
@@ -83,6 +85,7 @@ describe('mapActionInputs', () => {
       NEBIUS_API_KEY: 'neb_test',
       TAVILY_API_KEY: 'tav_test',
       OPENAI_API_KEY: 'sk-openai_test',
+      TYPESAFE_API_KEY: 'typesafe_test',
       CONTREE_TOKEN: 'con_test',
       CONTREE_PROJECT: 'project_test',
       SUTURA_TRIAGE_N: '7',
@@ -94,6 +97,7 @@ describe('mapActionInputs', () => {
       SUTURA_REPAIR_ELAPSED_TIME_SEC: '600',
       SUTURA_REPAIR_INFERENCE_COST_USD: '0.25',
       SUTURA_SECOND_OPINION_USD: '0.3',
+      SUTURA_TYPESAFE_AUDIT_USD: '0.02',
       SUTURA_REPAIR_DIFF_BYTES: '65536',
       SUTURA_SEARCH_INITIAL_BRANCHES: '4',
       SUTURA_SEARCH_BEAM_WIDTH: '2',
@@ -110,6 +114,18 @@ describe('mapActionInputs', () => {
     const values = { ...REQUIRED, 'repair-second-opinion-usd': '0.1' };
     expect(mapActionInputs((name) => values[name as keyof typeof values] ?? '').environment)
       .toMatchObject({ SUTURA_SECOND_OPINION_USD: '0.1' });
+  });
+
+  it('maps a lower-only TypeSafe audit budget override', () => {
+    const values = { ...REQUIRED, 'repair-typesafe-audit-usd': '0.01' };
+    expect(mapActionInputs((name) => values[name as keyof typeof values] ?? '').environment)
+      .toMatchObject({ SUTURA_TYPESAFE_AUDIT_USD: '0.01' });
+  });
+
+  it('rejects a TypeSafe audit budget above the default and names the input', () => {
+    const values = { ...REQUIRED, 'repair-typesafe-audit-usd': '0.03' };
+    expect(() => mapActionInputs((name) => values[name as keyof typeof values] ?? ''))
+      .toThrow(/repair-typesafe-audit-usd must be greater than 0 and at most 0.02/u);
   });
 
   it('maps adaptive search overrides into production configuration', () => {

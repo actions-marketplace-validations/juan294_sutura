@@ -6,7 +6,10 @@
 
 ### Added
 
+- Repair proposals and diagnosis hypotheses request `response_format: json_object` instead of `json_schema`; the proposal and hypothesis contracts are enforced locally (`parseProposal`, `validateHypotheses`). Provider contract `sutura-super-repair-v6`. Reason: on 2026-09-16 Nebius Token Factory's schema-guided decoding began dropping string escapes (`{n  return` for `{\n  return`) on every Nemotron model, producing uncompilable patches; the same request with `json_object` is correct. Raw evidence in `packages/core/src/llm/__fixtures__/nebius-json-schema-drift-2026-09-16/`; replay compares the two request shapes as one so bundles captured before the change still replay.
+
 - Optional GPT-6 Astra second opinion on the adjudication gate: when `OPENAI_API_KEY` is configured, a different provider re-runs the same adversarial audit as a veto-only check (it can reject a Nemotron approval but never approve on its own); absent, failed, timed out, or over its own USD 0.30 budget, it is recorded `skipped` and the run proceeds on Nemotron alone. The runtime model remains Nemotron on Nebius Token Factory.
+- Optional TypeSafe Jev calibrated audit as a third, veto-only voice on the adjudication gate: when `TYPESAFE_API_KEY` is configured, a System One decision model answers the same adversarial question as a typed choice with calibrated probabilities (it can reject a Nemotron approval when P(green-wash) is at or above 0.5 at confidence at or above 0.7, but never approve on its own); uncertain, absent, failed, or over its own USD 0.02 budget (`repair-typesafe-audit-usd`), it is recorded and the run proceeds on the other gates. The call is recorded as an optional `typesafe` replay boundary.
 - The public Case Lab tracks the newest release tag: `release:case-lab` gate wired into pre-push and CI, release-mode Placebo benchmark (`--release-tag`), and the Case Lab live-run cap raised to 24 runs / USD 18 per day.
 
 ### Fixed

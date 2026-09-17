@@ -229,11 +229,9 @@ describe('recorded live repair failures at the serialized provider boundary', ()
     });
     expect(value.fetch).toHaveBeenCalledTimes(2);
     expect(sandbox.calls).toHaveLength(0);
-    expect(value.bodies[0]).toMatchObject({
-      response_format: { json_schema: { schema: {
-        properties: { replacement: { maxLength: 1_000 } },
-      } } },
-    });
+    // The bound is enforced locally; since 2026-09-16 no schema travels to the provider.
+    expect(value.bodies[0]).toMatchObject({ response_format: { type: 'json_object' } });
+    expect(value.bodies[0]).not.toHaveProperty('response_format.json_schema');
   });
 
   it('replays live run 12: finish_reason length is a completion-limit terminal', async () => {

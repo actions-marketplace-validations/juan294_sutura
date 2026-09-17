@@ -668,8 +668,9 @@ describe('recorded GitHub API orchestration E2E', () => {
           expect(request.selectedTarget).toEqual({
             path: 'packages/core/src/dogfood-add.ts', startLine: 1, endLine: 3,
           });
-          expect(options).toMatchObject({ responseFormat: { type: 'json_schema' } });
-          expect(JSON.stringify(options)).toContain('"replacement"');
+          // json_object since 2026-09-16: the proposal contract is enforced locally, no schema travels.
+          expect(options).toMatchObject({ responseFormat: { type: 'json_object' } });
+          expect(options).not.toHaveProperty('responseFormat.jsonSchema');
           expect(JSON.stringify(options)).not.toMatch(/(?:dogfood-add|startLine|endLine|"path")/u);
           expect(options).not.toHaveProperty('tools');
           expect(options).not.toHaveProperty('toolChoice');

@@ -1,0 +1,23 @@
+{
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Return one complete replacement repair proposal as strict JSON.\nReturn exactly this shape: {\"replacement\":\"complete replacement for the controller-selected excerpt\"}\nThe controller selects exactly one target excerpt. You cannot select a path or line range.\nreplacement must be the complete new text for the entire selected target excerpt, including every unchanged line and without supplied line numbers.\nThe failing assertion declares required behavior. Repair production source; do not change tests or policy.\nUse an empty replacement only when deleting the entire selected excerpt is the diagnosed repair.\nChange the smallest necessary part of the excerpt, but return the full replacement excerpt.\nDo not include analysis or markdown.\nA previousAttempt is feedback only; this proposal will be applied to the clean baseline."
+    },
+    {
+      "role": "user",
+      "content": "{\"diagnosis\":{\"class\":\"test-assertion\",\"confidence\":0.99,\"signals\":[\"expected -1 to be 5\"],\"failingCmd\":\"pnpm test\",\"errorExcerpt\":\"src/add.test.ts: expected -1 to be 5\"},\"sources\":[{\"path\":\"src/add.test.ts\",\"startLine\":1,\"endLine\":2,\"truncated\":false,\"editable\":false,\"lines\":[{\"line\":1,\"text\":\"import { add } from './add.js';\"},{\"line\":2,\"text\":\"expect(add(2, 3)).toBe(5);\"}]},{\"path\":\"src/add.ts\",\"startLine\":1,\"endLine\":3,\"truncated\":false,\"editable\":true,\"lines\":[{\"line\":1,\"text\":\"export function add(left: number, right: number): number {\"},{\"line\":2,\"text\":\"  return left - right;\"},{\"line\":3,\"text\":\"}\"}]}],\"trustedCommandId\":\"diagnosed\",\"selectedTarget\":{\"path\":\"src/add.ts\",\"startLine\":1,\"endLine\":3}}"
+    }
+  ],
+  "max_tokens": 8192,
+  "temperature": 1,
+  "top_p": 0.95,
+  "chat_template_kwargs": {
+    "enable_thinking": false,
+    "force_nonempty_content": true
+  },
+  "response_format": {
+    "type": "json_object"
+  }
+}

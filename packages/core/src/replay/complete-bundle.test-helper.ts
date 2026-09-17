@@ -2,7 +2,6 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DEFAULT_MODELS } from '../config.js';
 import { TavilyClient, type TavilyHttpResponse } from '../diagnose/tavily.js';
 import type {
   CancellationResult,
@@ -12,48 +11,28 @@ import type {
   RunResult,
 } from '../executor/types.js';
 import { GitHubAdapter } from '../github/adapter.js';
-import type { GitHubApi, TextArtifactPort } from '../github/types.js';
-import type { HttpResponse } from '../llm/nebius.js';
-import { DEFAULT_ROUTING_PROFILE_ID } from '../llm/router.js';
 import { createTokenFactoryClient } from '../llm/token-factory.js';
-import { orchestrate, type RepositoryPort } from '../orchestrate.js';
+import { orchestrate } from '../orchestrate.js';
 import {
   REPLAY_BUNDLE_SCHEMA_VERSION,
   ReplayRecorder,
   type ReplayBundle,
-  type ReplayOrchestrationConfig,
 } from './bundle.js';
 import { recordingExecutor } from './record-executor.js';
 import { recordingNebiusFetch, recordingTavilyFetch } from './record-fetch.js';
 import { recordingGitHubApi } from './record-github.js';
-import { recordedErrorResult } from './recorded-error.js';
+import {
+  artifact,
+  bytesResponse,
+  CONFIGURATION,
+  githubApi,
+  HEAD_SHA,
+  recordingRepository,
+  REPOSITORY,
+  RUN_ID,
+} from './replay-fixtures.test-helper.js';
 
-const RUN_ID = '77';
-const HEAD_SHA = 'a'.repeat(40);
-const REPOSITORY = 'acme/widget';
 const PACKAGE_JSON = '{"scripts":{"test":"vitest run"}}\n';
-const ARTIFACT_URL = 'https://github.com/acme/widget/actions/runs/88/artifacts/99';
-
-const CONFIGURATION = {
-  triageN: 1,
-  raceK: 1,
-  models: DEFAULT_MODELS,
-  routingProfileId: DEFAULT_ROUTING_PROFILE_ID,
-  maxOps: 20,
-  runtimeId: 'node',
-} satisfies ReplayOrchestrationConfig;
-
-function bytesResponse(body: unknown): HttpResponse & { arrayBuffer(): Promise<ArrayBuffer> } {
-  const bytes = new TextEncoder().encode(JSON.stringify(body));
-  return {
-    ok: true,
-    status: 200,
-    headers: { get: () => null },
-    json: async () => body,
-    text: async () => new TextDecoder().decode(bytes),
-    arrayBuffer: async () => bytes.slice().buffer,
-  };
-}
 
 function tavilyResponse(body: unknown): TavilyHttpResponse & { arrayBuffer(): Promise<ArrayBuffer> } {
   const bytes = new TextEncoder().encode(JSON.stringify(body));
@@ -110,109 +89,6 @@ class CompleteReplayExecutor implements Executor {
   }
 }
 
-function githubApi(): GitHubApi {
-  const workflowRun = {
-    id: 77,
-    headSha: HEAD_SHA,
-    repository: REPOSITORY,
-    event: 'push',
-    conclusion: 'failure',
-    headBranch: 'main',
-    pullRequests: [],
-  };
-  return {
-    getWorkflowRun: async () => workflowRun,
-    listPullRequestsForCommit: async () => [],
-    getPullRequest: async () => { throw new Error('unexpected getPullRequest'); },
-    listJobsForWorkflowRun: async () => [{
-      id: 9,
-      name: 'test',
-      conclusion: 'failure',
-      steps: [{
-        name: 'Run tests',
-        conclusion: 'failure',
-        startedAt: '2026-08-30T10:00:00Z',
-        completedAt: '2026-08-30T10:00:01Z',
-      }],
-    }],
-    downloadJobLogs: async () => [
-      '2026-08-30T10:00:00Z ##[group]Run tests',
-      '2026-08-30T10:00:00Z Run pnpm test',
-      '2026-08-30T10:00:01Z Error: build failed',
-    ].join('\n'),
-    listIssueComments: async () => [],
-    listCommitComments: async () => [],
-    createRef: async () => undefined,
-    deleteRef: async () => undefined,
-    createIssueComment: async () => ({ id: 102 }),
-    createCommitComment: async () => ({ id: 102 }),
-    updateIssueComment: async () => undefined,
-    updateCommitComment: async () => undefined,
-    getRefSha: async () => HEAD_SHA,
-    getCommitParents: async () => [HEAD_SHA],
-    getCommitSha: async () => HEAD_SHA,
-    createPullRequest: async () => ({ number: 3, url: 'https://github.com/acme/widget/pull/3' }),
-    listCheckRunsForRef: async () => [],
-    createCheckRun: async () => ({ id: 101 }),
-    updateCheckRun: async () => undefined,
-  };
-}
-
-function recordingRepository(
-  checkoutDir: string,
-  recorder: ReplayRecorder,
-): RepositoryPort {
-  const record = async <T>(
-    method: keyof RepositoryPort,
-    args: unknown[],
-    operation: () => Promise<T>,
-    result: (value: T) => unknown = (value) => value,
-  ): Promise<T> => {
-    const sequence = recorder.reservePortSequence('repository');
-    try {
-      const value = await operation();
-      recorder.recordRepository({ method, args, result: result(value) }, sequence);
-      return value;
-    } catch (error) {
-      recorder.recordRepository({
-        method,
-        args,
-        result: recordedErrorResult(error),
-      }, sequence);
-      throw error;
-    }
-  };
-  return {
-    readPolicyAtSha(repo, sha) {
-      return record('readPolicyAtSha', [repo, sha], async () => null);
-    },
-    checkoutHead(repo, sha, headRef, prNumber) {
-      return record(
-        'checkoutHead',
-        [repo, sha, headRef, prNumber],
-        async () => checkoutDir,
-        () => ({
-          checkoutId: recorder.registerCheckoutPath(checkoutDir),
-          snapshot: {
-            runtimeEvidencePaths: ['package.json'],
-            files: [{ path: 'package.json', content: PACKAGE_JSON }],
-          },
-        }),
-      );
-    },
-    readSourceExcerpts(dir, references, limits) {
-      return record('readSourceExcerpts', [dir, references, limits], async () => []);
-    },
-    publishFix(input) {
-      return record('publishFix', [input], async () => undefined);
-    },
-  };
-}
-
-const artifact: TextArtifactPort = {
-  uploadTextArtifact: async () => ({ url: ARTIFACT_URL }),
-};
-
 export async function createCompleteReplayBundleForTest(): Promise<ReplayBundle> {
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'sutura-complete-replay-'));
   const checkoutDir = join(temporaryRoot, 'checkout');
@@ -256,13 +132,21 @@ export async function createCompleteReplayBundleForTest(): Promise<ReplayBundle>
   try {
     const caseFile = await orchestrate({
       runId: RUN_ID,
-      github: new GitHubAdapter(recordingGitHubApi(githubApi(), recorder), {
+      github: new GitHubAdapter(recordingGitHubApi(githubApi({
+        logLines: [
+          '2026-08-30T10:00:00Z ##[group]Run tests',
+          '2026-08-30T10:00:00Z Run pnpm test',
+          '2026-08-30T10:00:01Z Error: build failed',
+        ],
+        startedAt: '2026-08-30T10:00:00Z',
+        completedAt: '2026-08-30T10:00:01Z',
+      }), recorder), {
         owner: 'acme',
         repo: 'widget',
         runId: RUN_ID,
         artifact,
       }),
-      repository: recordingRepository(checkoutDir, recorder),
+      repository: recordingRepository(checkoutDir, recorder, [{ path: 'package.json', content: PACKAGE_JSON }]),
       executor: recordingExecutor(new CompleteReplayExecutor(), recorder),
       llm,
       cost: llm.ledger,

@@ -144,7 +144,7 @@ describe('runControlledRepairAttempt', () => {
     });
     expect(chat).toHaveBeenCalledOnce();
     const options = chat.mock.calls[0]?.[2] as ChatOptions | undefined;
-    expect(options).toMatchObject({ responseFormat: { type: 'json_schema' } });
+    expect(options).toMatchObject({ responseFormat: { type: 'json_object' } });
     expect(options).toMatchObject({
       maxTokens: CONTROLLED_REPAIR_MAX_TOKENS,
       temperature: 1,
@@ -152,7 +152,9 @@ describe('runControlledRepairAttempt', () => {
       thinkingMode: 'disabled',
     });
     expect(options).not.toHaveProperty('reasoningEffort');
-    expect(JSON.stringify(options)).toContain('"replacement"');
+    // The proposal field is named in the prompt; no schema travels in the options since 2026-09-16.
+    expect(JSON.stringify(chat.mock.calls[0]?.[1])).toContain('replacement');
+    expect(JSON.stringify(options)).not.toContain('json_schema');
     expect(JSON.stringify(options)).not.toContain('"startLine"');
     expect(JSON.stringify(options)).not.toContain('"path"');
     expect(JSON.stringify(options)).not.toContain('"old"');
@@ -404,14 +406,10 @@ describe('runControlledRepairAttempt', () => {
       path: 'packages/core/src/dogfood-add.ts', startLine: 1, endLine: 3,
     });
     const options = value.chat.mock.calls[0]?.[2] as ChatOptions | undefined;
-    if (options?.responseFormat?.type !== 'json_schema') throw new Error('Expected repair JSON schema');
-    const schema = options.responseFormat.jsonSchema.schema;
-    expect(schema).toMatchObject({
-      properties: { replacement: { type: 'string', maxLength: 1_000 } },
-      required: ['replacement'],
-      additionalProperties: false,
-    });
-    expect(JSON.stringify(schema)).not.toMatch(/(?:path|startLine|endLine|dogfood-add)/u);
+    // json_object since 2026-09-16 (Token Factory json_schema drift); the
+    // proposal contract is enforced locally by parseProposal.
+    expect(options?.responseFormat).toEqual({ type: 'json_object' });
+    expect(JSON.stringify(options)).not.toMatch(/(?:path|startLine|endLine|dogfood-add)/u);
   });
 
   it('uses a non-empty CRLF source beside an empty excerpt without schema drift', async () => {
@@ -625,7 +623,7 @@ describe('runControlledRepairAttempt', () => {
     expect(options).not.toHaveProperty('tools');
   });
 
-  it('replays live run 11: provider and local replacement bounds use one contract', async () => {
+  it('replays live run 11: the local replacement bound is the contract (no provider-side schema)', async () => {
     const executor = new InMemoryExecutor(() => runResult(1));
     const { model, chat } = llm(JSON.stringify({
       replacement: 'x'.repeat(REPAIR_FULL_REPLACEMENT_MAX_CODE_POINTS + 1),
@@ -640,11 +638,8 @@ describe('runControlledRepairAttempt', () => {
     expect(outcome).toMatchObject({ status: 'gave-up', failureKind: 'invalid' });
     expect(chat).toHaveBeenCalledTimes(2);
     expect(executor.calls).toHaveLength(0);
-    expect(chat.mock.calls[0]?.[2]).toMatchObject({ responseFormat: { jsonSchema: { schema: {
-      properties: {
-        replacement: { type: 'string', maxLength: 1_000 },
-      },
-    } } } });
+    expect(chat.mock.calls[0]?.[2]).toMatchObject({ responseFormat: { type: 'json_object' } });
+    expect(chat.mock.calls[0]?.[2]).not.toHaveProperty('responseFormat.jsonSchema');
   });
 
   it('uses JSON Schema code-point lengths and rejects model-selected target fields', async () => {

@@ -8,6 +8,7 @@ import { classifyMechanically } from './diagnose/classify.js';
 import type { TavilySearch } from './diagnose/tavily.js';
 import type { RepairBudgetOverrides } from './engine/repair-budget.js';
 import type { AuditLlm } from './audit/audit.js';
+import type { TypeSafeAuditClient } from './llm/typesafe.js';
 import type { SearchLimits } from './config.js';
 import type {
   CaseFile,
@@ -211,6 +212,8 @@ export interface OrchestrationContext {
   llm: OrchestratorLlm;
   /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
   secondOpinion?: AuditLlm;
+  /** Optional veto-only TypeSafe Jev calibrated audit. Absent when TYPESAFE_API_KEY is unconfigured. */
+  typesafeAudit?: TypeSafeAuditClient;
   cost: CostLedger;
   triageN: number;
   raceK: number;
@@ -724,6 +727,7 @@ export async function orchestrate(ctx: OrchestrationContext): Promise<CaseFile> 
     executor,
     llm: ctx.llm,
     ...(ctx.secondOpinion === undefined ? {} : { secondOpinion: ctx.secondOpinion }),
+    ...(ctx.typesafeAudit === undefined ? {} : { typesafeAudit: ctx.typesafeAudit }),
     cost: ctx.cost,
     triageN: ctx.triageN,
     raceK: ctx.raceK,

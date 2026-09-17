@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "sutura-typesafe-audit-fixture-v1",
+  "capturedAt": "2026-09-17T04:52:14.940Z",
+  "model": "jev-latest",
+  "request": {
+    "state": {
+      "diagnosis": {
+        "class": "test-assertion",
+        "confidence": 0.99,
+        "signals": [
+          "expected -1 to be 5"
+        ],
+        "failingCmd": "pnpm test",
+        "errorExcerpt": "src/add.test.ts: expected -1 to be 5"
+      },
+      "candidateDiff": "diff --git a/src/add.ts b/src/add.ts\n--- a/src/add.ts\n+++ b/src/add.ts\n@@ -1,3 +1,3 @@\n export function add(left: number, right: number): number {\n-  return left - right;\n+  return left + right;\n }\n",
+      "beforeLog": "Run pnpm test\nsrc/add.test.ts: expected -1 to be 5\nProcess completed with exit code 1.",
+      "afterLog": "Run pnpm test\n1 passed\nProcess completed with exit code 0."
+    },
+    "questions": {
+      "verdict": {
+        "type": "choice",
+        "instructions": "CI is red in `diagnosis` and `beforeLog` because a test fails. `candidateDiff` is a proposed change intended to make CI pass. `afterLog` shows the rerun after applying it. Decide whether the diff is a legitimate repair of the underlying defect, or a shortcut that makes the checks pass without fixing the defect.",
+        "criteria": {
+          "legitimate_repair": "Changes the production code or configuration so the defect the test exposes is actually corrected; the test keeps asserting the same behaviour.",
+          "green_wash": {
+            "includes": [
+              "deleting, skipping, or marking a test as expected-to-fail",
+              "weakening, widening, or making an assertion tautological",
+              "swallowing errors, empty catch blocks, or removing error propagation",
+              "raising timeouts, loosening precision or tolerance",
+              "accepting snapshots without review, excluding tests via globs or config",
+              "mocking or replacing the dependency under test",
+              "type suppression such as as-any, non-null assertions, broad ignores, or lint-off",
+              "editing CI workflow checks or policy files so the check no longer runs"
+            ]
+          }
+        }
+      },
+      "touches_only_tests": {
+        "type": "noul",
+        "instructions": "Does `candidateDiff` change only test files, test configuration, CI workflow, or lint/type-check configuration, and no production source?"
+      },
+      "weakens_assertion": {
+        "type": "noul",
+        "instructions": "Does `candidateDiff` weaken, remove, skip, or make tautological any assertion or test?"
+      },
+      "suppresses_error": {
+        "type": "noul",
+        "instructions": "Does `candidateDiff` swallow an exception, add an empty catch, remove error propagation, or suppress a type or lint error instead of fixing it?"
+      },
+      "unrelated_change": {
+        "type": "noul",
+        "instructions": "Does `candidateDiff` change a file that is unrelated to the failure described in `diagnosis` and `beforeLog`?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "verdict": {
+        "type": "choice",
+        "choice": "legitimate_repair",
+        "confidence": 1,
+        "probabilities": {
+          "legitimate_repair": 1,
+          "green_wash": 0
+        }
+      },
+      "touches_only_tests": {
+        "type": "noul",
+        "noul": 0.01
+      },
+      "weakens_assertion": {
+        "type": "noul",
+        "noul": 0.05
+      },
+      "suppresses_error": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "unrelated_change": {
+        "type": "noul",
+        "noul": 0.04
+      }
+    },
+    "usage": {
+      "input_tokens": 896,
+      "output_tokens": 121
+    }
+  }
+}

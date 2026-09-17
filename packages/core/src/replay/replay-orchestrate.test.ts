@@ -8,6 +8,7 @@ import { DEFAULT_MODELS } from '../config.js';
 import { SUPER_REPAIR_PROVIDER_CONTRACT_VERSION } from '../llm/provider-contract-canary.js';
 import { DEFAULT_ROUTING_PROFILE_ID } from '../llm/router.js';
 import { REPLAY_BUNDLE_SCHEMA_VERSION, type ReplayBundle } from './bundle.js';
+import { createAuditPathReplayBundleForTest } from './complete-audit-bundle.test-helper.js';
 import { createCompleteReplayBundleForTest } from './complete-bundle.test-helper.js';
 import { ReplayMismatchError } from './replay-fetch.js';
 import { replayBundle } from './replay-orchestrate.js';
@@ -98,6 +99,35 @@ describe('replayBundle', () => {
     ]);
   });
 
+  it('replays a bundle recorded with an openai second-opinion and a typesafe calibrated-audit exchange', async () => {
+    const bundle = await createAuditPathReplayBundleForTest();
+
+    expect(new Set(bundle.http.map(({ boundary }) => boundary)))
+      .toEqual(new Set(['contree', 'nebius', 'openai', 'typesafe']));
+    expect(bundle.outcome).toBe('fixed');
+
+    const result = await replayBundle(bundle);
+
+    expect(result.caseFile.outcome).toBe('fixed');
+    expect(result.caseFile.audit?.checks).toContainEqual(expect.objectContaining({
+      name: 'second-opinion', passed: true,
+    }));
+    expect(result.caseFile.audit?.checks).toContainEqual(expect.objectContaining({
+      name: 'typesafe-audit', passed: true,
+    }));
+  }, 30_000);
+
+  it('replays a bundle without an openai or typesafe exchange (the clients are not constructed)', async () => {
+    const bundle = await createCompleteReplayBundleForTest();
+
+    expect(bundle.http.some(({ boundary }) => boundary === 'openai' || boundary === 'typesafe'))
+      .toBe(false);
+
+    await expect(replayBundle(bundle)).resolves.toMatchObject({
+      caseFile: { outcome: bundle.outcome },
+    });
+  }, 30_000);
+
   it('reuses the runtime selected during live execution', async () => {
     const bundle = await createCompleteReplayBundleForTest();
     delete bundle.configuration.runtimeId;
@@ -121,7 +151,7 @@ describe('replayBundle', () => {
     expect(report.match(/^\| search-/gmu)).toHaveLength(7);
     expect(recordedProviderRequestIncludes(bundle, 'invalid: Repair proposal must be valid JSON'))
       .toBe(true);
-    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v5');
+    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v6');
     expect(capturedSuperRequestBodies(bundle).map(({ chat_template_kwargs }) => chat_template_kwargs))
       .toEqual(Array.from({ length: 7 }, () => ({ enable_thinking: false })));
 
@@ -147,7 +177,7 @@ describe('replayBundle', () => {
       bundle,
       'sandbox: Automatic trusted test did not produce valid evidence',
     )).toBe(true);
-    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v5');
+    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v6');
     expect(capturedSuperRequestBodies(bundle).map(({ chat_template_kwargs }) => chat_template_kwargs))
       .toEqual(Array.from({ length: 6 }, () => ({ enable_thinking: false })));
 

@@ -60,7 +60,9 @@ export type RecordedBody =
   | StreamBody
   | RawBody;
 
-export type RecordedHttpBoundary = 'nebius' | 'tavily' | 'contree' | 'openai';
+/** Every HTTP boundary a bundle may record; validation and manifests derive their sets from this list. */
+export const RECORDED_HTTP_BOUNDARIES = ['nebius', 'tavily', 'contree', 'openai', 'typesafe'] as const;
+export type RecordedHttpBoundary = (typeof RECORDED_HTTP_BOUNDARIES)[number];
 export type ReplayBoundary =
   | 'github'
   | 'repository'
