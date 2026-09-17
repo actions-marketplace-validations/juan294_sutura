@@ -25,6 +25,7 @@ export {
   SUTURA_SANDBOX_ENV,
   healCase,
   repairFailure,
+  tracedTypeSafeAudit,
 } from './heal.js';
 export {
   MAX_POLICY_BYTES,
@@ -119,6 +120,7 @@ export {
   TYPESAFE_UNCERTAIN_CONFIDENCE,
   decideTypeSafeAudit,
   typesafeAudit,
+  typesafeAuditEvidence,
 } from './audit/typesafe-audit.js';
 export {
   checkAssertionDrop,
@@ -286,6 +288,7 @@ export {
   recordingNebiusFetch,
   recordingOpenAiFetch,
   recordingTavilyFetch,
+  recordingTypeSafeFetch,
 } from './replay/record-fetch.js';
 export { recordingExecutor } from './replay/record-executor.js';
 export { recordingGitHubApi } from './replay/record-github.js';

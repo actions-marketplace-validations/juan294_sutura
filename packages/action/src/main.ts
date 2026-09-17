@@ -9,6 +9,7 @@ import {
   OpenAiClient,
   ReplayRecorder,
   TavilyClient,
+  TypeSafeClient,
   createTokenFactoryClient,
   loadConfig,
   orchestrate,
@@ -17,6 +18,7 @@ import {
   recordingNebiusFetch,
   recordingOpenAiFetch,
   recordingTavilyFetch,
+  recordingTypeSafeFetch,
   type Config,
   type ConfigEnvironment,
   type OrchestrationContext,
@@ -114,6 +116,7 @@ export async function runAction(
             config.nebiusApiKey,
             config.tavilyApiKey ?? '',
             config.openaiApiKey ?? '',
+            config.typesafeApiKey ?? '',
             config.contreeToken,
             config.contreeProject,
           ],
@@ -134,6 +137,14 @@ export async function runAction(
           fetch: recordingOpenAiFetch(
             recorder,
             globalThis.fetch as Parameters<typeof recordingOpenAiFetch>[1],
+          ),
+        } : {})
+      : undefined;
+    const typesafeAudit = config.typesafeApiKey
+      ? new TypeSafeClient({ apiKey: config.typesafeApiKey, ledger: nebius.ledger }, recorder ? {
+          fetch: recordingTypeSafeFetch(
+            recorder,
+            globalThis.fetch as Parameters<typeof recordingTypeSafeFetch>[1],
           ),
         } : {})
       : undefined;
@@ -185,6 +196,7 @@ export async function runAction(
       executor,
       llm: nebius,
       ...(secondOpinion ? { secondOpinion } : {}),
+      ...(typesafeAudit ? { typesafeAudit } : {}),
       cost: nebius.ledger,
       ...orchestrationOptions,
       ...(tavily ? { tavily } : {}),

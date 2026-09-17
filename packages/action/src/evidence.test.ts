@@ -41,7 +41,7 @@ describe('runtimeEvidence', () => {
   });
   it('reports actual Nemotron calls, cost, and ConTree results', () => {
     expect(runtimeEvidence(caseFile())).toEqual([
-      'Nemotron runtime: nano=nvidia/nemotron-nano calls=1; inference cost USD=0.001000',
+      'Model runtime: nano=nvidia/nemotron-nano calls=1; inference cost USD=0.001000',
       'ConTree runtime: sandbox reproduction attempted; triage=4/4 max=5 stop=failure-boundary method=sprt-p20-p80-a05-b05-v1; search-nodes=0; outcome=gave-up',
       'Sandbox evidence: operations=0; elapsed=0.000s; cpu=0.000s; max-rss=0KB; sandbox cost USD=0.000000',
       `Policy evidence: base-ref=develop; base-sha=${'a'.repeat(40)}; policy-sha=default`,

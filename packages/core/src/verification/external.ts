@@ -10,6 +10,7 @@ import { budgetedRecoveryPorts, reserveRecoveryAudit, withinRecoveryDeadline } f
 import { BudgetExceededError, RepairBudget, type RepairBudgetOverrides } from '../engine/repair-budget.js';
 import type { Executor } from '../executor/types.js';
 import type { AuditLlm } from '../audit/audit.js';
+import type { TypeSafeAuditClient } from '../llm/typesafe.js';
 import { AllowlistedExecutor, type HealLlm } from '../heal.js';
 import { policyAllowsSourceRead } from '../policy/evaluate.js';
 import type { RepositoryPolicy } from '../policy/schema.js';
@@ -26,6 +27,8 @@ export interface ExternalVerificationInput {
   llm: HealLlm;
   /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
   secondOpinion?: AuditLlm;
+  /** Optional veto-only TypeSafe Jev calibrated audit. Absent when TYPESAFE_API_KEY is unconfigured. */
+  typesafeAudit?: TypeSafeAuditClient;
   sourceDir: string;
   snapshotSha256: string;
   policySha256: string;
@@ -134,6 +137,7 @@ export async function executeExternalVerification(input: ExternalVerificationInp
     phase = 'audit';
     const result = await evaluateRuntimeCandidate({ ...audit, policy, prepared, runtime,
       ...(input.secondOpinion === undefined ? {} : { secondOpinion: input.secondOpinion, secondOpinionBudget: budget }),
+      ...(input.typesafeAudit === undefined ? {} : { typesafeAudit: input.typesafeAudit, typesafeAuditBudget: budget }),
       baselineImage: reproduction.baselineImage,
       winner: { candidate: { id: 'supplied-candidate', rationale: 'Externally supplied patch', diff: input.request.candidateDiff }, imageId: visible.candidateImage, nodeId: 'supplied-candidate', held: visible.status === 'passed', exitCode: visible.testExitCode ?? -1 },
       diagnosis: { ...classifyMechanically(reproduction.output ?? ''), failingCmd: input.request.failingCommand },

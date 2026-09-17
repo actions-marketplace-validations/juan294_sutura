@@ -21,9 +21,11 @@ import {
   sandboxPreparationCommand,
   sandboxTargetCommand,
   SUTURA_SANDBOX_ENV,
+  tracedTypeSafeAudit,
   type HealCaseContext,
 } from './heal.js';
 import type { ChatMessage, TierLlm } from './llm/types.js';
+import { TYPESAFE_AUDIT_MODEL, type TypeSafeAuditClient, type TypeSafeDecision } from './llm/typesafe.js';
 import { DEFAULT_MODEL_PRICES } from './llm/cost.js';
 import { DEFAULT_ROUTING_PROFILE_ID } from './llm/router.js';
 import { parseRepositoryPolicy } from './policy/schema.js';
@@ -261,6 +263,53 @@ describe('healCase', () => {
     await llm.chat('super', [], {quotedRoute});
     expect(modelQuote).not.toHaveBeenCalled();
     expect(trace.events().find(event => event.type==='model-request')).toMatchObject({model:'reserved-model'});
+  });
+
+  it('traces one model-request and one model-response for the calibrated audit', async () => {
+    const trace = new TraceRecorder('typesafe-audit-trace');
+    const decision: TypeSafeDecision = {
+      model: TYPESAFE_AUDIT_MODEL,
+      answers: {
+        verdict: {
+          type: 'choice',
+          choice: 'legitimate_repair',
+          probabilities: { legitimate_repair: 0.97, green_wash: 0.03 },
+          confidence: 0.96,
+        },
+        touches_only_tests: { type: 'noul', noul: 0.1 },
+        weakens_assertion: { type: 'noul', noul: 0.2 },
+        suppresses_error: { type: 'noul', noul: 0.3 },
+        unrelated_change: { type: 'noul', noul: 0.4 },
+      },
+      usage: { inTok: 800, outTok: 0, reasoningTok: 0 },
+      usd: 0.00003,
+      latencyMs: 250,
+      requestId: 'req-typesafe-1',
+    };
+    const client: TypeSafeAuditClient = {
+      modelId: () => TYPESAFE_AUDIT_MODEL,
+      decide: async () => decision,
+    };
+    const traced = tracedTypeSafeAudit(client, trace);
+
+    const result = await traced.decide({ diagnosis: {} }, {
+      verdict: { type: 'choice', instructions: 'Decide.', criteria: { legitimate_repair: 'ok', green_wash: 'bad' } },
+    });
+
+    expect(result).toBe(decision);
+    const request = trace.events().find((event) => event.type === 'model-request');
+    const response = trace.events().find((event) => event.type === 'model-response');
+    expect(request).toMatchObject({ stage: 'audit', model: TYPESAFE_AUDIT_MODEL });
+    expect(response).toMatchObject({
+      stage: 'audit',
+      model: TYPESAFE_AUDIT_MODEL,
+      inputTokens: 800,
+      outputTokens: 0,
+      latencyMs: 250,
+      costUsd: 0.00003,
+      requestId: 'req-typesafe-1',
+    });
+    expect(response && 'summary' in response ? JSON.parse(response.summary) : null).toEqual(decision.answers);
   });
 
   it('fails closed when model routing has no quote', () => {

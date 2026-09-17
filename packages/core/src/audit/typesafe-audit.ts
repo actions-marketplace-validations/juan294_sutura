@@ -142,6 +142,20 @@ export function decideTypeSafeAudit(decision: TypeSafeDecision): TypeSafeAuditRe
 }
 
 /**
+ * Public-safe check-row evidence: `${model}: ${status}: ${reasoning}`, where a
+ * non-skipped reasoning also carries the four calibrated signals so the PR
+ * comment, Case Lab result, and case file show the measured numbers, not just
+ * pass/fail. See docs/plans/2026-09-17-typesafe-jev-calibrated-audit.md Design
+ * decision #7.
+ */
+export function typesafeAuditEvidence(result: TypeSafeAuditResult): string {
+  const detail = result.signals === null
+    ? result.reasoning
+    : `${result.reasoning}; touches-only-tests=${formatUnit(result.signals.touchesOnlyTests)} weakens-assertion=${formatUnit(result.signals.weakensAssertion)} suppresses-error=${formatUnit(result.signals.suppressesError)} unrelated-change=${formatUnit(result.signals.unrelatedChange)}`;
+  return `${result.model}: ${result.status}: ${detail}`;
+}
+
+/**
  * Optional veto-only calibrated audit (TypeSafe Jev). Fails open to `skipped` on any
  * transport, parse, or budget error, or when unconfigured -- it can only block a run by
  * actively refusing, never cause one to succeed, and it never throws. See

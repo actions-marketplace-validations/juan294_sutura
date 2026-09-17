@@ -1,4 +1,6 @@
 import { createTokenFactoryClient } from '../llm/token-factory.js';
+import { OpenAiClient } from '../llm/openai.js';
+import { TypeSafeClient } from '../llm/typesafe.js';
 import { TavilyClient } from '../diagnose/tavily.js';
 import type { CaseFile } from '../domain.js';
 import type { Executor } from '../executor/types.js';
@@ -6,7 +8,7 @@ import { GitHubAdapter } from '../github/adapter.js';
 import type { TextArtifactPort } from '../github/types.js';
 import { orchestrate } from '../orchestrate.js';
 import type { RuntimeId } from '../runtime/types.js';
-import type { RecordedHttpExchange, ReplayBundle } from './bundle.js';
+import type { RecordedHttpBoundary, RecordedHttpExchange, ReplayBundle } from './bundle.js';
 import { describeMethodCall, RecordedCallCursor } from './recorded-call-cursor.js';
 import { EXECUTOR_CURSOR_OPTIONS, RecordedExecutor } from './replay-executor.js';
 import { replayFetch } from './replay-fetch.js';
@@ -116,6 +118,20 @@ export async function replayBundle(
   const tavily = new TavilyClient('replay-only', {
     fetch: replayFetch(validated, 'tavily', httpCursor),
   });
+  const hasBoundary = (boundary: RecordedHttpBoundary): boolean =>
+    validated.http.some((exchange) => exchange.boundary === boundary);
+  const secondOpinion = hasBoundary('openai')
+    ? new OpenAiClient(
+        { apiKey: 'replay-only', ledger: llm.ledger },
+        { fetch: replayFetch(validated, 'openai', httpCursor) },
+      )
+    : undefined;
+  const typesafeAudit = hasBoundary('typesafe')
+    ? new TypeSafeClient(
+        { apiKey: 'replay-only', ledger: llm.ledger },
+        { fetch: replayFetch(validated, 'typesafe', httpCursor) },
+      )
+    : undefined;
   const runtimeId = options.runtimeId ??
     validated.runtimeDetection?.runtime ??
     validated.configuration.runtimeId;
@@ -130,6 +146,8 @@ export async function replayBundle(
         repository,
         executor,
         llm,
+        ...(secondOpinion === undefined ? {} : { secondOpinion }),
+        ...(typesafeAudit === undefined ? {} : { typesafeAudit }),
         cost: llm.ledger,
         triageN: validated.configuration.triageN,
         raceK: validated.configuration.raceK,
