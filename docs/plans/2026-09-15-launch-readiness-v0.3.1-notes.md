@@ -117,3 +117,17 @@ juan294/sutura`, or run `node scripts/provider-contract-canary.mjs`
   after `3397eac`, so Part B is unblocked. The release cycle resumes under
   `docs/plans/2026-09-17-typesafe-jev-calibrated-audit.md` Phase 4 with the TypeSafe
   Jev calibrated audit included, from a fresh `develop → main` squash.
+
+### Addendum 2026-09-17: the red `ci.yml` on the release squashes was a shallow-checkout bug
+
+- **Notes said (Part B):** `ci.yml` on `main` at `3fd99d8` was red because the Case
+  Lab still named v0.3.0.
+- **Found:** the failing step printed "no v* tag is reachable from origin/main".
+  `actions/checkout` fetches one commit, so `merge-base --is-ancestor` could not see
+  v0.3.0 at `c94eee2`; the check could only ever pass when the tag sat at HEAD. The
+  same failure reproduced on the v0.3.1 squash `d1bc6da`.
+- **Chose:** `newestReleaseTag` deepens a shallow clone (`git fetch --unshallow
+origin main`) before testing ancestry, with a stubbed test; the release squash is
+  re-cut after this fix lands on `develop`.
+- **Why:** the release can only be tagged on a commit whose push-event CI run is
+  green, and the gate must be able to pass before the tag exists.
