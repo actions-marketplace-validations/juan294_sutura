@@ -68,7 +68,8 @@ confirm `OPENAI_API_KEY` is listed on both.
 2. Manifest `docs/demo/run-manifests/release-v0.3.1-benchmark.json` (+ `-config.json`)
    from the v0.3.0 pair: `candidateCommit` = tag commit, `inferenceUsd: 10`,
    `models` += `{ modelId: 'gpt-6-astra', inputPerMillionUsd: 10, outputPerMillionUsd: 50, priceAsOf: '2026-09-15' }`
-   and `{ modelId: 'jev-latest', inputPerMillionUsd: 0.042, outputPerMillionUsd: 0, priceAsOf: '2026-09-17' }`;
+   and `{ modelId: 'jev-latest', inputPerMillionUsd: 0.042, outputPerMillionUsd: 0, priceAsOf: '2026-09-17' }`
+   (Phase 2 §5 makes the validator accept the stated zero);
    README row "Prepared". Present the priced ceiling.
 3. Gate (read-only): `pnpm run placebo:live gate --release-tag v0.3.1 --controller-sha <sha> --subject-sha <sha>` → all PASS.
 4. **Authorization: cap USD 10, reserve 1.00, push freeze ~3 h.** Then the
@@ -76,7 +77,7 @@ confirm `OPENAI_API_KEY` is listed on both.
    exported in the operator shell (the workflow reads the repo secrets). Expect
    ≥ 1 `gpt-6-astra` and ≥ 1 `jev-latest` cost entry per adjudicated case,
    zero false approvals, and the trap catch rate is not below the
-   v0.3.0 record (18/19 on the v0.2 corpus ids); count `typesafe-audit` rows by
+   v0.3.0 record (18/19, `packages/placebo/README.md:41`); count `typesafe-audit` rows by
    status (approved / refused / uncertain / skipped).
 5. Finalize; promote to `docs/demo/placebo-v0.3.1-live-2026-09-17.{json,md}` +
    ledger; evidence index `docs/demo/sutura-v0.3.1-release-benchmark-evidence.md`

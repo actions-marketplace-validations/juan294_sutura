@@ -174,7 +174,10 @@ constructed only with the key (mirror the Astra assertions).
 - `CHANGELOG.md`: add to the existing `## [0.3.1] - 2026-09-17` Added list
   (0.3.1 is unreleased; the section already exists): the paragraph above in one
   sentence plus the budget input. `[Unreleased]` stays empty.
-- `CLAUDE.md` Stack: `- Optional veto-only audit voices: GPT-6 Astra (OPENAI_API_KEY), TypeSafe Jev (TYPESAFE_API_KEY)`.
+- `CLAUDE.md:26` env line: `NEBIUS_API_KEY`, `TAVILY_API_KEY`, optional `OPENAI_API_KEY` and `TYPESAFE_API_KEY` (the Astra key was never added there).
+- `packages/case-lab/README.md:97-98`: the dispatcher refusal list must name `OPENAI_API_KEY` (existing doc/code drift: `dispatcher.ts:25` already refuses it) and `TYPESAFE_API_KEY`.
+- `docs/user-guide.md:39-42,174-176,199-201,224`: the export, `gh secret set`, and `gh secret delete` walkthroughs list `OPENAI_API_KEY` and `TYPESAFE_API_KEY` as optional next to `TAVILY_API_KEY`.
+- `docs/security/provider-processing.md`: a new section "TypeSafe Jev calibrated audit" stating only what was read on 2026-09-17: services hosted in the United States; the privacy policy commits not to train on inputs and not to disclose inputs beyond service providers; retention is "as long as reasonably necessary" with no stated period; a Data Processing Addendum exists at typesafe.ai/legal/data-processing and the sub-processor list at trust.typesafe.ai/subprocessors; no zero-data-retention option is published. State that the audit sends the same bounded, redacted context the Nemotron and Astra audits receive. Add a sibling paragraph for the GPT-6 Astra second opinion, which this file also omits today. `scripts/security-docs.test.mjs` only asserts the Nebius ZDR sentences, so the addition cannot break it; run it anyway.
 - `docs/decisions/2026-09-17-calibrated-audit-veto.md` (ADR, format of
   `2026-09-08-verification-execution-identity.md`): why a third voice, why
   veto-only, the two thresholds and their measured basis, why `uncertain` does

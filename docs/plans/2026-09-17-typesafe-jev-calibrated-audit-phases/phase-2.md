@@ -71,11 +71,11 @@ the difference; override above the default is rejected; snapshot lists the key.
 Tests (`config.test.ts`): key absent → field absent; present → set;
 `SUTURA_TYPESAFE_AUDIT_USD=0.05` → `ConfigError` (above the default).
 
-### 4. Action inputs — `packages/action/src/input.ts`, `packages/action/action.yml`
+### 4. Action inputs — `packages/action/src/input.ts`, `packages/action/action.yml`, root `action.yml`
 
 - `input.ts:105` sibling: `SUTURA_TYPESAFE_AUDIT_USD: String(boundedNumber(read('repair-typesafe-audit-usd'), DEFAULT.typesafeAuditUsd, DEFAULT.typesafeAuditUsd, 'repair-typesafe-audit-usd'))`.
 - `input.ts:113` sibling: `optional(environment, read, 'typesafe-api-key', 'TYPESAFE_API_KEY')`.
-- `action.yml` after `openai-api-key`:
+- Both `packages/action/action.yml` and the root `action.yml` (byte-parallel copies that differ only in `main:`), after `openai-api-key`:
   `typesafe-api-key: { description: "Optional TypeSafe API key for the Jev calibrated audit. Veto-only; never widens acceptance.", required: false }`
   and after `repair-second-opinion-usd`: `repair-typesafe-audit-usd` (default `'0.02'`, lower-only).
 
@@ -83,12 +83,23 @@ Tests (`input.test.ts:73,85` pattern): the input maps to the env var; absent
 stays absent; the budget input above 0.02 fails with the input name in the
 message (ci-parity rule: errors name the cause).
 
+### 5. Benchmark manifest accepts a stated zero output price — `scripts/verified-program-evidence.mjs:90`
+
+`positiveAmount` (`:57-62`) refuses `outputPerMillionUsd: 0`, so a `jev-latest`
+manifest row (output is free, vendor pricing 2026-09-17) would be rejected at
+Phase 4 step B2. Add `nonNegativeAmount` and use it for `outputPerMillionUsd`
+only, with a comment that a stated zero is a known price, distinct from an
+absent one (the ADR rule "missing usage or unknown pricing is unavailable, not
+zero" still holds because `undefined` and non-numbers still refuse).
+`scripts/verified-program-evidence.test.mjs`: a model row with
+`outputPerMillionUsd: 0` validates; a missing output price still refuses.
+
 ## Verification
 
 ```bash
 pnpm --filter @sutura/core exec vitest run src/replay src/engine/repair-budget.test.ts src/config.test.ts
 pnpm --filter @sutura/action exec vitest run src/input.test.ts
-node --test scripts/captured-fixtures.test.mjs
+node --test scripts/captured-fixtures.test.mjs scripts/verified-program-evidence.test.mjs
 pnpm run typecheck && pnpm run lint
 ```
 
