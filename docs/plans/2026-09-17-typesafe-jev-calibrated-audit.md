@@ -2,7 +2,7 @@
 
 Date: 2026-09-17 (Thursday, early morning CEST)
 
-Status: Phases 1, 2 and 3 done on `jev-phases-1-2` (2026-09-17), awaiting review before Phase 4. Deviations in `2026-09-17-typesafe-jev-calibrated-audit-notes.md`.
+Status: Complete 2026-09-17. v0.3.1 released (npm, GitHub), Case Lab bound and deployed with live runs enabled, smoke run published with the calibrated-audit row. Deviations in `2026-09-17-typesafe-jev-calibrated-audit-notes.md`; record in `docs/release/v0.3.1-case-lab-record.md`.
 
 Owner: Juan
 

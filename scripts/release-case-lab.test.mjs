@@ -250,6 +250,29 @@ test('check passes when every binding names the newest tag', async () => {
   });
 });
 
+test('check reads the controller release.json from git when gh is unauthenticated', async () => {
+  await withTempDirectory(async (directory) => {
+    await buildConsistentTree(directory);
+    const gitCalls = [];
+    const base = simpleGitStub();
+    const dependencies = dependenciesFor(directory, {
+      gh: async () => { throw new Error('gh: To get started with GitHub CLI, please run: gh auth login'); },
+      git: async (args) => {
+        gitCalls.push(args.join(' '));
+        if (args[0] === 'fetch' && args.includes('--depth=1')) return '';
+        if (args[0] === 'show') {
+          assert.equal(args[1], `${NEWEST_COMMIT}:${FILES.release}`);
+          return `${JSON.stringify({ version: '0.3.0', actionSha: NEWEST_COMMIT })}\n`;
+        }
+        return base(args);
+      },
+    });
+    const release = await check(dependencies);
+    assert.deepEqual(release, { tag: NEWEST_TAG, version: '0.3.0', commit: NEWEST_COMMIT });
+    assert.ok(gitCalls.includes(`fetch --quiet --depth=1 origin ${NEWEST_COMMIT}`), 'fetches the controller commit by sha');
+  });
+});
+
 test('check names the file, observed and expected value for each drift', async () => {
   const cases = [
     {

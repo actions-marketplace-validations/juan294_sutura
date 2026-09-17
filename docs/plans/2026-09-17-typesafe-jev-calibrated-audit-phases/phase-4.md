@@ -2,7 +2,7 @@
 
 Plan: [2026-09-17-typesafe-jev-calibrated-audit.md](../2026-09-17-typesafe-jev-calibrated-audit.md)
 
-Status: Part A done (tag `v0.3.1` on `e724f3b`, GitHub release, npm 0.3.1). Part B: benchmark complete 2026-09-17 (51/51, zero false approvals, two infra-stops disclosed, optional voices unexercised by the benchmark workflow), Case Lab bumped; publish-demo, deploy, re-enable and smoke pending authorization.
+Status: done 2026-09-17; see `docs/release/v0.3.1-case-lab-record.md` (Incident 3: controller pin redefined so the live publish path can pass on a fresh tag).
 
 Template: `docs/plans/2026-09-15-launch-readiness-v0.3.1-phases/phase-4.md`,
 resumed with Jev included and its stale premises corrected. Paid and

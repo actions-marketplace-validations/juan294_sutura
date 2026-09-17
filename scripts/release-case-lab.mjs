@@ -187,14 +187,22 @@ function withEvidenceUrl(text, url) {
 
 /** release.json as committed at the controller commit, read through the API so a shallow CI checkout needs no local object. */
 async function controllerReleaseJson(dependencies, sha) {
+  const valid = (parsed) => (typeof parsed?.version === 'string' && typeof parsed?.actionSha === 'string' ? parsed : null);
   try {
     const encoded = await withTransportRetry(dependencies, () => dependencies.gh([
       'api', `repos/juan294/sutura/contents/${FILES.release}?ref=${sha}`, '--jq', '.content',
     ]));
-    const parsed = JSON.parse(Buffer.from(encoded.replace(/\s+/gu, ''), 'base64').toString('utf8'));
-    return typeof parsed?.version === 'string' && typeof parsed?.actionSha === 'string' ? parsed : null;
+    return valid(JSON.parse(Buffer.from(encoded.replace(/\s+/gu, ''), 'base64').toString('utf8')));
   } catch {
-    return null;
+    // gh may be unauthenticated (CI runs this step without a token); fetch the
+    // exact commit and read the file from git instead. A shallow clone can
+    // fetch a reachable commit by sha from GitHub.
+    try {
+      await withTransportRetry(dependencies, () => dependencies.git(['fetch', '--quiet', '--depth=1', 'origin', sha]));
+      return valid(JSON.parse(await dependencies.git(['show', `${sha}:${FILES.release}`])));
+    } catch {
+      return null;
+    }
   }
 }
 
