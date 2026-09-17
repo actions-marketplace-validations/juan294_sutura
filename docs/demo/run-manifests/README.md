@@ -18,17 +18,18 @@ state. It does not replace or rewrite any historical manifest.
 
 ## Staged ladder and historical records
 
-| Stage | Manifest | Status |
-| --- | --- | --- |
-| 1 | `preflight-contract-v1` | Historical provider/image contract evidence; not a quality measurement. |
-| 2 | `development-smoke-v1` | Historical six-control smoke passed, including a live two-file transaction. Later defects prevent treating it as current quality evidence. |
-| 3 | `development-validation-v1` | Stopped after a false approval; cumulative restart accounting was subsequently fixed. Retain the original manifests, costs and failed evidence. |
-| 3 | `development-validation-v2` | Superseded, unexecuted request for the earlier candidate. |
-| 3 | `development-validation-v3` | Cap and push approved; candidate failed final CI guard coverage. Prerequisite canary passed; zero cases dispatched. Superseded case request. |
-| 3 | `development-validation-v4` | Replacement after test-only coverage correction. Same total allowance requested; pending replacement-manifest approval. |
-| 3 | `development-validation-v8` | Current clean result: 80/80 completed on candidate `042af3a`; USD 6.431018 recorded; 33/42 repairs; zero false approvals. Sanitized evidence is tracked; the operational manifest remains private. |
-| 4 | Not prepared | Held-out 20 require a separate cap and frozen configuration after Stage 3 is read. |
-| Release | `release-v0.3.0-benchmark` | Complete: 51/51 cases, 55/55 evaluations on candidate `c94eee20…`; USD 4.11234948 recorded (inference USD 0.15101, sandbox USD 3.96133948); zero false approvals. Sanitized evidence: `sutura-v0.3.0-release-benchmark-evidence.md`. |
+| Stage   | Manifest                    | Status                                                                                                                                                                                                                               |
+| ------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1       | `preflight-contract-v1`     | Historical provider/image contract evidence; not a quality measurement.                                                                                                                                                              |
+| 2       | `development-smoke-v1`      | Historical six-control smoke passed, including a live two-file transaction. Later defects prevent treating it as current quality evidence.                                                                                           |
+| 3       | `development-validation-v1` | Stopped after a false approval; cumulative restart accounting was subsequently fixed. Retain the original manifests, costs and failed evidence.                                                                                      |
+| 3       | `development-validation-v2` | Superseded, unexecuted request for the earlier candidate.                                                                                                                                                                            |
+| 3       | `development-validation-v3` | Cap and push approved; candidate failed final CI guard coverage. Prerequisite canary passed; zero cases dispatched. Superseded case request.                                                                                         |
+| 3       | `development-validation-v4` | Replacement after test-only coverage correction. Same total allowance requested; pending replacement-manifest approval.                                                                                                              |
+| 3       | `development-validation-v8` | Current clean result: 80/80 completed on candidate `042af3a`; USD 6.431018 recorded; 33/42 repairs; zero false approvals. Sanitized evidence is tracked; the operational manifest remains private.                                   |
+| 4       | Not prepared                | Held-out 20 require a separate cap and frozen configuration after Stage 3 is read.                                                                                                                                                   |
+| Release | `release-v0.3.0-benchmark`  | Complete: 51/51 cases, 55/55 evaluations on candidate `c94eee20…`; USD 4.11234948 recorded (inference USD 0.15101, sandbox USD 3.96133948); zero false approvals. Sanitized evidence: `sutura-v0.3.0-release-benchmark-evidence.md`. |
+| Release | `release-v0.3.1-benchmark`  | Prepared 2026-09-17 for the v0.3.1 cycle; unexecuted. Adds the GPT-6 Astra second opinion and the TypeSafe Jev calibrated audit (`jev-latest` resolved to `jev-1.13.0`); cap USD 10.                                                 |
 
 Each stage gates the next. Stop dependent jobs after a failed control or incomplete run. Paid Data Lab comparisons and other roadmap experiments need their own concrete requests; Stage 3 does not authorize them. The completed Stage 3 result does not authorize or establish acceptance for Stage 4.
 
