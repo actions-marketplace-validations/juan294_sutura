@@ -4,9 +4,10 @@ import type { AuditVerdict, Diagnosis, RaceResult } from '../domain.js';
 import type { Executor, ImageId, RunResult } from '../executor/types.js';
 import type { AuditLlm } from '../audit/audit.js';
 import { adjudicate, secondOpinion, type SecondOpinionBudget } from '../audit/adjudicate.js';
-import { typesafeAudit, typesafeAuditEvidence, type TypeSafeAuditBudget } from '../audit/typesafe-audit.js';
+import { typesafeAudit, type TypeSafeAuditBudget } from '../audit/typesafe-audit.js';
 import type { TypeSafeAuditClient } from '../llm/typesafe.js';
 import { runMechanicalChecks } from '../audit/mechanical.js';
+import { vetoVoiceRows } from '../audit/veto-voices.js';
 import { enforceRepositoryPolicy } from '../audit/repository-policy.js';
 import { validateCandidateDiff } from '../engine/candidate-validation.js';
 import { BudgetExceededError } from '../engine/repair-budget.js';
@@ -92,17 +93,12 @@ export async function evaluateRuntimeCandidate(input: RuntimeCandidateInput): Pr
             const result = await adjudicate(input.llm, adjudicationContext);
             const second = await secondOpinion(input.secondOpinion, adjudicationContext, input.secondOpinionBudget);
             const third = await typesafeAudit(input.typesafeAudit, adjudicationContext, input.typesafeAuditBudget);
-            const approved = result.approved && second.status !== 'refused' && third.status !== 'refused';
-            verdict.checks.push({ name: 'llm-adjudication', passed: result.approved, evidence: result.reasoning });
-            verdict.checks.push({ name: 'second-opinion', passed: second.status !== 'refused', evidence: `${second.model}: ${second.status}: ${second.reasoning}` });
-            verdict.checks.push({ name: 'typesafe-audit', passed: third.status !== 'refused', evidence: typesafeAuditEvidence(third) });
-            verdict.reasoning = approved
+            const { rows, vetoedBy } = vetoVoiceRows(second, third);
+            const approved = result.approved && vetoedBy === undefined;
+            verdict.checks.push({ name: 'llm-adjudication', passed: result.approved, evidence: result.reasoning }, ...rows);
+            verdict.reasoning = approved || vetoedBy === undefined || !result.approved
               ? result.reasoning
-              : result.approved && second.status === 'refused'
-                ? `REFUSED by second opinion (${second.model}): ${second.reasoning}`
-                : result.approved && second.status !== 'refused' && third.status === 'refused'
-                  ? `REFUSED by calibrated audit (${third.model}): ${third.reasoning}`
-                  : result.reasoning;
+              : `REFUSED by ${vetoedBy.label} (${vetoedBy.model}): ${vetoedBy.reasoning}`;
             return { ...(approved ? passed : { status: 'failed' as const, reasons: ['audit-refused' as const] }), artifacts: artifact('adjudication', { nemotron: result, secondOpinion: second, typesafeAudit: third }) };
           }
           case 'repository-policy': {

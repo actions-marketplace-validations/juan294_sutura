@@ -3,7 +3,6 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DEFAULT_MODELS } from '../config.js';
 import type {
   CancellationResult,
   Executor,
@@ -13,18 +12,14 @@ import type {
 } from '../executor/types.js';
 import { TavilyClient } from '../diagnose/tavily.js';
 import { GitHubAdapter } from '../github/adapter.js';
-import type { GitHubApi, TextArtifactPort } from '../github/types.js';
-import type { HttpResponse } from '../llm/nebius.js';
 import { OpenAiClient } from '../llm/openai.js';
-import { DEFAULT_ROUTING_PROFILE_ID } from '../llm/router.js';
 import { createTokenFactoryClient } from '../llm/token-factory.js';
 import { TypeSafeClient } from '../llm/typesafe.js';
-import { orchestrate, type RepositoryPort } from '../orchestrate.js';
+import { orchestrate } from '../orchestrate.js';
 import {
   REPLAY_BUNDLE_SCHEMA_VERSION,
   ReplayRecorder,
   type ReplayBundle,
-  type ReplayOrchestrationConfig,
 } from './bundle.js';
 import { recordingExecutor } from './record-executor.js';
 import {
@@ -34,37 +29,21 @@ import {
   recordingTypeSafeFetch,
 } from './record-fetch.js';
 import { recordingGitHubApi } from './record-github.js';
-import { recordedErrorResult } from './recorded-error.js';
+import {
+  artifact,
+  bytesResponse,
+  CONFIGURATION,
+  githubApi,
+  HEAD_SHA,
+  recordingRepository,
+  REPOSITORY,
+  RUN_ID,
+} from './replay-fixtures.test-helper.js';
 
-const RUN_ID = '77';
-const HEAD_SHA = 'a'.repeat(40);
-const REPOSITORY = 'acme/widget';
 const PACKAGE_JSON = '{"scripts":{"test":"pnpm test"}}\n';
-const ARTIFACT_URL = 'https://github.com/acme/widget/actions/runs/88/artifacts/99';
 const SOURCE_PATH = 'src/value.ts';
 const SOURCE_BEFORE = 'export const value: string = 1;\n';
 const HONEST_REPLACEMENT = 'export const value: string = "1";\n';
-
-const CONFIGURATION = {
-  triageN: 1,
-  raceK: 1,
-  models: DEFAULT_MODELS,
-  routingProfileId: DEFAULT_ROUTING_PROFILE_ID,
-  maxOps: 20,
-  runtimeId: 'node',
-} satisfies ReplayOrchestrationConfig;
-
-function bytesResponse(body: unknown): HttpResponse & { arrayBuffer(): Promise<ArrayBuffer> } {
-  const bytes = new TextEncoder().encode(JSON.stringify(body));
-  return {
-    ok: true,
-    status: 200,
-    headers: { get: () => null },
-    json: async () => body,
-    text: async () => new TextDecoder().decode(bytes),
-    arrayBuffer: async () => bytes.slice().buffer,
-  };
-}
 
 function chatCompletion(content: string): unknown {
   return {
@@ -143,115 +122,6 @@ class AuditPathReplayExecutor implements Executor {
     return Promise.resolve({ operationId, requested: true });
   }
 }
-
-function githubApi(): GitHubApi {
-  const workflowRun = {
-    id: 77,
-    headSha: HEAD_SHA,
-    repository: REPOSITORY,
-    event: 'push',
-    conclusion: 'failure',
-    headBranch: 'main',
-    pullRequests: [],
-  };
-  return {
-    getWorkflowRun: async () => workflowRun,
-    listPullRequestsForCommit: async () => [],
-    getPullRequest: async () => { throw new Error('unexpected getPullRequest'); },
-    listJobsForWorkflowRun: async () => [{
-      id: 9,
-      name: 'test',
-      conclusion: 'failure',
-      steps: [{
-        name: 'Run tests',
-        conclusion: 'failure',
-        startedAt: '2026-09-17T10:00:00Z',
-        completedAt: '2026-09-17T10:00:01Z',
-      }],
-    }],
-    downloadJobLogs: async () => [
-      '2026-09-17T10:00:00Z ##[group]Run pnpm test',
-      '2026-09-17T10:00:00Z Run pnpm test',
-      '2026-09-17T10:00:01Z src/value.ts(1,14): error TS2322: Type number is not assignable to type string',
-    ].join('\n'),
-    listIssueComments: async () => [],
-    listCommitComments: async () => [],
-    createRef: async () => undefined,
-    deleteRef: async () => undefined,
-    createIssueComment: async () => ({ id: 102 }),
-    createCommitComment: async () => ({ id: 102 }),
-    updateIssueComment: async () => undefined,
-    updateCommitComment: async () => undefined,
-    getRefSha: async () => HEAD_SHA,
-    getCommitParents: async () => [HEAD_SHA],
-    getCommitSha: async () => HEAD_SHA,
-    createPullRequest: async () => ({ number: 3, url: 'https://github.com/acme/widget/pull/3' }),
-    listCheckRunsForRef: async () => [],
-    createCheckRun: async () => ({ id: 101 }),
-    updateCheckRun: async () => undefined,
-  };
-}
-
-function recordingRepository(
-  checkoutDir: string,
-  recorder: ReplayRecorder,
-): RepositoryPort {
-  const record = async <T>(
-    method: keyof RepositoryPort,
-    args: unknown[],
-    operation: () => Promise<T>,
-    result: (value: T) => unknown = (value) => value,
-  ): Promise<T> => {
-    const sequence = recorder.reservePortSequence('repository');
-    try {
-      const value = await operation();
-      recorder.recordRepository({ method, args, result: result(value) }, sequence);
-      return value;
-    } catch (error) {
-      recorder.recordRepository({
-        method,
-        args,
-        result: recordedErrorResult(error),
-      }, sequence);
-      throw error;
-    }
-  };
-  return {
-    readPolicyAtSha(repo, sha) {
-      return record('readPolicyAtSha', [repo, sha], async () => null);
-    },
-    checkoutHead(repo, sha, headRef, prNumber) {
-      return record(
-        'checkoutHead',
-        [repo, sha, headRef, prNumber],
-        async () => checkoutDir,
-        () => ({
-          checkoutId: recorder.registerCheckoutPath(checkoutDir),
-          snapshot: {
-            runtimeEvidencePaths: ['package.json'],
-            files: [
-              { path: 'package.json', content: PACKAGE_JSON },
-              { path: SOURCE_PATH, content: SOURCE_BEFORE },
-            ],
-          },
-        }),
-      );
-    },
-    readSourceExcerpts(dir, references, limits) {
-      return record('readSourceExcerpts', [dir, references, limits], async () =>
-        references.flatMap(({ path }) => path === SOURCE_PATH
-          ? [{ path, startLine: 1, content: SOURCE_BEFORE, truncated: false }]
-          : []));
-    },
-    publishFix(input) {
-      return record('publishFix', [input], async () => undefined);
-    },
-  };
-}
-
-const artifact: TextArtifactPort = {
-  uploadTextArtifact: async () => ({ url: ARTIFACT_URL }),
-};
 
 /**
  * Captures a bundle whose repair pipeline reaches the `adjudication` gate,
@@ -336,13 +206,31 @@ export async function createAuditPathReplayBundleForTest(): Promise<ReplayBundle
   try {
     const caseFile = await orchestrate({
       runId: RUN_ID,
-      github: new GitHubAdapter(recordingGitHubApi(githubApi(), recorder), {
+      github: new GitHubAdapter(recordingGitHubApi(githubApi({
+        logLines: [
+          '2026-09-17T10:00:00Z ##[group]Run pnpm test',
+          '2026-09-17T10:00:00Z Run pnpm test',
+          '2026-09-17T10:00:01Z src/value.ts(1,14): error TS2322: Type number is not assignable to type string',
+        ],
+        startedAt: '2026-09-17T10:00:00Z',
+        completedAt: '2026-09-17T10:00:01Z',
+      }), recorder), {
         owner: 'acme',
         repo: 'widget',
         runId: RUN_ID,
         artifact,
       }),
-      repository: recordingRepository(checkoutDir, recorder),
+      repository: recordingRepository(
+        checkoutDir,
+        recorder,
+        [
+          { path: 'package.json', content: PACKAGE_JSON },
+          { path: SOURCE_PATH, content: SOURCE_BEFORE },
+        ],
+        async (_dir, references) => references.flatMap(({ path }) => path === SOURCE_PATH
+          ? [{ path, startLine: 1, content: SOURCE_BEFORE, truncated: false }]
+          : []),
+      ),
       executor: recordingExecutor(new AuditPathReplayExecutor(), recorder),
       llm,
       tavily,

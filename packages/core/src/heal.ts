@@ -100,6 +100,7 @@ import { createDefaultRepositoryPolicy } from './policy/load.js';
 import type { RepositoryPolicy } from './policy/schema.js';
 import { boundedTail } from './text/bounded-tail.js';
 import { TraceRecorder } from './trace/recorder.js';
+import type { TraceEventInput } from './trace/types.js';
 import { detectRuntimeAtPath } from './runtime/detect.js';
 import { NODE_IMAGE_REF, NODE_RUNTIME, nodePreparationCommand } from './runtime/node.js';
 import type { RuntimeAdapter, RuntimeId } from './runtime/types.js';
@@ -269,6 +270,46 @@ function ensureTraceStarted(trace: TraceRecorder): void {
   }
 }
 
+type TraceStage = 'triage' | 'candidate' | 'audit';
+
+function modelRequestEvent(input: { stage: TraceStage; model: string; serialized: string; summary: string; promptExcerpt: string }): TraceEventInput {
+  return {
+    type: 'model-request',
+    stage: input.stage,
+    role: 'user',
+    model: input.model,
+    summary: input.summary,
+    promptHash: createHash('sha256').update(input.serialized).digest('hex'),
+    promptExcerpt: input.promptExcerpt,
+    inputTokens: 0,
+    outputTokens: 0,
+    reasoningTokens: 0,
+    latencyMs: 0,
+    costUsd: 0,
+    requestId: null,
+  };
+}
+
+function modelResponseEvent(input: {
+  stage: TraceStage; model: string; summary: string;
+  usage: { inTok: number; outTok: number; reasoningTok: number };
+  latencyMs: number; costUsd: number; requestId: string | null;
+}): TraceEventInput {
+  return {
+    type: 'model-response',
+    stage: input.stage,
+    role: 'assistant',
+    model: input.model,
+    summary: input.summary,
+    inputTokens: input.usage.inTok,
+    outputTokens: input.usage.outTok,
+    reasoningTokens: input.usage.reasoningTok,
+    latencyMs: input.latencyMs,
+    costUsd: input.costUsd,
+    requestId: input.requestId,
+  };
+}
+
 function tracedTierLlm<T extends TierLlm<ModelTier>>(llm: T, trace: TraceRecorder): T {
   const delegate = llm as TierLlm<ModelTier>;
   return {
@@ -282,43 +323,28 @@ function tracedTierLlm<T extends TierLlm<ModelTier>>(llm: T, trace: TraceRecorde
     async chat(tier: ModelTier, messages: readonly ChatMessage[], options?: ChatOptions) {
       const model = options?.quotedRoute?.modelId ?? delegate.modelQuote?.(tier, messages, options)?.modelId ??
         delegate.modelId?.(tier) ?? tier;
-      const serializedPrompt = JSON.stringify(messages);
+      const stage: TraceStage = tier === 'nano' ? 'triage' : tier === 'ultra' ? 'audit' : 'candidate';
+      const serialized = JSON.stringify(messages);
       const systemPrompt = messages.find(({ role }) => role === 'system');
-      const promptExcerpt = typeof systemPrompt?.content === 'string'
-        ? systemPrompt.content.slice(0, 160)
-        : '[no public system prompt]';
-      trace.record({
-        type: 'model-request',
-        stage: tier === 'nano' ? 'triage' : tier === 'ultra' ? 'audit' : 'candidate',
-        role: 'user',
+      trace.record(modelRequestEvent({
+        stage,
         model,
-        summary: `Model request with ${messages.length} messages and ${Buffer.byteLength(serializedPrompt, 'utf8')} bytes`,
-        promptHash: createHash('sha256').update(serializedPrompt).digest('hex'),
-        promptExcerpt,
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        latencyMs: 0,
-        costUsd: 0,
-        requestId: null,
-      });
+        serialized,
+        summary: `Model request with ${messages.length} messages and ${Buffer.byteLength(serialized, 'utf8')} bytes`,
+        promptExcerpt: typeof systemPrompt?.content === 'string' ? systemPrompt.content.slice(0, 160) : '[no public system prompt]',
+      }));
       const reply = await delegate.chat(tier, messages, options);
-      const usage = reply.usage ?? { inTok: 0, outTok: 0, reasoningTok: 0 };
-      trace.record({
-        type: 'model-response',
-        stage: tier === 'nano' ? 'triage' : tier === 'ultra' ? 'audit' : 'candidate',
-        role: 'assistant',
+      trace.record(modelResponseEvent({
+        stage,
         model: reply.model ?? model,
         summary: tier === 'super'
           ? `Structured repair response ${createHash('sha256').update(reply.text).digest('hex')} (${Buffer.byteLength(reply.text, 'utf8')} bytes)`
           : reply.text,
-        inputTokens: usage.inTok,
-        outputTokens: usage.outTok,
-        reasoningTokens: usage.reasoningTok,
+        usage: reply.usage ?? { inTok: 0, outTok: 0, reasoningTok: 0 },
         latencyMs: reply.latencyMs ?? 0,
         costUsd: reply.usd ?? 0,
         requestId: reply.requestId ?? reply.capacity?.requestId ?? null,
-      });
+      }));
       return reply;
     },
   } as T;
@@ -347,36 +373,23 @@ export function tracedTypeSafeAudit(
     modelId: () => client.modelId(),
     async decide(state: JsonValue, questions: Record<string, TypeSafeQuestion>, options?: { signal?: AbortSignal }): Promise<TypeSafeDecision> {
       const serialized = JSON.stringify({ state, questions });
-      const verdictQuestion = questions.verdict;
-      trace.record({
-        type: 'model-request',
+      trace.record(modelRequestEvent({
         stage: 'audit',
-        role: 'user',
         model: client.modelId(),
+        serialized,
         summary: `Calibrated audit request with ${Object.keys(questions).length} questions and ${Buffer.byteLength(serialized, 'utf8')} bytes`,
-        promptHash: createHash('sha256').update(serialized).digest('hex'),
-        promptExcerpt: String(verdictQuestion?.instructions ?? '[no public instructions]').slice(0, 160),
-        inputTokens: 0,
-        outputTokens: 0,
-        reasoningTokens: 0,
-        latencyMs: 0,
-        costUsd: 0,
-        requestId: null,
-      });
+        promptExcerpt: String(questions.verdict?.instructions ?? '[no public instructions]').slice(0, 160),
+      }));
       const decision = await client.decide(state, questions, options);
-      trace.record({
-        type: 'model-response',
+      trace.record(modelResponseEvent({
         stage: 'audit',
-        role: 'assistant',
         model: decision.model,
         summary: JSON.stringify(decision.answers),
-        inputTokens: decision.usage.inTok,
-        outputTokens: decision.usage.outTok,
-        reasoningTokens: 0,
+        usage: { ...decision.usage, reasoningTok: 0 },
         latencyMs: decision.latencyMs,
         costUsd: decision.usd,
         requestId: decision.requestId,
-      });
+      }));
       return decision;
     },
   };

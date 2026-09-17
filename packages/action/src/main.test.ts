@@ -6,13 +6,9 @@ import { GitHubAdapter, type GitHubApi } from './github.js';
 import { withFailureSafeCheck } from './failure-safe.js';
 import { runAction } from './main.js';
 
-/** No live GitHub REST calls in this file: every octokit call rejects synchronously. */
+/** No live GitHub REST calls in this file: touching the octokit client throws synchronously. */
 function unreachableOctokit(): unknown {
-  const target = (): void => undefined;
-  return new Proxy(target, {
-    get: () => unreachableOctokit(),
-    apply: () => { throw new Error('network is disabled in this test'); },
-  });
+  return new Proxy({}, { get: () => { throw new Error('octokit must not be touched'); } });
 }
 
 vi.mock('@actions/github', async (importOriginal) => {

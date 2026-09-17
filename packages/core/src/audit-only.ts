@@ -1,6 +1,7 @@
 import { adjudicate, secondOpinion, type AdjudicationLlm, type SecondOpinionBudget } from './audit/adjudicate.js';
 import { runMechanicalChecks } from './audit/mechanical.js';
-import { typesafeAudit, typesafeAuditEvidence, type TypeSafeAuditBudget } from './audit/typesafe-audit.js';
+import { vetoVoiceRows } from './audit/veto-voices.js';
+import { typesafeAudit, type TypeSafeAuditBudget } from './audit/typesafe-audit.js';
 import { classify } from './diagnose/classify.js';
 import type { AuditFile, CostLedger, PolicyEvidence } from './domain.js';
 import { vetPatch } from './engine/patch-rules.js';
@@ -176,16 +177,7 @@ export async function auditOnly(context: AuditOnlyContext): Promise<AuditFile> {
       passed: adjudication.approved,
       evidence: adjudication.reasoning,
     },
-    {
-      name: 'second-opinion' as const,
-      passed: second.status !== 'refused',
-      evidence: `${second.model}: ${second.status}: ${second.reasoning}`,
-    },
-    {
-      name: 'typesafe-audit' as const,
-      passed: third.status !== 'refused',
-      evidence: typesafeAuditEvidence(third),
-    },
+    ...vetoVoiceRows(second, third).rows,
   ];
   const approved = checks.every((check) => check.passed);
   return {

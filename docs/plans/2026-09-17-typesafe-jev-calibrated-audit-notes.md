@@ -105,3 +105,19 @@
 - **Chose:** a dated addendum in the research doc (§5) quoting the privacy policy and
   naming the DPA and sub-processor URLs, committed before the docs merge.
 - **Why:** verified claims name their evidence.
+
+### Simplify pass (after Phase 3): applied and deferred
+
+- **Applied:** one `vetoVoiceRows` composition (`packages/core/src/audit/veto-voices.ts`)
+  builds the second-opinion and calibrated-audit rows and names the first active
+  refusal, replacing the nested reasoning ternary in `verification/runtime.ts` and the
+  asymmetric evidence string in `audit-only.ts`; two shared trace-event builders in
+  `heal.ts` serve both `tracedTierLlm` and `tracedTypeSafeAudit`; the replay test
+  helpers share one fixtures module; the inert octokit proxy in the Action test is
+  reduced to a minimal guard.
+- **Deferred:** (1) replay reconstructs optional providers by scanning recorded
+  exchanges while it still constructs Tavily unconditionally; the deeper fix is the
+  recorder declaring configured providers in the bundle configuration, which touches
+  the bundle schema and both test helpers. (2) Astra and Jev are awaited sequentially;
+  running them concurrently would save one round trip per audit but collides with the
+  strictly ordered shared replay cursor. Both are follow-ups for v0.3.2.
