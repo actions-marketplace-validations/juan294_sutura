@@ -66,6 +66,16 @@ export {
   OpenAiResponseError,
 } from './llm/openai.js';
 export {
+  TYPESAFE_BASE_URL,
+  TYPESAFE_AUDIT_MODEL,
+  TYPESAFE_PRICE,
+  TYPESAFE_PRICE_PROVENANCE,
+  TYPESAFE_WORST_CASE_USD,
+  TypeSafeApiError,
+  TypeSafeClient,
+  TypeSafeResponseError,
+} from './llm/typesafe.js';
+export {
   SUPER_REPAIR_PROVIDER_CONTRACT_VERSION,
   SuperRepairProviderContractCanaryError,
   runSuperRepairProviderContractCanary,
@@ -100,8 +110,16 @@ export {
   SECOND_OPINION_WORST_CASE_USD,
   adjudicate,
   adjudicateWith,
+  boundedAdjudicationContext,
   secondOpinion,
 } from './audit/adjudicate.js';
+export {
+  TYPESAFE_AUDIT_QUESTIONS,
+  TYPESAFE_REFUSE_GREEN_WASH_PROBABILITY,
+  TYPESAFE_UNCERTAIN_CONFIDENCE,
+  decideTypeSafeAudit,
+  typesafeAudit,
+} from './audit/typesafe-audit.js';
 export {
   checkAssertionDrop,
   checkDeletedTests,
@@ -326,6 +344,11 @@ export type {
 export type { NebiusFetch } from './llm/nebius.js';
 export type { OpenAiClientConfig } from './llm/openai.js';
 export type {
+  TypeSafeAuditClient,
+  TypeSafeClientConfig,
+  TypeSafeDecision,
+} from './llm/typesafe.js';
+export type {
   SuperRepairProviderContractCanaryInput,
   SuperRepairProviderContractCanaryResult,
 } from './llm/provider-contract-canary.js';
@@ -378,6 +401,11 @@ export type {
   SecondOpinionResult,
   SecondOpinionStatus,
 } from './audit/adjudicate.js';
+export type {
+  TypeSafeAuditBudget,
+  TypeSafeAuditResult,
+  TypeSafeAuditStatus,
+} from './audit/typesafe-audit.js';
 export type { MechanicalCheck } from './audit/mechanical.js';
 export type { AuditOnlyContext, AuditOnlyLlm } from './audit-only.js';
 export type { ContreeExecutorConfig } from './executor/contree.js';
