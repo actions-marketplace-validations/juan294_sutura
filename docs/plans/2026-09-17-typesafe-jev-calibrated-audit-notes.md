@@ -54,3 +54,21 @@
   rebuilds it again with its own changes.
 - **Why:** `.claude/rules/ci-parity.md` requires the bundle in the same commit as any
   core or action source change; deferring it would have left the branch unpushable.
+
+### Verification: one pre-existing local failure in `ci:local`, outside this branch
+
+- **Plan said:** `ci:local` green on the merged tree.
+- **Found:** every gate passed except the Placebo corpus self-check
+  (`packages/placebo/src/corpus.test.ts` "proves every break patch is red and every
+  clean fixture is green"), which fails on this machine for the single fixture
+  `upstream-client-release` with `ERR_PNPM_NO_OFFLINE_TARBALL` (a different package
+  each run: is-extglob, convert-source-map, @eslint/config-array, picocolors).
+  Reproduced deterministically with a one-fixture self-check. The branch changes no
+  file under `packages/placebo` (`git diff develop..HEAD -- packages/placebo` is
+  empty), the vendored darwin runtime contains the packages, and `ci.yml` on
+  `origin/develop` (`96e2411`, Linux) is green.
+- **Chose:** treat it as a pre-existing local-environment defect, record it here and
+  in memory, and not block Phases 1 and 2 on it. The pre-push hook runs `ci:fast`,
+  which does not include this suite; CI on Linux is the gate of record.
+- **Why:** a failure that is byte-for-byte independent of the change cannot be
+  evidence about the change; investigating the darwin runtime is separate work.
