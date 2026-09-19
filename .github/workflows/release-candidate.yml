@@ -19,7 +19,7 @@ jobs:
         env:
           ACTION_SHA: ${{ inputs.action-sha }}
         run: '[[ "$ACTION_SHA" =~ ^[a-f0-9]{40}$ ]]'
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ inputs.action-sha }}
       - uses: pnpm/action-setup@v6
