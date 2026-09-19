@@ -40,6 +40,20 @@ function responseBytes(body: RecordedBody, sequence: number): Uint8Array {
   throw new ReplayMismatchError(sequence, '$.response.body', 'replayable text or raw bytes', body);
 }
 
+/**
+ * Structured-output requests recorded before 2026-09-16 carry
+ * `response_format: json_schema`; the live request now sends `json_object`
+ * because Token Factory's schema-guided decoding drops string escapes. The
+ * recorded reply is the same provider answer to the same prompt, so the two
+ * shapes compare as one request. Every other field still compares exactly.
+ */
+function comparableRequest(body: unknown): unknown {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return body;
+  const format = (body as { response_format?: { type?: unknown } }).response_format;
+  if (format?.type !== 'json_schema' && format?.type !== 'json_object') return body;
+  return { ...(body as Record<string, unknown>), response_format: { type: 'json' } };
+}
+
 function assertRequest(
   exchange: RecordedHttpExchange,
   input: string,
@@ -61,8 +75,8 @@ function assertRequest(
       // Compare non-JSON bodies as text.
     }
   }
-  if (canonicalJson(expected) !== canonicalJson(actual)) {
-    const difference = firstJsonDifference(expected, actual);
+  if (canonicalJson(comparableRequest(expected)) !== canonicalJson(comparableRequest(actual))) {
+    const difference = firstJsonDifference(comparableRequest(expected), comparableRequest(actual));
     throw new ReplayMismatchError(
       exchange.sequence,
       difference?.path ?? '$.body',
@@ -109,6 +123,16 @@ export function replayFetch(
   boundary: 'tavily',
   cursor?: RecordedCallCursor<RecordedHttpExchange>,
 ): TavilyFetch;
+export function replayFetch(
+  bundle: ReplayBundle,
+  boundary: 'openai',
+  cursor?: RecordedCallCursor<RecordedHttpExchange>,
+): NebiusFetch;
+export function replayFetch(
+  bundle: ReplayBundle,
+  boundary: 'typesafe',
+  cursor?: RecordedCallCursor<RecordedHttpExchange>,
+): NebiusFetch;
 export function replayFetch(
   bundle: ReplayBundle,
   boundary: Exclude<RecordedHttpBoundary, 'contree'>,

@@ -69,6 +69,7 @@ export interface RepairTestEvidence {
   exitCode: number;
   output: string;
   metrics?: RunResult['metrics'];
+  readonly outputTruncated?: boolean;
 }
 
 export interface RepairToolState {
@@ -122,7 +123,7 @@ function safePath(value: unknown): string | null {
   return value;
 }
 
-function bounded(value: string): string {
+export function bounded(value: string): string {
   const text = boundedTail(value, { maxLines: MAX_READ_LINES, maxCharacters: MAX_TOOL_OUTPUT_BYTES, maxBytes: MAX_TOOL_OUTPUT_BYTES });
   return redactExternalText(text).text;
 }
@@ -370,16 +371,16 @@ export class RepairToolRuntime {
     const command = this.options.trustedCommands[args.commandId];
     if (command === undefined) return failure('policy', 'run_test commandId is not trusted');
     const result = await this.run(command, this.current.editableImageId, MAX_TEST_TIMEOUT_SEC);
-    const output = bounded([result.stdout, result.stderr].filter(Boolean).join('\n'));
-    if (
-      result.truncated ||
-      Buffer.byteLength([result.stdout, result.stderr].filter(Boolean).join('\n'), 'utf8') > MAX_TOOL_OUTPUT_BYTES
-    ) {
-      return failure('sandbox', 'Test output exceeded the bounded tool limit');
-    }
-    this.current.latestTest = { commandId: args.commandId, imageId: result.imageId, exitCode: result.exitCode, output, metrics: result.metrics };
-    this.observe(result, this.current.editableImageId, `run_test ${args.commandId}`);
-    return { ok: true, message: output || `Test exited ${result.exitCode}`, imageId: result.imageId, exitCode: result.exitCode };
+    const combined = [result.stdout, result.stderr].filter(Boolean).join('\n');
+    const outputTruncated = result.truncated || Buffer.byteLength(combined, 'utf8') > MAX_TOOL_OUTPUT_BYTES;
+    const output = bounded(combined);
+    this.current.latestTest = {
+      commandId: args.commandId, imageId: result.imageId, exitCode: result.exitCode, output, metrics: result.metrics,
+      ...(outputTruncated ? { outputTruncated: true } : {}),
+    };
+    this.observe(result, this.current.editableImageId, `run_test ${args.commandId}${outputTruncated ? ' (output truncated)' : ''}`);
+    const note = outputTruncated ? `\n[output truncated to the last ${MAX_TOOL_OUTPUT_BYTES} bytes; exit code ${result.exitCode} is authoritative]` : '';
+    return { ok: true, message: `${output || `Test exited ${result.exitCode}`}${note}`, imageId: result.imageId, exitCode: result.exitCode };
   }
 
   /**

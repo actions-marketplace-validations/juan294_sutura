@@ -22,6 +22,10 @@ export const MAX_STAGE_EVIDENCE_ENTRIES = 100;
 export interface Config {
   nebiusApiKey: string;
   tavilyApiKey?: string;
+  /** Optional veto-only second-opinion provider (GPT-6 Astra). Never the runtime model. */
+  openaiApiKey?: string;
+  /** Optional veto-only calibrated audit provider (TypeSafe Jev). Never the runtime model. */
+  typesafeApiKey?: string;
   contreeToken?: string;
   contreeProject?: string;
   triageN: number;
@@ -179,6 +183,16 @@ export function loadConfig(env: ConfigEnvironment): Config {
         DEFAULT_REPAIR_BUDGET_LIMITS.inferenceCostUsd,
         DEFAULT_REPAIR_BUDGET_LIMITS.inferenceCostUsd,
       ),
+      secondOpinionUsd: boundedPositiveNumber(
+        env, 'SUTURA_SECOND_OPINION_USD',
+        DEFAULT_REPAIR_BUDGET_LIMITS.secondOpinionUsd,
+        DEFAULT_REPAIR_BUDGET_LIMITS.secondOpinionUsd,
+      ),
+      typesafeAuditUsd: boundedPositiveNumber(
+        env, 'SUTURA_TYPESAFE_AUDIT_USD',
+        DEFAULT_REPAIR_BUDGET_LIMITS.typesafeAuditUsd,
+        DEFAULT_REPAIR_BUDGET_LIMITS.typesafeAuditUsd,
+      ),
       diffBytes: boundedPositiveInteger(
         env, 'SUTURA_REPAIR_DIFF_BYTES',
         DEFAULT_REPAIR_BUDGET_LIMITS.diffBytes,
@@ -202,6 +216,16 @@ export function loadConfig(env: ConfigEnvironment): Config {
   const tavilyApiKey = optional(env, 'TAVILY_API_KEY');
   if (tavilyApiKey !== undefined) {
     config.tavilyApiKey = tavilyApiKey;
+  }
+
+  const openaiApiKey = optional(env, 'OPENAI_API_KEY');
+  if (openaiApiKey !== undefined) {
+    config.openaiApiKey = openaiApiKey;
+  }
+
+  const typesafeApiKey = optional(env, 'TYPESAFE_API_KEY');
+  if (typesafeApiKey !== undefined) {
+    config.typesafeApiKey = typesafeApiKey;
   }
 
   const contreeToken = optional(env, 'CONTREE_TOKEN');

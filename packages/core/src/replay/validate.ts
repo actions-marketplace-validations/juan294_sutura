@@ -1,9 +1,10 @@
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 
-import { DEFAULT_REPAIR_BUDGET_LIMITS } from '../engine/repair-budget.js';
+import { DEFAULT_REPAIR_BUDGET_LIMITS, USD_BUDGET_KEYS } from '../engine/repair-budget.js';
 import { DEFAULT_SEARCH_LIMITS } from '../engine/search.js';
 import {
+  RECORDED_HTTP_BOUNDARIES,
   REPLAY_BUNDLE_SCHEMA_VERSION,
   type RecordedBody,
   type ReplayBoundary,
@@ -16,7 +17,7 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 const RUN_ID = /^[1-9]\d*$/u;
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u;
 const OUTCOMES = new Set(['fixed', 'flaky-no-patch', 'refused', 'gave-up', 'infra-stop']);
-const HTTP_BOUNDARIES = new Set(['nebius', 'tavily', 'contree']);
+const HTTP_BOUNDARIES = new Set<string>(RECORDED_HTTP_BOUNDARIES);
 const REPLAY_BOUNDARIES = new Set(['github', 'repository', 'executor', ...HTTP_BOUNDARIES]);
 const REQUIRED_REPLAY_BOUNDARIES = new Set(['github', 'repository', 'executor', 'nebius', 'contree']);
 const OVERFLOW_BOUNDARIES = new Set([...REPLAY_BOUNDARIES, 'http', 'configuration']);
@@ -61,6 +62,15 @@ function string(value: unknown, path: string, maximum = 2_000_000): string {
     throw new ReplayValidationError(path, 'must be a bounded string');
   }
   return value;
+}
+
+function replayPath(value: unknown, path: string): string {
+  const candidate = string(value, path, 500);
+  if (candidate.length === 0 || candidate.startsWith('/') || candidate.includes('\\') ||
+      candidate.split('/').some((part) => part === '' || part === '.' || part === '..' || part === '.git')) {
+    throw new ReplayValidationError(path, 'must be a safe relative repository path');
+  }
+  return candidate;
 }
 
 function boolean(value: unknown, path: string): boolean {
@@ -390,7 +400,7 @@ function validateRepairBudgets(value: unknown, path: string): void {
       budgets[key],
       `${path}.${key}`,
       maximum,
-      key !== 'inferenceCostUsd',
+      !USD_BUDGET_KEYS.has(key),
     );
   }
 }
@@ -480,6 +490,30 @@ export function parseReplayBundle(value: unknown): ReplayBundle {
   }
   if (config.search !== undefined) {
     validateSearch(config.search, 'bundle.configuration.search');
+  }
+
+  if (bundle.runtimeDetection !== undefined) {
+    const runtimeDetection = object(bundle.runtimeDetection, 'bundle.runtimeDetection');
+    if (!exactKeys(runtimeDetection, [
+      'runtime', 'evidenceSource', 'evidencePaths', 'visitedEntries',
+    ])) {
+      throw new ReplayValidationError('bundle.runtimeDetection', 'has unknown or missing fields');
+    }
+    if (runtimeDetection.runtime !== 'node' && runtimeDetection.runtime !== 'python') {
+      throw new ReplayValidationError('bundle.runtimeDetection.runtime', 'is unknown');
+    }
+    if (!new Set(['configured', 'root', 'bounded-scan']).has(runtimeDetection.evidenceSource as string)) {
+      throw new ReplayValidationError('bundle.runtimeDetection.evidenceSource', 'is unknown');
+    }
+    array(runtimeDetection.evidencePaths, 'bundle.runtimeDetection.evidencePaths', 500)
+      .forEach((item, index) => replayPath(item, `bundle.runtimeDetection.evidencePaths[${index}]`));
+    const visitedEntries = nonnegativeNumber(
+      runtimeDetection.visitedEntries,
+      'bundle.runtimeDetection.visitedEntries',
+    );
+    if (!Number.isSafeInteger(visitedEntries)) {
+      throw new ReplayValidationError('bundle.runtimeDetection.visitedEntries', 'must be an integer');
+    }
   }
 
   const completeness = object(bundle.completeness, 'bundle.completeness');

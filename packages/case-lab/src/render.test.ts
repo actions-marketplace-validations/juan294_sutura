@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { caseLabCase } from './cases.js';
+import { caseLabCase, type CaseLabOutcome } from './cases.js';
 import { replayCatalog } from './replay.js';
 import {
   ABOUT_DESCRIPTION,
@@ -47,10 +47,18 @@ function byId(caseId: string): CaseLabResult {
   return result;
 }
 
+function withOutcome(base: CaseLabResult, outcome: CaseLabOutcome): CaseLabResult {
+  return { ...base, outcome, expectedOutcome: outcome, matchesExpectation: true };
+}
+
 describe('renderResultBody', () => {
   it('renders every section for a fixed, a refused, a flaky, and an infra-stop result', () => {
-    for (const caseId of ['javascript-repair', 'greenwash-trap', 'flaky-failure', 'python-repair']) {
-      const result = byId(caseId);
+    const infraStopCaseId = 'python-repair';
+    for (const caseId of ['javascript-repair', 'greenwash-trap', 'flaky-failure', infraStopCaseId]) {
+      const base = byId(caseId);
+      // python-repair is `gave-up` in the current v0.3.1 catalog; force an infra-stop
+      // result here so this path stays covered regardless of the catalog outcome.
+      const result = caseId === infraStopCaseId ? withOutcome(base, 'infra-stop') : base;
       const html = renderResultBody(result, caseLabCase(caseId));
       for (const id of SECTION_IDS) expect(html, `${caseId} ${id}`).toContain(`aria-labelledby="${id}-title"`);
       expect(html).toContain(`>${MODE_LABELS[result.mode]}</span>`);
@@ -70,8 +78,8 @@ describe('renderResultBody', () => {
     expect(refusedHtml).toContain('Verdict: <strong>rejected</strong>');
     expect(refusedHtml).toContain('<h3>Failed audit checks</h3>');
     expect(refusedHtml).toContain(escapeHtml(refused.caseFile?.audit?.reasoning ?? 'missing'));
-    const infra = renderResultBody(byId('python-repair'), caseLabCase('python-repair'));
-    expect(infra).toContain('Expected Fixed; this result does not match. The failure is kept in the record.');
+    const mismatched = renderResultBody(byId('python-repair'), caseLabCase('python-repair'));
+    expect(mismatched).toContain('Expected Fixed; this result does not match. The failure is kept in the record.');
   });
 
   it('escapes every dynamic value, including a script tag inside a diff', () => {
@@ -537,12 +545,12 @@ describe('isRenderableResult', () => {
 });
 
 it('shows bounded recovery grants and separately records executed commands with escaped text', () => {
-  const original = byId('javascript-repair');
+  const original = byId('flaky-failure');
   const recovery = JSON.parse(readFileSync(new URL('../../core/src/verification/__fixtures__/recovery.json', import.meta.url), 'utf8')) as DiagnosisRecoveryEvidence;
   recovery.executedCommand = 'node normalized-runner.js';
   recovery.hypotheses[1]!.reason = '<script>forged markup</script>';
   const result = { ...original, caseFile: { ...original.caseFile!, recovery } };
-  const html = renderResultBody(result, caseLabCase('javascript-repair'));
+  const html = renderResultBody(result, caseLabCase('flaky-failure'));
   expect(html).toContain('Diagnosis recovery');
   expect(html).toContain('Initial diagnosis retained: typecheck');
   expect(html).toContain('test-bug'); expect(html).toContain('Controller grant: await-operation');
@@ -550,5 +558,5 @@ it('shows bounded recovery grants and separately records executed commands with 
   expect(html).toContain('&lt;script&gt;forged markup&lt;/script&gt;');
   expect(html).not.toContain('<script>forged markup</script>');
   expect(html).toContain('do not measure live repair quality');
-  expect(renderResultBody(original, caseLabCase('javascript-repair'))).not.toContain('Diagnosis recovery');
+  expect(renderResultBody(original, caseLabCase('flaky-failure'))).not.toContain('Diagnosis recovery');
 });

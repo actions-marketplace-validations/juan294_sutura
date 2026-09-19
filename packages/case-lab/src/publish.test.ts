@@ -31,7 +31,29 @@ function caseFilePath(placeboCaseId: string): string {
   return path;
 }
 
+const LIVE_BUNDLE_PATH = new URL('./__fixtures__/live-34977342282-javascript-repair-gave-up.json', import.meta.url).pathname;
+const RELEASE_V030 = { version: '0.3.0', actionSha: 'c94eee2086b31450d975137a0102dda18522d0b8' };
+const LIVE_DEMO_SHA = 'f8ea06f211163a5bc233dfadf1c728d4c79b7418';
+
 describe('publishResult', () => {
+  it('publishes the real v0.3.0 live bundle whose actionSha is the Action commit, not the demo commit', () => {
+    // Case Lab run 34977342282 (2026-09-15): the pre-fix demoSha binding refused every live publish.
+    const result = publishResult({
+      requestId: 'cl-1789480072251-87a2398a', caseId: 'javascript-repair', outcome: 'gave-up',
+      demoSha: LIVE_DEMO_SHA, controllerSha: RELEASE_V030.actionSha, replayBundlePath: LIVE_BUNDLE_PATH,
+      links: { ...LINKS, workflowRun: 'https://github.com/juan294/sutura-demo/actions/runs/34977342282' },
+      release: RELEASE_V030, now: NOW,
+    });
+    expect(result.outcome).toBe('gave-up');
+    expect(result.matchesExpectation).toBe(false);
+    expect(result.identity).toEqual({ controllerSha: RELEASE_V030.actionSha, demoSha: LIVE_DEMO_SHA });
+    expect(() => publishResult({
+      requestId: 'cl-1789480072251-87a2398a', caseId: 'javascript-repair', outcome: 'gave-up',
+      demoSha: LIVE_DEMO_SHA, controllerSha: LIVE_DEMO_SHA, replayBundlePath: LIVE_BUNDLE_PATH,
+      links: LINKS, release: { version: '0.3.1', actionSha: LIVE_DEMO_SHA }, now: NOW,
+    })).toThrow(`replay bundle actionSha ${RELEASE_V030.actionSha} must equal the release actionSha ${LIVE_DEMO_SHA}`);
+  });
+
   it('assembles a validated live result with the case file from the released CLI', () => {
     const result = publishResult({
       requestId: REQUEST_ID, caseId: 'javascript-repair', outcome: 'fixed', demoSha: DEMO_SHA, controllerSha: CONTROLLER_SHA,
@@ -45,7 +67,7 @@ describe('publishResult', () => {
       workflowRun: LINKS.workflowRun, ciRun: LINKS.ciRun, pullRequest: LINKS.pullRequest, check: LINKS.check,
     });
     expect(result.cost.status).toBe('observed');
-    expect(result.cost.inferenceUsd).toBeCloseTo(0.005507, 6);
+    expect(result.cost.inferenceUsd).toBeCloseTo(0.008736, 6);
     expect(result.caseFile?.outcome).toBe('fixed');
   });
 
@@ -102,9 +124,9 @@ describe('publishResult', () => {
     expect(() => publishResult({
       requestId: REQUEST_ID, caseId: 'flaky-failure', outcome: 'flaky-no-patch', demoSha: DEMO_SHA, controllerSha: CONTROLLER_SHA,
       replayBundlePath: foreign, links: LINKS, release: RELEASE, now: NOW,
-    })).toThrow(`replay bundle actionSha ${bundle.actionSha} must equal the demo commit ${DEMO_SHA}`);
+    })).toThrow(`replay bundle actionSha ${bundle.actionSha} must equal the release actionSha ${RELEASE.actionSha}`);
     const matching = join(dir, 'matching.json');
-    writeFileSync(matching, JSON.stringify({ ...bundle, actionSha: DEMO_SHA }));
+    writeFileSync(matching, JSON.stringify({ ...bundle, actionSha: RELEASE.actionSha }));
     expect(() => publishResult({
       requestId: REQUEST_ID, caseId: 'flaky-failure', outcome: 'fixed', demoSha: DEMO_SHA, controllerSha: CONTROLLER_SHA,
       replayBundlePath: matching, links: LINKS, release: RELEASE, now: NOW,

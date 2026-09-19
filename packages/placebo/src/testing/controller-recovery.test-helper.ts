@@ -74,7 +74,10 @@ export async function runRecoveryControllerCase(caseId: string, options: { rewri
           inferenceCalls.push('diagnosis');
           return { text: JSON.stringify({ class: initialClass, confidence: 0.49, signals: ['local-real-reproduction'], failingCmd: observedCommand, errorExcerpt: (before.stderr || before.stdout).slice(-2000) }), usd: 0.000001 };
         }
-        if (settings?.responseFormat?.type === 'json_schema' && settings.responseFormat.jsonSchema.name === 'sutura_diagnosis_hypotheses') {
+        // Keyed on the controller-owned purpose, not the response format: the
+        // hypotheses request sends json_object since 2026-09-16 (Token Factory
+        // json_schema drift), and 'diagnosis-recovery' also routes to super.
+        if (settings?.purpose === 'diagnosis-recovery') {
           inferenceCalls.push('hypotheses');
           const input = request(messages) as { sources: Array<{ path: string }>; signals: Array<{ id: string }> };
           const strict = target === 'tsconfig.json';

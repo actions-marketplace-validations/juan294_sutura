@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -48,7 +49,7 @@ function response(
 
 describe('Super repair provider-contract canary', () => {
   it('pins the force-nonempty contract version', () => {
-    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v5');
+    expect(SUPER_REPAIR_PROVIDER_CONTRACT_VERSION).toBe('sutura-super-repair-v6');
   });
 
   it('rejects an empty provider credential before constructing the client', async () => {
@@ -78,19 +79,7 @@ describe('Super repair provider-contract canary', () => {
         enable_thinking: false,
         force_nonempty_content: true,
       },
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          name: 'sutura_repair_proposal',
-          strict: true,
-          schema: {
-            type: 'object',
-            properties: { replacement: { type: 'string', maxLength: 1_000 } },
-            required: ['replacement'],
-            additionalProperties: false,
-          },
-        },
-      },
+      response_format: { type: 'json_object' },
     });
     expect(body).not.toHaveProperty('extra_body');
     expect(body).not.toHaveProperty('reasoning_effort');
@@ -107,6 +96,20 @@ describe('Super repair provider-contract canary', () => {
       requestId: 'canary-request-1',
     });
     expect(result.replacementSha256).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it('passes on the real 2026-09-16 json_object reply and fails on the real json_schema drift replies', async () => {
+    // Raw Token Factory exchanges captured 2026-09-16 with the canary's exact request.
+    const fixture = (name: string): HttpResponse => {
+      const body = JSON.parse(readFileSync(new URL(`./__fixtures__/nebius-json-schema-drift-2026-09-16/${name}.json`, import.meta.url), 'utf8')) as Record<string, unknown>;
+      return { ok: true, status: 200, headers: { get: () => null }, async json() { return body; }, async text() { return ''; } };
+    };
+    const good = await runSuperRepairProviderContractCanary({ apiKey: 'test-key' }, { fetch: vi.fn().mockResolvedValue(fixture('response-json-object')) });
+    expect(good).toMatchObject({ contractVersion: SUPER_REPAIR_PROVIDER_CONTRACT_VERSION, finishReason: 'stop', model: DEFAULT_MODELS.super });
+    for (const drifted of ['response-json-schema', 'response-json-schema-bare-n']) {
+      await expect(runSuperRepairProviderContractCanary({ apiKey: 'test-key' }, { fetch: vi.fn().mockResolvedValue(fixture(drifted)) }))
+        .rejects.toThrow(/unexpected canary patch/u);
+    }
   });
 
   it('fails when the provider does not return a normal stop finish reason', async () => {

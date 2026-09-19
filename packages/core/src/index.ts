@@ -25,6 +25,7 @@ export {
   SUTURA_SANDBOX_ENV,
   healCase,
   repairFailure,
+  tracedTypeSafeAudit,
 } from './heal.js';
 export {
   MAX_POLICY_BYTES,
@@ -57,6 +58,25 @@ export {
   createTokenFactoryClient,
 } from './llm/token-factory.js';
 export {
+  OPENAI_BASE_URL,
+  SECOND_OPINION_MODEL,
+  SECOND_OPINION_PRICE,
+  SECOND_OPINION_PRICE_PROVENANCE,
+  OpenAiApiError,
+  OpenAiClient,
+  OpenAiResponseError,
+} from './llm/openai.js';
+export {
+  TYPESAFE_BASE_URL,
+  TYPESAFE_AUDIT_MODEL,
+  TYPESAFE_PRICE,
+  TYPESAFE_PRICE_PROVENANCE,
+  TYPESAFE_WORST_CASE_USD,
+  TypeSafeApiError,
+  TypeSafeClient,
+  TypeSafeResponseError,
+} from './llm/typesafe.js';
+export {
   SUPER_REPAIR_PROVIDER_CONTRACT_VERSION,
   SuperRepairProviderContractCanaryError,
   runSuperRepairProviderContractCanary,
@@ -88,8 +108,20 @@ export {
 } from './counterfactual/types.js';
 export {
   ADVERSARIAL_AUDIT_PROMPT,
+  SECOND_OPINION_WORST_CASE_USD,
   adjudicate,
+  adjudicateWith,
+  boundedAdjudicationContext,
+  secondOpinion,
 } from './audit/adjudicate.js';
+export {
+  TYPESAFE_AUDIT_QUESTIONS,
+  TYPESAFE_REFUSE_GREEN_WASH_PROBABILITY,
+  TYPESAFE_UNCERTAIN_CONFIDENCE,
+  decideTypeSafeAudit,
+  typesafeAudit,
+  typesafeAuditEvidence,
+} from './audit/typesafe-audit.js';
 export {
   checkAssertionDrop,
   checkDeletedTests,
@@ -194,6 +226,7 @@ export type {
   RepairBudgetLimits,
   RepairBudgetOverrides,
   RepairBudgetSnapshot,
+  SecondOpinionReservation,
 } from './engine/repair-budget.js';
 export type { RepairAgentContext, RepairAgentOutcome } from './engine/repair-agent.js';
 export type { ControlledRepairAttemptContext, RepairAttemptFeedback } from './engine/repair-attempt.js';
@@ -224,7 +257,14 @@ export { isSensitiveRepositoryPath, isVerificationPrivatePath } from './security
 export { trimEdges, trimTrailing } from './text/trim-edge.js';
 export { TraceRecorder } from './trace/recorder.js';
 export { selectBoundedSourceWindow, SourceWindowError } from './source-window.js';
-export { RuntimeDetectionError, detectRuntime, detectRuntimeAtPath, runtimeEvidencePaths } from './runtime/detect.js';
+export {
+  RuntimeDetectionError,
+  detectRuntime,
+  detectRuntimeAtPath,
+  runtimeEvidencePaths,
+  runtimeRootEvidencePaths,
+} from './runtime/detect.js';
+export type { RuntimeDetectionObservation } from './runtime/detect.js';
 export { NODE_IMAGE_REF, NODE_RUNTIME, nodePreparationCommand, normalizeNodeCommand } from './runtime/node.js';
 export { PYTHON_IMAGE_INDEX_DIGEST, PYTHON_IMAGE_LINUX_AMD64_DIGEST, PYTHON_IMAGE_REF, PYTHON_REQUIRED_TOOLS, PYTHON_RUNTIME, PythonDependencyError, normalizePythonCommand, validatePythonDependencyInputs } from './runtime/python.js';
 export {
@@ -246,7 +286,9 @@ export {
 export {
   recordingContreeFetch,
   recordingNebiusFetch,
+  recordingOpenAiFetch,
   recordingTavilyFetch,
+  recordingTypeSafeFetch,
 } from './replay/record-fetch.js';
 export { recordingExecutor } from './replay/record-executor.js';
 export { recordingGitHubApi } from './replay/record-github.js';
@@ -267,7 +309,7 @@ export {
   redactExternalText,
 } from './security/external-text.js';
 
-export const VERSION = '0.2.1';
+export const VERSION = '0.3.1';
 
 export type {
   HealCaseContext,
@@ -303,6 +345,12 @@ export type {
   NebiusClientDependencies,
 } from './llm/nebius.js';
 export type { NebiusFetch } from './llm/nebius.js';
+export type { OpenAiClientConfig } from './llm/openai.js';
+export type {
+  TypeSafeAuditClient,
+  TypeSafeClientConfig,
+  TypeSafeDecision,
+} from './llm/typesafe.js';
 export type {
   SuperRepairProviderContractCanaryInput,
   SuperRepairProviderContractCanaryResult,
@@ -348,10 +396,19 @@ export type {
   CounterfactualResult,
 } from './counterfactual/types.js';
 export type {
+  AdjudicateWithOptions,
   AdjudicationContext,
   AdjudicationLlm,
   AdjudicationResult,
+  SecondOpinionBudget,
+  SecondOpinionResult,
+  SecondOpinionStatus,
 } from './audit/adjudicate.js';
+export type {
+  TypeSafeAuditBudget,
+  TypeSafeAuditResult,
+  TypeSafeAuditStatus,
+} from './audit/typesafe-audit.js';
 export type { MechanicalCheck } from './audit/mechanical.js';
 export type { AuditOnlyContext, AuditOnlyLlm } from './audit-only.js';
 export type { ContreeExecutorConfig } from './executor/contree.js';

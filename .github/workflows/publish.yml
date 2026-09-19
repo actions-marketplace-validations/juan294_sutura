@@ -69,7 +69,7 @@ jobs:
           test "$(jq -r .packageContentHash "$RUNNER_TEMP/candidate-install-evidence.json")" = "$(jq -r .packageContentHash "$RUNNER_TEMP/public-install-evidence.json")"
       - uses: actions/upload-artifact@v7
         with:
-          name: sutura-v0.2.1-install-evidence
+          name: sutura-v0.3.1-install-evidence
           path: |
             ${{ runner.temp }}/candidate-install-evidence.json
             ${{ runner.temp }}/public-install-evidence.json

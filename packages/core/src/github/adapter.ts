@@ -87,6 +87,7 @@ function validBranch(value: string): boolean {
 export class GitHubAdapter implements GitHubOrchestrationPort {
   private readonly repository: string;
   private activeCheck: { id: number; headSha: string } | undefined;
+  private activeAttempt: { target: AttemptTarget; marker: string } | undefined;
 
   constructor(
     private readonly api: GitHubApi,
@@ -237,16 +238,29 @@ export class GitHubAdapter implements GitHubOrchestrationPort {
         }
         this.activeCheck = { id: created.id, headSha: run.headSha };
       }
-      if (existingComment) return null;
+      if (existingComment) {
+        this.activeAttempt = {
+          marker,
+          target: {
+            kind: prNumber === undefined ? 'commit' : 'pull-request',
+            commentId: existingComment.id,
+            checkRunId: this.activeCheck.id,
+            headSha: run.headSha,
+          },
+        };
+        return null;
+      }
       const body = `${marker}\n<!-- sutura-check-run:${this.activeCheck.id} -->\nSutura claimed this failed run and is starting analysis.`;
       const comment = prNumber === undefined
         ? await this.api.createCommitComment(run.headSha, body)
         : await this.api.createIssueComment(prNumber, body);
-      if (recoveredExistingCheck) return null;
-      return {
+      const target: AttemptTarget = {
         kind: prNumber === undefined ? 'commit' : 'pull-request',
         commentId: comment.id, checkRunId: this.activeCheck.id, headSha: run.headSha,
       };
+      this.activeAttempt = { target, marker };
+      if (recoveredExistingCheck) return null;
+      return target;
     } finally {
       await this.api.deleteRef(`tags/sutura-attempt-${this.options.runId}`);
     }
@@ -284,6 +298,10 @@ export class GitHubAdapter implements GitHubOrchestrationPort {
       annotations: [],
     });
     this.activeCheck = { id: check.id, headSha: check.headSha };
+    if (this.activeAttempt) {
+      const body = `${this.activeAttempt.marker}\n<!-- sutura-check-run:${check.id} -->\nSutura stopped unexpectedly. Review the completed check and action log before retrying.`;
+      await this.updateAttempt(this.activeAttempt.target, body);
+    }
   }
 
   async createFixPullRequest(input: CreateFixPullRequestInput): Promise<{ number: number; url: string }> {

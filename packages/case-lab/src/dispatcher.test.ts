@@ -74,7 +74,7 @@ describe('caseLabEnvironment', () => {
 
   it('refuses to start when any provider or GitHub secret is configured', () => {
     expect([...FORBIDDEN_DISPATCHER_ENV]).toEqual([
-      'NEBIUS_API_KEY', 'CONTREE_TOKEN', 'CONTREE_PROJECT', 'TAVILY_API_KEY', 'GITHUB_TOKEN', 'GH_TOKEN',
+      'NEBIUS_API_KEY', 'CONTREE_TOKEN', 'CONTREE_PROJECT', 'TAVILY_API_KEY', 'OPENAI_API_KEY', 'TYPESAFE_API_KEY', 'GITHUB_TOKEN', 'GH_TOKEN',
     ]);
     for (const name of FORBIDDEN_DISPATCHER_ENV) {
       expect(() => caseLabEnvironment({ CASE_LAB_GITHUB_TOKEN: TOKEN, [name]: 'x' }, RELEASE))
@@ -161,7 +161,7 @@ describe('createCaseLabHandler', () => {
     expect(hourly.dispatched).toEqual([]);
 
     const daily = fakeGitHub(Array.from({ length: CASE_LAB_LIMITS.maxRunsPerDay }, (_, index) =>
-      run({ id: index + 1, createdAt: `2026-09-04T0${index}:00:00.000Z` })));
+      run({ id: index + 1, createdAt: `2026-09-04T00:${String(index).padStart(2, '0')}:00.000Z` })));
     const stopped = await handlerWith(daily)(post('{"caseId":"javascript-repair"}'));
     expect(stopped.status).toBe(429);
     expect(stopped.body.error).toBe('daily-spend-stop');

@@ -34,6 +34,16 @@ describe('parseCapturedFixturesManifest', () => {
     })).toThrow(/runId/u);
   });
 
+  it('accepts the optional openai and typesafe boundaries', () => {
+    for (const boundary of ['openai', 'typesafe'] as const) {
+      const withBoundary = {
+        ...manifest,
+        entries: [{ ...manifest.entries[0], boundaries: [boundary] }],
+      };
+      expect(parseCapturedFixturesManifest(withBoundary)).toEqual(withBoundary);
+    }
+  });
+
   it('accepts an exact capture commit for a local fixture', () => {
     const local = {
       ...manifest,

@@ -53,7 +53,7 @@ describe('demo case-lab.yml contract', () => {
     expect(steps[0]?.body).toContain('exit 1');
     expect(steps[2]?.body).toContain('gh run list -R "$GITHUB_REPOSITORY" --workflow case-lab.yml --created ">=$since"');
     expect(steps[2]?.body).toContain('if [ "$count" -gt "$CASE_LAB_DAILY_RUN_CAP" ]');
-    expect(WORKFLOW).toContain("CASE_LAB_DAILY_RUN_CAP: '8'");
+    expect(WORKFLOW).toContain("CASE_LAB_DAILY_RUN_CAP: '24'");
   });
 
   it('checks out with persist-credentials false and pins the Action and the controller by exact commit', () => {

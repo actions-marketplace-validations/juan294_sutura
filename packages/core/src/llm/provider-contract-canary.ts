@@ -14,16 +14,19 @@ import type { NebiusClientDependencies } from './nebius.js';
 import { createTokenFactoryClient } from './token-factory.js';
 import type { LlmReply, TierLlm } from './types.js';
 
-export const SUPER_REPAIR_PROVIDER_CONTRACT_VERSION = 'sutura-super-repair-v5';
+// v6 (2026-09-16): the repair proposal request moved from json_schema to json_object
+// after Token Factory's schema-guided decoding started dropping string escapes.
+export const SUPER_REPAIR_PROVIDER_CONTRACT_VERSION = 'sutura-super-repair-v6';
 
-const BROKEN_SOURCE = [
+/** Shared canary subject: also reused by the OpenAI (GPT-6 Astra) second-opinion live/fixture tests. */
+export const BROKEN_SOURCE = [
   'export function add(left: number, right: number): number {',
   '  return left - right;',
   '}',
   '',
 ].join('\n');
-const FIXED_SOURCE = BROKEN_SOURCE.replace('left - right', 'left + right');
-const EXPECTED_DIFF = [
+export const FIXED_SOURCE = BROKEN_SOURCE.replace('left - right', 'left + right');
+export const EXPECTED_DIFF = [
   'diff --git a/src/add.ts b/src/add.ts',
   '--- a/src/add.ts',
   '+++ b/src/add.ts',
@@ -35,7 +38,7 @@ const EXPECTED_DIFF = [
   '',
 ].join('\n');
 
-const DIAGNOSIS: Diagnosis = {
+export const DIAGNOSIS: Diagnosis = {
   class: 'test-assertion',
   confidence: 0.99,
   signals: ['expected -1 to be 5'],

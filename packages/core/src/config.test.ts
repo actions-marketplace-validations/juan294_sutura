@@ -21,7 +21,8 @@ describe('loadConfig', () => {
     expect(config.routingProfileId).toBe('production-baseline-v1');
     expect(config.repairBudgets).toEqual({
       modelTurns: 8, toolCalls: 24, branches: 12, sandboxOperations: 32,
-      elapsedTimeSec: 600, inferenceCostUsd: 0.25, diffBytes: 65_536,
+      elapsedTimeSec: 600, inferenceCostUsd: 0.25, secondOpinionUsd: 0.30,
+      typesafeAuditUsd: 0.02, diffBytes: 65_536,
     });
     expect(config.search).toEqual({ initialBranches: 4, beamWidth: 2, maximumDepth: 4, maximumTotalBranches: 12 });
     expect(config.models).toEqual({
@@ -30,6 +31,8 @@ describe('loadConfig', () => {
       ultra: 'nvidia/Nemotron-3-Ultra-550b-a55b',
     });
     expect(config).not.toHaveProperty('tavilyApiKey');
+    expect(config).not.toHaveProperty('openaiApiKey');
+    expect(config).not.toHaveProperty('typesafeApiKey');
     expect(config).not.toHaveProperty('contreeToken');
     expect(config).not.toHaveProperty('contreeProject');
   });
@@ -38,6 +41,8 @@ describe('loadConfig', () => {
     const config = loadConfig({
       ...REQUIRED_ENV,
       TAVILY_API_KEY: 'tavily-secret',
+      OPENAI_API_KEY: 'openai-secret',
+      TYPESAFE_API_KEY: 'typesafe-secret',
       CONTREE_TOKEN: 'contree-secret',
       CONTREE_PROJECT: 'project-id',
       SUTURA_TRIAGE_N: '7',
@@ -49,6 +54,8 @@ describe('loadConfig', () => {
       SUTURA_REPAIR_SANDBOX_OPERATIONS: '16',
       SUTURA_REPAIR_ELAPSED_TIME_SEC: '300',
       SUTURA_REPAIR_INFERENCE_COST_USD: '0.10',
+      SUTURA_SECOND_OPINION_USD: '0.15',
+      SUTURA_TYPESAFE_AUDIT_USD: '0.01',
       SUTURA_REPAIR_DIFF_BYTES: '32768',
       SUTURA_SEARCH_INITIAL_BRANCHES: '2',
       SUTURA_SEARCH_BEAM_WIDTH: '1',
@@ -61,6 +68,8 @@ describe('loadConfig', () => {
     expect(config).toEqual({
       nebiusApiKey: 'nebius-secret',
       tavilyApiKey: 'tavily-secret',
+      openaiApiKey: 'openai-secret',
+      typesafeApiKey: 'typesafe-secret',
       contreeToken: 'contree-secret',
       contreeProject: 'project-id',
       triageN: 7,
@@ -74,7 +83,8 @@ describe('loadConfig', () => {
       maxOps: 24,
       repairBudgets: {
         modelTurns: 4, toolCalls: 12, branches: 2, sandboxOperations: 16,
-        elapsedTimeSec: 300, inferenceCostUsd: 0.1, diffBytes: 32_768,
+        elapsedTimeSec: 300, inferenceCostUsd: 0.1, secondOpinionUsd: 0.15,
+        typesafeAuditUsd: 0.01, diffBytes: 32_768,
       },
       search: { initialBranches: 2, beamWidth: 1, maximumDepth: 3, maximumTotalBranches: 6 },
     });
@@ -116,6 +126,8 @@ describe('loadConfig', () => {
     ['SUTURA_RACE_K', '11'],
     ['SUTURA_REPAIR_MODEL_TURNS', '9'],
     ['SUTURA_REPAIR_INFERENCE_COST_USD', '0.26'],
+    ['SUTURA_SECOND_OPINION_USD', '0.31'],
+    ['SUTURA_TYPESAFE_AUDIT_USD', '0.05'],
     ['SUTURA_SEARCH_MAX_TOTAL_BRANCHES', '13'],
   ])('rejects an excessive %s value', (name, value) => {
     expect(() => loadConfig({ ...REQUIRED_ENV, [name]: value })).toThrowError(

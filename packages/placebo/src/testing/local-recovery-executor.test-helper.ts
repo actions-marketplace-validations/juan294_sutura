@@ -70,6 +70,7 @@ export class LocalBranchExecutor implements Executor {
     const tsc = `${quote(process.execPath)} ${quote(join(this.runtime.nodeModules, 'typescript/bin/tsc'))} --noEmit`;
     const normalized = new Map<string, string>([
       ['vitest run', vitest], ['tsc --noEmit', tsc], ['tsc --noEmit && vitest run', `${tsc} && ${vitest}`],
+      ['node workflow-check.js && vitest run', `${quote(process.execPath)} workflow-check.js && ${vitest}`],
     ]);
     for (const [trusted, local] of [...normalized]) normalized.set(NODE_RUNTIME.normalizeCommand(trusted), local);
     if (command === 'pnpm test' || command === NODE_RUNTIME.normalizeCommand('pnpm test')) {

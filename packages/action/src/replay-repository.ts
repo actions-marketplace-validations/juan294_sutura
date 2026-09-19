@@ -24,6 +24,7 @@ const SNAPSHOT_CONTENT_PATHS = new Set([
   'pyproject.toml',
   'uv.lock',
   'requirements.txt',
+  'requirements-dev.txt',
   'poetry.lock',
   'pytest.ini',
   'ruff.toml',
@@ -91,9 +92,6 @@ async function checkoutSnapshot(checkoutDir: string): Promise<{
   const configuredRuntime = policyContent === null
     ? undefined
     : loadRepositoryPolicy(policyContent).policy.runtime;
-  const evidencePaths = configuredRuntime === undefined
-    ? (await runtimeEvidencePaths(root)).filter((path) => !isSensitiveRepositoryPath(path))
-    : [];
   const files: Array<{ path: string; content: string }> = [];
   let totalBytes = 0;
   for (const path of SNAPSHOT_CONTENT_PATHS) {
@@ -108,6 +106,14 @@ async function checkoutSnapshot(checkoutDir: string): Promise<{
     }
     files.push({ path, content });
   }
+  const rootEvidencePaths = files
+    .map(({ path }) => path)
+    .filter((path) => path !== '.sutura.json');
+  const evidencePaths = configuredRuntime === undefined
+    ? (rootEvidencePaths.length > 0 ? rootEvidencePaths : await runtimeEvidencePaths(root))
+      .filter((path) => !isSensitiveRepositoryPath(path))
+      .sort()
+    : [];
   return { runtimeEvidencePaths: evidencePaths, files };
 }
 

@@ -102,6 +102,8 @@ export function mapActionInputs(read: InputReader): ActionConfiguration {
     SUTURA_REPAIR_SANDBOX_OPERATIONS: String(boundedInteger(read('repair-sandbox-operations'), DEFAULT_REPAIR_BUDGET_LIMITS.sandboxOperations, DEFAULT_REPAIR_BUDGET_LIMITS.sandboxOperations, 'repair-sandbox-operations')),
     SUTURA_REPAIR_ELAPSED_TIME_SEC: String(boundedInteger(read('repair-elapsed-time-sec'), DEFAULT_REPAIR_BUDGET_LIMITS.elapsedTimeSec, DEFAULT_REPAIR_BUDGET_LIMITS.elapsedTimeSec, 'repair-elapsed-time-sec')),
     SUTURA_REPAIR_INFERENCE_COST_USD: String(boundedNumber(read('repair-inference-cost-usd'), DEFAULT_REPAIR_BUDGET_LIMITS.inferenceCostUsd, DEFAULT_REPAIR_BUDGET_LIMITS.inferenceCostUsd, 'repair-inference-cost-usd')),
+    SUTURA_SECOND_OPINION_USD: String(boundedNumber(read('repair-second-opinion-usd'), DEFAULT_REPAIR_BUDGET_LIMITS.secondOpinionUsd, DEFAULT_REPAIR_BUDGET_LIMITS.secondOpinionUsd, 'repair-second-opinion-usd')),
+    SUTURA_TYPESAFE_AUDIT_USD: String(boundedNumber(read('repair-typesafe-audit-usd'), DEFAULT_REPAIR_BUDGET_LIMITS.typesafeAuditUsd, DEFAULT_REPAIR_BUDGET_LIMITS.typesafeAuditUsd, 'repair-typesafe-audit-usd')),
     SUTURA_REPAIR_DIFF_BYTES: String(boundedInteger(read('repair-diff-bytes'), DEFAULT_REPAIR_BUDGET_LIMITS.diffBytes, DEFAULT_REPAIR_BUDGET_LIMITS.diffBytes, 'repair-diff-bytes')),
     SUTURA_SEARCH_INITIAL_BRANCHES: String(boundedInteger(read('search-initial-branches'), DEFAULT_SEARCH_LIMITS.initialBranches, DEFAULT_SEARCH_LIMITS.maximumTotalBranches, 'search-initial-branches')),
     SUTURA_SEARCH_BEAM_WIDTH: String(boundedInteger(read('search-beam-width'), DEFAULT_SEARCH_LIMITS.beamWidth, DEFAULT_SEARCH_LIMITS.maximumTotalBranches, 'search-beam-width')),
@@ -109,6 +111,8 @@ export function mapActionInputs(read: InputReader): ActionConfiguration {
     SUTURA_SEARCH_MAX_TOTAL_BRANCHES: String(boundedInteger(read('search-max-total-branches'), DEFAULT_SEARCH_LIMITS.maximumTotalBranches, DEFAULT_SEARCH_LIMITS.maximumTotalBranches, 'search-max-total-branches')),
   };
   optional(environment, read, 'tavily-api-key', 'TAVILY_API_KEY');
+  optional(environment, read, 'openai-api-key', 'OPENAI_API_KEY');
+  optional(environment, read, 'typesafe-api-key', 'TYPESAFE_API_KEY');
   optional(environment, read, 'model-nano', 'SUTURA_MODEL_NANO');
   optional(environment, read, 'model-super', 'SUTURA_MODEL_SUPER');
   optional(environment, read, 'model-ultra', 'SUTURA_MODEL_ULTRA');

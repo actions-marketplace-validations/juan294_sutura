@@ -41,6 +41,18 @@ describe('parseReplayBundle', () => {
     expect(parseReplayBundle(complete)).toEqual(complete);
   });
 
+  it('accepts bounded selected runtime evidence and rejects unsafe paths', () => {
+    const value = clone(PARTIAL);
+    value.runtimeDetection = {
+      runtime: 'python', evidenceSource: 'bounded-scan',
+      evidencePaths: ['services/worker/tests/test_widget.py'], visitedEntries: 42,
+    };
+    expect(parseReplayBundle(value)).toEqual(value);
+
+    value.runtimeDetection.evidencePaths = ['../outside.py'];
+    expect(() => parseReplayBundle(value)).toThrow(/safe relative repository path/iu);
+  });
+
   it('rejects a complete bundle without an outcome', () => {
     const value = clone(complete);
     delete value.outcome;
@@ -63,6 +75,40 @@ describe('parseReplayBundle', () => {
   it('accepts a complete bundle when optional Tavily grounding did not run', () => {
     const value = clone(complete);
     value.http = value.http.filter((exchange) => exchange.boundary !== 'tavily');
+    expect(parseReplayBundle(value)).toEqual(value);
+  });
+
+  it('accepts a complete bundle when the optional GPT-6 Astra second opinion did not run', () => {
+    const value = clone(complete);
+    value.http = value.http.filter((exchange) => exchange.boundary !== 'openai');
+    expect(parseReplayBundle(value)).toEqual(value);
+  });
+
+  it('accepts a complete bundle when the optional TypeSafe Jev calibrated audit did not run', () => {
+    const value = clone(complete);
+    value.http = value.http.filter((exchange) => exchange.boundary !== 'typesafe');
+    expect(parseReplayBundle(value)).toEqual(value);
+  });
+
+  it('accepts an openai HTTP exchange', () => {
+    const value = clone(PARTIAL);
+    value.http = [{
+      boundary: 'openai', sequence: 1,
+      request: { method: 'POST', url: 'https://api.openai.com/v1/chat/completions', headers: {}, body: '{}' },
+      response: { status: 200, headers: {}, body: '{}' },
+      latencyMs: 12,
+    }];
+    expect(parseReplayBundle(value)).toEqual(value);
+  });
+
+  it('accepts a typesafe HTTP exchange', () => {
+    const value = clone(PARTIAL);
+    value.http = [{
+      boundary: 'typesafe', sequence: 1,
+      request: { method: 'POST', url: 'https://api.typesafe.ai/v1/systemone', headers: {}, body: '{}' },
+      response: { status: 200, headers: {}, body: '{}' },
+      latencyMs: 12,
+    }];
     expect(parseReplayBundle(value)).toEqual(value);
   });
 
@@ -205,6 +251,7 @@ describe('parseReplayBundle', () => {
     value.configuration.repairBudgets = {
       modelTurns: 4,
       inferenceCostUsd: 0.1,
+      secondOpinionUsd: 0.15,
       diffBytes: 1_024,
     };
     value.configuration.search = {
@@ -252,6 +299,7 @@ describe('parseReplayBundle', () => {
     ['sandboxOperations', 1.5],
     ['elapsedTimeSec', 601],
     ['inferenceCostUsd', 0.251],
+    ['secondOpinionUsd', 0.301],
     ['diffBytes', 65_537],
   ])('rejects malformed repairBudgets.%s', (field, malformed) => {
     const value = clone(PARTIAL);

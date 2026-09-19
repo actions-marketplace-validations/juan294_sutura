@@ -406,8 +406,13 @@ function cleanStatus(text) {
     !line.slice(3).startsWith('docs/demo/thumbnail/')).join('\n');
 }
 
-export async function gateDogfood(sha, inputDependencies = {}) {
+export async function gateDogfood(sha, inputDependencies = {}, options = {}) {
   const candidate = exactSha(sha, 'Dogfood candidate');
+  const branch = options.branch ?? 'develop';
+  if (branch !== 'develop' && branch !== 'main') {
+    throw new Error(`Dogfood gate branch must be develop or main, got ${branch}`);
+  }
+  const releaseVersion = options.releaseVersion;
   const dependencies = createDogfoodDependencies(inputDependencies);
   const checks = [];
   const check = async (name, operation) => {
@@ -421,21 +426,39 @@ export async function gateDogfood(sha, inputDependencies = {}) {
   await check('clean-tree', async () => {
     const status = cleanStatus(await dependencies.git(['status', '--porcelain']));
     if (status) throw new Error(`dirty paths: ${status}`);
-    const head = await dependencies.git(['rev-parse', 'HEAD']);
-    if (head !== candidate) throw new Error(`HEAD is ${head}`);
+    if (branch === 'develop') {
+      const head = await dependencies.git(['rev-parse', 'HEAD']);
+      if (head !== candidate) throw new Error(`HEAD is ${head}`);
+    } else {
+      // Release mode: the operator checkout is not the candidate. Prove the one
+      // value it stamps into the evidence instead.
+      const { RELEASE_VERSION } = await import('./install-test-lib.mjs');
+      if (RELEASE_VERSION !== releaseVersion) {
+        throw new Error(`scripts/install-test-lib.mjs RELEASE_VERSION is ${RELEASE_VERSION} but the release tag names ${releaseVersion}`);
+      }
+    }
   });
-  await check('origin-develop', async () => {
-    await dependencies.git(['fetch', 'origin', 'develop']);
-    const remote = await dependencies.git(['rev-parse', 'origin/develop']);
-    if (remote !== candidate) throw new Error(`origin/develop is ${remote}`);
+  await check(`origin-${branch}`, async () => {
+    await dependencies.git(['fetch', 'origin', branch]);
+    if (branch === 'develop') {
+      const remote = await dependencies.git(['rev-parse', 'origin/develop']);
+      if (remote !== candidate) throw new Error(`origin/develop is ${remote}`);
+    } else {
+      // main may carry commits after the tag; the tag commit must be reachable.
+      try {
+        await dependencies.git(['merge-base', '--is-ancestor', candidate, 'origin/main']);
+      } catch {
+        throw new Error(`origin/main does not contain ${candidate}`);
+      }
+    }
   });
-  await check('develop-ci', async () => {
+  await check(`${branch}-ci`, async () => {
     const response = JSON.parse(await dependencies.ghApi(
       `repos/juan294/sutura/actions/workflows/ci.yml/runs?head_sha=${candidate}&status=completed&per_page=100`,
     ));
     const valid = (response?.workflow_runs ?? []).some((run) =>
-      run?.head_sha === candidate && run?.head_branch === 'develop' && run?.event === 'push' && run?.conclusion === 'success');
-    if (!valid) throw new Error('missing successful develop push CI');
+      run?.head_sha === candidate && run?.head_branch === branch && run?.event === 'push' && run?.conclusion === 'success');
+    if (!valid) throw new Error(`missing successful ${branch} push CI`);
   });
   await check('provider-canary', async () => {
     const evidence = await dependencies.canaryEvidence(candidate);

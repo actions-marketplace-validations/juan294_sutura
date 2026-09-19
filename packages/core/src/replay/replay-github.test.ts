@@ -42,6 +42,36 @@ describe('replayingGitHubApi', () => {
     );
   });
 
+  it('replays updateCheckRun without comparing checkout-derived annotations', async () => {
+    // Live: one annotation from the checkout (Case Lab run 34977342282). Replay: none.
+    const recorded = {
+      checkRunId: 104408782102, status: 'completed' as const, conclusion: 'action_required' as const,
+      detailsUrl: 'https://github.com/juan294/sutura-demo/actions/runs/34977342282/artifacts/10400296167',
+      title: 'Sutura outcome: gave-up', summary: 'Outcome: gave-up',
+      annotations: [{
+        path: 'src/page-count.js', startLine: 6, endLine: 6, annotationLevel: 'warning' as const,
+        title: 'Sutura: test-assertion', message: 'AssertionError: src/page-count.js:6 exact division must not add a page',
+      }],
+    };
+    const bundle = {
+      github: [{ sequence: 17, method: 'updateCheckRun', args: [recorded], result: null }],
+    } as ReplayBundle;
+
+    const replay = replayingGitHubApi(bundle);
+    await expect(replay.api.updateCheckRun({ ...recorded, annotations: [] })).resolves.toBeUndefined();
+    expect(replay.mutations).toEqual([{ sequence: 17, method: 'updateCheckRun', args: [{ ...recorded, annotations: [] }] }]);
+
+    const drifted = replayingGitHubApi(bundle);
+    await expect(drifted.api.updateCheckRun({ ...recorded, annotations: [], conclusion: 'neutral' })).rejects.toEqual(
+      expect.objectContaining<Partial<ReplayMismatchError>>({
+        sequence: 17,
+        path: '$[0].conclusion',
+        expected: 'action_required',
+        actual: 'neutral',
+      }),
+    );
+  });
+
   it('replays recorded errors without recording a mutation', async () => {
     const bundle = {
       ...BUNDLE,

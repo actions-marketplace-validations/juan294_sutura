@@ -8,6 +8,8 @@ import {
   MAX_RUNTIME_EVIDENCE_ENTRIES,
   RuntimeDetectionError,
   detectRuntime,
+  detectRuntimeAtPath,
+  runtimeRootEvidencePaths,
   runtimeEvidencePaths,
 } from './detect.js';
 
@@ -61,7 +63,46 @@ describe('detectRuntime', () => {
         { length: MAX_RUNTIME_EVIDENCE_ENTRIES + 1 },
         (_, index) => mkdir(join(root, `dir-${String(index).padStart(4, '0')}`)),
       ));
-      await expect(runtimeEvidencePaths(root)).rejects.toThrow(/exceeds.*entries/iu);
+      await expect(runtimeEvidencePaths(root)).rejects.toMatchObject({
+        code: 'runtime-evidence-limit',
+        stage: 'runtime-detection',
+        details: {
+          visitedEntries: MAX_RUNTIME_EVIDENCE_ENTRIES + 1,
+          maximumEntries: MAX_RUNTIME_EVIDENCE_ENTRIES,
+        },
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    'npm error Missing: @vitest/coverage-v8@4.1.11 from lock file',
+    'npm error Invalid: lock file\'s vitest@4.1.10 does not satisfy vitest@4.1.11',
+  ])('selects Node before a bounded scan for a Clarity lockfile failure: %s', async (failedLog) => {
+    const root = await mkdtemp(join(tmpdir(), 'sutura-runtime-clarity-'));
+    try {
+      await writeFile(join(root, 'package.json'), '{"scripts":{"test":"vitest run"}}\n');
+      await writeFile(join(root, 'package-lock.json'), '{"lockfileVersion":3}\n');
+      await Promise.all(Array.from(
+        { length: MAX_RUNTIME_EVIDENCE_ENTRIES + 1 },
+        (_, index) => writeFile(join(root, `source-${String(index).padStart(4, '0')}.ts`), 'export {};\n'),
+      ));
+
+      const observations: unknown[] = [];
+      await expect(detectRuntimeAtPath(
+        root, 'npm ci', undefined, failedLog,
+        (observation) => observations.push(observation),
+      ))
+        .resolves.toMatchObject({ id: 'node' });
+      expect(observations).toEqual([{
+        runtime: 'node', evidenceSource: 'root',
+        evidencePaths: ['package-lock.json', 'package.json'], visitedEntries: 2,
+      }]);
+      await expect(runtimeRootEvidencePaths(root)).resolves.toEqual([
+        'package-lock.json',
+        'package.json',
+      ]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

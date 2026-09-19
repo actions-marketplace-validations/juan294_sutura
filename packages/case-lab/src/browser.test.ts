@@ -83,7 +83,7 @@ function resultPage(caseId: string): Mounted {
 function indexPage(attributes: Record<string, string>): Mounted {
   const cards = catalog.map((result) => ({ item: caseLabCase(result.caseId), result }));
   return page(renderIndexBody({
-    cards, release: { version: '0.2.1', actionSha: 'a'.repeat(40) }, siteRoot: '/', limits: LIMITS,
+    cards, release: { version: '0.3.1', actionSha: 'a'.repeat(40) }, siteRoot: '/', limits: LIMITS,
   }), attributes);
 }
 

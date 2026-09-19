@@ -6,15 +6,19 @@ import * as github from '@actions/github';
 import {
   AlreadyAttemptedError,
   ContreeExecutor,
+  OpenAiClient,
   ReplayRecorder,
   TavilyClient,
+  TypeSafeClient,
   createTokenFactoryClient,
   loadConfig,
   orchestrate,
   recordingContreeFetch,
   recordingExecutor,
   recordingNebiusFetch,
+  recordingOpenAiFetch,
   recordingTavilyFetch,
+  recordingTypeSafeFetch,
   type Config,
   type ConfigEnvironment,
   type OrchestrationContext,
@@ -29,6 +33,7 @@ import { createGitHubApi } from './octokit.js';
 import { GitRepository } from './repository.js';
 import { recordingGitHubApi } from './replay-github.js';
 import { recordingRepositoryPort } from './replay-repository.js';
+import { resolveActionIdentity } from './terminal-failure.js';
 
 export interface RunActionDependencies {
   readAction(): ActionConfiguration;
@@ -76,6 +81,10 @@ export async function runAction(
       }
       return;
     }
+    const actionIdentity = resolveActionIdentity(dependencies.environment);
+    if (action.captureReplay && actionIdentity.sha === null) {
+      throw new Error('capture-replay requires Sutura to be pinned to an exact Action commit SHA');
+    }
     const octokit = github.getOctokit(action.githubToken);
     const orchestrationOptions = {
       triageN: config.triageN,
@@ -95,7 +104,7 @@ export async function runAction(
       ? new ReplayRecorder(
           action.runId,
           `${owner}/${repo}`,
-          dependencies.environment.GITHUB_SHA ?? '',
+          actionIdentity.sha ?? '',
           {
             ...orchestrationOptions,
             models: config.models,
@@ -106,6 +115,8 @@ export async function runAction(
             action.githubToken,
             config.nebiusApiKey,
             config.tavilyApiKey ?? '',
+            config.openaiApiKey ?? '',
+            config.typesafeApiKey ?? '',
             config.contreeToken,
             config.contreeProject,
           ],
@@ -121,6 +132,22 @@ export async function runAction(
         globalThis.fetch as Parameters<typeof recordingNebiusFetch>[1],
       ),
     } : {});
+    const secondOpinion = config.openaiApiKey
+      ? new OpenAiClient({ apiKey: config.openaiApiKey, ledger: nebius.ledger }, recorder ? {
+          fetch: recordingOpenAiFetch(
+            recorder,
+            globalThis.fetch as Parameters<typeof recordingOpenAiFetch>[1],
+          ),
+        } : {})
+      : undefined;
+    const typesafeAudit = config.typesafeApiKey
+      ? new TypeSafeClient({ apiKey: config.typesafeApiKey, ledger: nebius.ledger }, recorder ? {
+          fetch: recordingTypeSafeFetch(
+            recorder,
+            globalThis.fetch as Parameters<typeof recordingTypeSafeFetch>[1],
+          ),
+        } : {})
+      : undefined;
     const githubApi = createGitHubApi(octokit, owner, repo);
     const adapter = new GitHubAdapter(
       recorder ? recordingGitHubApi(githubApi, recorder) : githubApi,
@@ -168,6 +195,8 @@ export async function runAction(
       repository,
       executor,
       llm: nebius,
+      ...(secondOpinion ? { secondOpinion } : {}),
+      ...(typesafeAudit ? { typesafeAudit } : {}),
       cost: nebius.ledger,
       ...orchestrationOptions,
       ...(tavily ? { tavily } : {}),
@@ -176,7 +205,8 @@ export async function runAction(
       actionRunId,
       targetRunId: action.runId,
       repository: `${owner}/${repo}`,
-      actionSha: dependencies.environment.GITHUB_SHA ?? '',
+      actionSha: actionIdentity.sha ?? '',
+      actionShaSource: actionIdentity.source,
     });
     reportOutcome(result.outcome, action.requireFixed, core);
     for (const evidence of runtimeEvidence(result)) core.info(evidence);

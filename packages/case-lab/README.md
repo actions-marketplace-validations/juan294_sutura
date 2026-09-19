@@ -31,13 +31,13 @@ provider secret.
 
 ## Cases
 
-| Id | Scenario | Placebo case | Expected outcome |
-| --- | --- | --- | --- |
-| `javascript-repair` | JavaScript repair | `repair-off-by-one` | `fixed` |
-| `python-repair` | Python repair | `python-repair-missing-await` | `fixed` |
-| `flaky-failure` | Deterministic flaky failure | `flaky-timer-race` | `flaky-no-patch` |
-| `greenwash-trap` | Greenwash trap | `trap-weakened-expect` | `refused` |
-| `upstream-incident` | Upstream dependency incident | `upstream-formatter-release` | `fixed` |
+| Id                  | Scenario                     | Placebo case                  | Expected outcome |
+| ------------------- | ---------------------------- | ----------------------------- | ---------------- |
+| `javascript-repair` | JavaScript repair            | `repair-off-by-one`           | `fixed`          |
+| `python-repair`     | Python repair                | `python-repair-missing-await` | `fixed`          |
+| `flaky-failure`     | Deterministic flaky failure  | `flaky-timer-race`            | `flaky-no-patch` |
+| `greenwash-trap`    | Greenwash trap               | `trap-weakened-expect`        | `refused`        |
+| `upstream-incident` | Upstream dependency incident | `upstream-formatter-release`  | `fixed`          |
 
 The list is `CASE_LAB_CASES` in `src/cases.ts`. The request boundary accepts
 exactly `{ "caseId": "<one of the five>" }` and nothing else. Repository
@@ -45,13 +45,13 @@ names, refs, commands, patches, and free text are rejected before any I/O.
 
 ## Limits
 
-| Limit | Value |
-| --- | ---: |
-| Concurrent live runs | 1 |
-| Live runs per rolling hour | 4 |
-| Worst-case cost per run | USD 0.75 |
-| Daily spend stop | USD 6.00 |
-| Live runs per UTC day | 8 |
+| Limit                      |     Value |
+| -------------------------- | --------: |
+| Concurrent live runs       |         1 |
+| Live runs per rolling hour |         4 |
+| Worst-case cost per run    |  USD 0.75 |
+| Daily spend stop           | USD 18.00 |
+| Live runs per UTC day      |        24 |
 
 The dispatcher counts the `case-lab.yml` runs of the last 24 hours through the
 GitHub API before every dispatch. The workflow repeats the count and checks
@@ -67,14 +67,14 @@ before a provider call.
 
 The dispatcher authenticates with one fine-grained personal access token:
 
-| Field | Value |
-| --- | --- |
-| Name | `sutura-case-lab-dispatcher` |
-| Resource owner | `juan294` |
-| Repository access | Only `juan294/sutura-demo` |
-| Permissions | Actions: Read and write. Metadata: Read (automatic). Nothing else. |
-| Expiry | 90 days |
-| Storage | Vercel environment variable `CASE_LAB_GITHUB_TOKEN`, production only |
+| Field             | Value                                                                |
+| ----------------- | -------------------------------------------------------------------- |
+| Name              | `sutura-case-lab-dispatcher`                                         |
+| Resource owner    | `juan294`                                                            |
+| Repository access | Only `juan294/sutura-demo`                                           |
+| Permissions       | Actions: Read and write. Metadata: Read (automatic). Nothing else.   |
+| Expiry            | 90 days                                                              |
+| Storage           | Vercel environment variable `CASE_LAB_GITHUB_TOKEN`, production only |
 
 Actions write is the minimum permission that can create a `workflow_dispatch`
 event; Actions read lists the runs for the limits. The token cannot read
@@ -88,14 +88,15 @@ The `case-lab.yml` workflow runs with `actions: write`, `checks: write`,
 
 The dispatcher reads only:
 
-| Variable | Meaning |
-| --- | --- |
-| `CASE_LAB_GITHUB_TOKEN` | The service identity token. Required. |
-| `CASE_LAB_ENABLED` | `true` enables live dispatch. Anything else disables it. |
-| `CASE_LAB_SITE_ORIGIN` | Optional https origin allowed to call the API from a browser. |
+| Variable                | Meaning                                                       |
+| ----------------------- | ------------------------------------------------------------- |
+| `CASE_LAB_GITHUB_TOKEN` | The service identity token. Required.                         |
+| `CASE_LAB_ENABLED`      | `true` enables live dispatch. Anything else disables it.      |
+| `CASE_LAB_SITE_ORIGIN`  | Optional https origin allowed to call the API from a browser. |
 
 The dispatcher refuses to start when `NEBIUS_API_KEY`, `CONTREE_TOKEN`,
-`CONTREE_PROJECT`, `TAVILY_API_KEY`, `GITHUB_TOKEN`, or `GH_TOKEN` is present
+`CONTREE_PROJECT`, `TAVILY_API_KEY`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`,
+`GITHUB_TOKEN`, or `GH_TOKEN` is present
 in its environment. Provider secrets exist only as `sutura-demo` Actions
 secrets and are passed only to the Action step. ConTree receives `CI=true`
 and `NODE_ENV=test` and no credential
@@ -103,16 +104,16 @@ and `NODE_ENV=test` and no credential
 
 ## Threat model for the public trigger
 
-| Threat | Control |
-| --- | --- |
-| Arbitrary repository, ref, command, patch, or text | The request boundary accepts one key with five values; the workflow re-validates its two inputs with a `choice` input and a regex. |
-| Spend amplification | Hourly throttle, daily spend stop, and a static concurrency group of one, enforced in the dispatcher and again in the workflow. Per-run cost is bounded by the Action budgets (USD 0.25 inference, 32 sandbox operations, 600 seconds). |
-| Token theft | The token can only list and dispatch runs on one repository; it lives only in the Vercel environment; error paths never echo it. |
-| Result tampering | Result documents carry a content hash and are validated by rebuilding it; links are restricted to public GitHub URLs. |
-| Secret leakage into public results | `assertCaseLabResultPublicSafe` rejects credentials, token prefixes, and private local paths; the workflow runs it with the live secret values before publishing. |
-| Dispatcher outage | The static site and every deterministic result keep working; only live dispatch is unavailable. |
-| Two requests racing one limit | One instance serializes its check-then-dispatch section; across instances the workflow's static concurrency group holds concurrency at one and its own daily-cap count, which includes queued runs, holds the daily stop. The hourly throttle can be exceeded by at most the number of warm instances. |
-| Emergency switch on a warm instance | The dispatcher reads its environment on every invocation; a redeploy is still the documented way to change a Vercel variable, and the repository variable inside the workflow stops spend even if the dispatcher is stale. |
+| Threat                                             | Control                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Arbitrary repository, ref, command, patch, or text | The request boundary accepts one key with five values; the workflow re-validates its two inputs with a `choice` input and a regex.                                                                                                                                                                     |
+| Spend amplification                                | Hourly throttle, daily spend stop, and a static concurrency group of one, enforced in the dispatcher and again in the workflow. Per-run cost is bounded by the Action budgets (USD 0.25 inference, 32 sandbox operations, 600 seconds).                                                                |
+| Token theft                                        | The token can only list and dispatch runs on one repository; it lives only in the Vercel environment; error paths never echo it.                                                                                                                                                                       |
+| Result tampering                                   | Result documents carry a content hash and are validated by rebuilding it; links are restricted to public GitHub URLs.                                                                                                                                                                                  |
+| Secret leakage into public results                 | `assertCaseLabResultPublicSafe` rejects credentials, token prefixes, and private local paths; the workflow runs it with the live secret values before publishing.                                                                                                                                      |
+| Dispatcher outage                                  | The static site and every deterministic result keep working; only live dispatch is unavailable.                                                                                                                                                                                                        |
+| Two requests racing one limit                      | One instance serializes its check-then-dispatch section; across instances the workflow's static concurrency group holds concurrency at one and its own daily-cap count, which includes queued runs, holds the daily stop. The hourly throttle can be exceeded by at most the number of warm instances. |
+| Emergency switch on a warm instance                | The dispatcher reads its environment on every invocation; a redeploy is still the documented way to change a Vercel variable, and the repository variable inside the workflow stops spend even if the dispatcher is stale.                                                                             |
 
 ## Commands
 
@@ -123,7 +124,7 @@ case-lab build-site [--site-url <origin>] [--site-config <file>]
                                              write dist/site; site.json supplies the origin and identifiers
 case-lab serve [--port 4177]                 serve dist/site for local review
 case-lab acceptance --base-url <url>         signed-out acceptance record (--offline skips link checks)
-case-lab verify-pin [--tag v0.2.0]           prove release.json, the demo workflow, and the tag agree
+case-lab verify-pin [--tag v0.3.0]           prove release.json, the demo workflow, and the tag agree
 case-lab dispatch --base-url <url> --case <id>
 case-lab capture-replay --request-id <id> --out replay
 case-lab publish-result ...                  used inside the demo workflow
@@ -178,14 +179,14 @@ that appear in the served HTML. None is a secret. Every field is optional and
 a missing field renders nothing, so a config with only `schemaVersion`
 produces a site with no analytics and no verification markup.
 
-| Field | Renders |
-| --- | --- |
-| `siteUrl` | Default `--site-url`: canonical links, absolute Open Graph URLs, the sitemap. |
-| `googleSiteVerification` | `<meta name="google-site-verification">` on every page. |
-| `bingSiteVerification` | `<meta name="msvalidate.01">` on every page. |
-| `ga4MeasurementId` (`G-…`) | Google Analytics 4 under Consent Mode v2. The consent default (every storage type denied, `wait_for_update` 500 ms) is declared before the loader; `anonymize_ip` is on. Not rendered on `/result/`. |
-| `clarityProjectId` | Microsoft Clarity with `clarity('consent', false)` until the visitor accepts. Not rendered on `/result/`. |
-| `vercelAnalytics` (`"true"`) | The cookieless Vercel Web Analytics script on every page. Needs no consent. |
+| Field                        | Renders                                                                                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `siteUrl`                    | Default `--site-url`: canonical links, absolute Open Graph URLs, the sitemap.                                                                                                                        |
+| `googleSiteVerification`     | `<meta name="google-site-verification">` on every page.                                                                                                                                              |
+| `bingSiteVerification`       | `<meta name="msvalidate.01">` on every page.                                                                                                                                                         |
+| `ga4MeasurementId` (`G-…`)   | Google Analytics 4 under Consent Mode v2. The consent default (every storage type denied, `wait_for_update` 500 ms) is declared before the loader; `anonymize_ip` is on. Not rendered on `/result/`. |
+| `clarityProjectId`           | Microsoft Clarity with `clarity('consent', false)` until the visitor accepts. Not rendered on `/result/`.                                                                                            |
+| `vercelAnalytics` (`"true"`) | The cookieless Vercel Web Analytics script on every page. Needs no consent.                                                                                                                          |
 
 `loadSiteConfig` refuses an unknown field, a wrong schema, or a malformed
 value with a message that names the file and the field, and `build-site`

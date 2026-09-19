@@ -30,7 +30,7 @@ function participant(overrides = {}) {
       language: 'javascript',
     },
     artifact: {
-      packageVersion: '0.2.1',
+      packageVersion: '0.3.1',
       actionCommit: SHA,
       installSource: 'public-npm-and-immutable-action',
     },
@@ -130,11 +130,11 @@ test('public release verification binds npm metadata and immutable tag to one ca
   const dependencies = {
     resolveCommit: async () => SHA,
     fetch: async () => new Response(JSON.stringify({
-      name: 'sutura', version: '0.2.1', dist: { integrity: 'sha512-public' },
+      name: 'sutura', version: '0.3.1', dist: { integrity: 'sha512-public' },
     }), { status: 200, headers: { 'content-type': 'application/json' } }),
   };
-  await assert.doesNotReject(() => verifyPublicRelease('0.2.1', SHA, dependencies));
-  await assert.rejects(() => verifyPublicRelease('0.2.1', 'b'.repeat(40), dependencies), /differs/u);
+  await assert.doesNotReject(() => verifyPublicRelease('0.3.1', SHA, dependencies));
+  await assert.rejects(() => verifyPublicRelease('0.3.1', 'b'.repeat(40), dependencies), /differs/u);
 });
 
 test('finalize requires three distinct unfamiliar repositories, both language families, and all outcomes', async () => {
@@ -176,7 +176,7 @@ test('finalize requires three distinct unfamiliar repositories, both language fa
     assert.deepEqual(first.classifications, { flake: 1, refusal: 1, repair: 1 });
     assert.match(first.resultHash, /^[a-f0-9]{64}$/u);
     assert.equal(first.resultHash, second.resultHash);
-    assert.equal(first.packageVersion, '0.2.1');
+    assert.equal(first.packageVersion, '0.3.1');
     assert.doesNotThrow(() => validateStudyEvidence(first));
     assert.throws(() => validateStudyEvidence({ ...first, resultHash: '0'.repeat(64) }), /resultHash/u);
 

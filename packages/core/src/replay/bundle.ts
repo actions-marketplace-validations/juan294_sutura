@@ -8,6 +8,7 @@ import type { Executor } from '../executor/types.js';
 import type { ModelTier } from '../llm/cost.js';
 import type { RepositoryPort } from '../orchestrate.js';
 import type { RuntimeId } from '../runtime/types.js';
+import type { RuntimeDetectionObservation } from '../runtime/detect.js';
 import type { RepairVerificationScope } from '../heal.js';
 import type { SourceReferenceOrder } from '../orchestrate.js';
 import { redactExternalText } from '../security/external-text.js';
@@ -59,7 +60,9 @@ export type RecordedBody =
   | StreamBody
   | RawBody;
 
-export type RecordedHttpBoundary = 'nebius' | 'tavily' | 'contree';
+/** Every HTTP boundary a bundle may record; validation and manifests derive their sets from this list. */
+export const RECORDED_HTTP_BOUNDARIES = ['nebius', 'tavily', 'contree', 'openai', 'typesafe'] as const;
+export type RecordedHttpBoundary = (typeof RECORDED_HTTP_BOUNDARIES)[number];
 export type ReplayBoundary =
   | 'github'
   | 'repository'
@@ -145,6 +148,7 @@ export interface ReplayBundle {
     overflowedBoundaries: ReplayOverflowBoundary[];
     pendingBoundaries: ReplayBoundary[];
   };
+  runtimeDetection?: RuntimeDetectionObservation;
   outcome?: CaseFile['outcome'];
 }
 
@@ -387,6 +391,7 @@ export class ReplayRecorder {
   private readonly repository: RecordedRepositoryCall[] = [];
   private readonly executor: RecordedExecutorCall[] = [];
   private readonly configuration: ReplayOrchestrationConfig;
+  private runtimeDetection: RuntimeDetectionObservation | undefined;
   private readonly checkoutPaths = new Map<string, string>();
   private readonly overflowedBoundaries = new Set<ReplayOverflowBoundary>();
   private readonly pending = {
@@ -460,6 +465,11 @@ export class ReplayRecorder {
 
   markOverflow(boundary: ReplayOverflowBoundary): void {
     this.overflowedBoundaries.add(boundary);
+  }
+
+  recordRuntimeDetection(observation: RuntimeDetectionObservation): void {
+    const safe = this.safeValue(observation, 'repository');
+    this.runtimeDetection = safe as RuntimeDetectionObservation;
   }
 
   registerCheckoutPath(checkoutDir: string): string {
@@ -634,6 +644,9 @@ export class ReplayRecorder {
         overflowedBoundaries,
         pendingBoundaries,
       },
+      ...(this.runtimeDetection === undefined
+        ? {}
+        : { runtimeDetection: this.runtimeDetection }),
       outcome,
     };
     return bundle;

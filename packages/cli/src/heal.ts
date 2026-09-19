@@ -4,6 +4,8 @@ import { basename, resolve, sep } from 'node:path';
 
 import {
   ContreeExecutor,
+  OpenAiClient,
+  TypeSafeClient,
   auditOnly,
   TavilyClient,
   createTokenFactoryClient,
@@ -20,6 +22,7 @@ import {
   type VerificationMode,
   type CaseFile,
   type AuditFile,
+  type AuditLlm,
   type CounterfactualAlternative,
   type ConfigEnvironment,
   type CostLedger,
@@ -36,6 +39,7 @@ import {
   type SourceReference,
   type TavilySearch,
   type RuntimeId,
+  type TypeSafeAuditClient,
 } from '@sutura/core';
 
 import type { AuditArguments, HealArguments } from './args.js';
@@ -51,6 +55,10 @@ export interface HealRuntime {
   evidenceMode?: VerificationMode;
   executor: Executor;
   llm: HealLlm;
+  /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
+  secondOpinion?: AuditLlm;
+  /** Optional veto-only TypeSafe Jev calibrated audit. Absent when TYPESAFE_API_KEY is unconfigured. */
+  typesafeAudit?: TypeSafeAuditClient;
   cost: CostLedger;
   triageN: number;
   raceK: number;
@@ -63,6 +71,8 @@ export interface HealRuntime {
 
 export interface AuditRuntime {
   llm: AuditOnlyLlm;
+  secondOpinion?: AuditLlm;
+  typesafeAudit?: TypeSafeAuditClient;
   cost: CostLedger;
 }
 
@@ -407,6 +417,8 @@ export async function healWithRuntime(
     caseDir,
     executor: runtime.executor,
     llm: runtime.llm,
+    ...(runtime.secondOpinion === undefined ? {} : { secondOpinion: runtime.secondOpinion }),
+    ...(runtime.typesafeAudit === undefined ? {} : { typesafeAudit: runtime.typesafeAudit }),
     cost: runtime.cost,
     triageN: runtime.triageN,
     raceK: runtime.raceK,
@@ -477,6 +489,12 @@ export function runtimeFromEnvironment(
     models: config.models,
     routingProfileId: config.routingProfileId,
   });
+  const secondOpinion = config.openaiApiKey
+    ? new OpenAiClient({ apiKey: config.openaiApiKey, ledger: llm.ledger })
+    : undefined;
+  const typesafeAudit = config.typesafeApiKey
+    ? new TypeSafeClient({ apiKey: config.typesafeApiKey, ledger: llm.ledger })
+    : undefined;
   return {
     evidenceMode: 'live',
     executor: new ContreeExecutor({
@@ -485,6 +503,8 @@ export function runtimeFromEnvironment(
       maxOps: config.maxOps,
     }),
     llm,
+    ...(secondOpinion ? { secondOpinion } : {}),
+    ...(typesafeAudit ? { typesafeAudit } : {}),
     cost: llm.ledger,
     triageN: config.triageN,
     raceK: config.raceK,
@@ -512,6 +532,8 @@ export async function auditWithRuntime(
   ]);
   return auditOnly({
     llm: runtime.llm,
+    ...(runtime.secondOpinion === undefined ? {} : { secondOpinion: runtime.secondOpinion }),
+    ...(runtime.typesafeAudit === undefined ? {} : { typesafeAudit: runtime.typesafeAudit }),
     cost: runtime.cost,
     candidateDiff,
     beforeLog,
@@ -530,7 +552,18 @@ export function auditRuntimeFromEnvironment(
     models: config.models,
     routingProfileId: config.routingProfileId,
   });
-  return { llm, cost: llm.ledger };
+  const secondOpinion = config.openaiApiKey
+    ? new OpenAiClient({ apiKey: config.openaiApiKey, ledger: llm.ledger })
+    : undefined;
+  const typesafeAudit = config.typesafeApiKey
+    ? new TypeSafeClient({ apiKey: config.typesafeApiKey, ledger: llm.ledger })
+    : undefined;
+  return {
+    llm,
+    ...(secondOpinion ? { secondOpinion } : {}),
+    ...(typesafeAudit ? { typesafeAudit } : {}),
+    cost: llm.ledger,
+  };
 }
 
 export async function auditFromEnvironment(request: AuditArguments): Promise<AuditFile> {

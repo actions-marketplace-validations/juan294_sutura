@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -108,6 +109,21 @@ test('a manifest needs exact identities, models with prices and a stop policy', 
     models: [{ modelId: 'm', inputPerMillionUsd: 0.5, outputPerMillionUsd: 1.5 }],
   }))), 'missing-price-date');
   assert.equal(reasonOf(() => validateRunManifest(manifest({ stopPolicy: '  ' }))), 'missing-stop-policy');
+});
+
+test('a manifest accepts a stated zero output price but still refuses a missing one', () => {
+  assert.ok(validateRunManifest(manifest({
+    models: [{
+      modelId: 'jev-latest', inputPerMillionUsd: 0.042, outputPerMillionUsd: 0,
+      priceAsOf: '2026-09-17',
+    }],
+  })));
+  assert.equal(reasonOf(() => validateRunManifest(manifest({
+    models: [{ modelId: 'jev-latest', inputPerMillionUsd: 0.042, priceAsOf: '2026-09-17' }],
+  }))), 'unbounded-cap');
+  assert.equal(reasonOf(() => validateRunManifest(manifest({
+    models: [{ modelId: 'nemotron-super', inputPerMillionUsd: 0, outputPerMillionUsd: 1.5, priceAsOf: '2026-09-06' }],
+  }))), 'unbounded-cap');
 });
 
 test('a manifest cannot list more subjects than it capped, or list one twice', () => {
@@ -222,6 +238,28 @@ test('an unconfirmed sandbox amount is reported separately, not folded into a to
 test('evidence recorded against a different manifest is refused', () => {
   assert.equal(reasonOf(() => validateRunEvidence(evidence({ manifestHash: 'a'.repeat(64) }))),
     'manifest-mismatch');
+});
+
+test('the v0.3.0 release manifest validates and prices at most USD 8', () => {
+  const m = JSON.parse(readFileSync('docs/demo/run-manifests/release-v0.3.0-benchmark.json', 'utf8'));
+  const valid = validateRunManifest(m);
+
+  assert.equal(m.identity.candidateCommit, 'c94eee2086b31450d975137a0102dda18522d0b8');
+  assert.equal(m.subjects.length, 51);
+  assert.equal(m.caps.subjects, 51);
+  assert.equal(valid.manifestHash, m.manifestHash);
+  assert.ok(manifestMaximumUsd(m) <= 8);
+});
+
+test('the v0.3.1 release manifest validates and prices at most USD 10', () => {
+  const m = JSON.parse(readFileSync('docs/demo/run-manifests/release-v0.3.1-benchmark.json', 'utf8'));
+  const valid = validateRunManifest(m);
+
+  assert.equal(m.identity.candidateCommit, 'e724f3b22de79d6ab3f40cffa96de7776c256ce9');
+  assert.equal(m.subjects.length, 51);
+  assert.equal(m.caps.subjects, 51);
+  assert.equal(valid.manifestHash, m.manifestHash);
+  assert.ok(manifestMaximumUsd(m) <= 10);
 });
 
 test('a run that spent past its own cap is refused', () => {

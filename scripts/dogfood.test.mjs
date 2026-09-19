@@ -52,7 +52,7 @@ async function contractVersion() {
     .then(({ SUPER_REPAIR_PROVIDER_CONTRACT_VERSION }) => SUPER_REPAIR_PROVIDER_CONTRACT_VERSION);
 }
 
-async function gateDependencies(overrides = {}) {
+async function gateDependencies(overrides = {}, { branch = 'develop', candidate = SHA } = {}) {
   const core = await import('../packages/core/dist/index.js');
   const version = core.SUPER_REPAIR_PROVIDER_CONTRACT_VERSION;
   const output = [];
@@ -62,20 +62,24 @@ async function gateDependencies(overrides = {}) {
     git: async (args) => {
       if (args[0] === 'status') return '';
       if (args[0] === 'fetch') return '';
-      if (args[1] === 'HEAD') return SHA;
-      if (args[1] === 'origin/develop') return SHA;
-      if (args[1] === `${SHA}:packages`) return TREE;
+      if (branch === 'develop') {
+        if (args[1] === 'HEAD') return candidate;
+        if (args[1] === 'origin/develop') return candidate;
+      } else if (args[0] === 'merge-base') {
+        return '';
+      }
+      if (args[1] === `${candidate}:packages`) return TREE;
       throw new Error(`unexpected git: ${args.join(' ')}`);
     },
     ghApi: async (endpoint) => {
       if (endpoint.includes('/ci.yml/runs?')) return JSON.stringify({ workflow_runs: [{
-        head_sha: SHA, head_branch: 'develop', event: 'push', conclusion: 'success',
+        head_sha: candidate, head_branch: branch, event: 'push', conclusion: 'success',
       }] });
       throw new Error(`unexpected gh api: ${endpoint}`);
     },
     canaryEvidence: async () => ({
       schemaVersion: 'sutura-provider-contract-canary-v1',
-      headSha: SHA,
+      headSha: candidate,
       contractVersion: version,
       capturedAt: new Date(NOW - 60_000).toISOString(),
       result: {
@@ -92,7 +96,7 @@ async function gateDependencies(overrides = {}) {
     }),
     runtimeImageEvidence: async () => ({
       schemaVersion: 'sutura-runtime-image-canary-v2',
-      headSha: SHA,
+      headSha: candidate,
       capturedAt: new Date(NOW - 60_000).toISOString(),
       registryResolution: {
         imageRef: core.PYTHON_IMAGE_REF,
@@ -137,6 +141,79 @@ test('dogfood gate fails each precondition independently and passes only when al
   for (const overrides of failures) {
     const { dependencies } = await gateDependencies(overrides);
     await assert.rejects(() => gateDogfood(SHA, dependencies), /gate failed/u);
+  }
+});
+
+const RELEASE_SHA = 'c94eee2086b31450d975137a0102dda18522d0b8';
+
+function releaseGitStub(fixtureCandidate) {
+  return async (args) => {
+    if (args[0] === 'status') return '';
+    if (args[0] === 'fetch') return '';
+    if (args[0] === 'merge-base') return '';
+    if (args[1] === `${fixtureCandidate}:packages`) return TREE;
+    throw new Error(`unexpected git: ${args.join(' ')}`);
+  };
+}
+
+test('dogfood gate in release mode proves main reachability, a main push CI run and the operator RELEASE_VERSION', async () => {
+  const fixture = await readFile('scripts/__fixtures__/ci-runs-c94eee2.json', 'utf8');
+  const { dependencies, output } = await gateDependencies({
+    git: releaseGitStub(RELEASE_SHA),
+    ghApi: async (endpoint) => {
+      if (endpoint.includes('/ci.yml/runs?')) return fixture;
+      throw new Error(`unexpected gh api: ${endpoint}`);
+    },
+  }, { branch: 'main', candidate: RELEASE_SHA });
+  await assert.doesNotReject(() => gateDogfood(RELEASE_SHA, dependencies, { branch: 'main', releaseVersion: '0.3.1' }));
+  assert.equal(output.filter((line) => line.startsWith('PASS')).length, 7);
+  assert.ok(output.some((line) => line.startsWith('PASS origin-main:')));
+  assert.ok(output.some((line) => line.startsWith('PASS main-ci:')));
+});
+
+test('dogfood gate in release mode fails independently on main reachability, main CI and the operator RELEASE_VERSION', async () => {
+  const fixture = JSON.parse(await readFile('scripts/__fixtures__/ci-runs-c94eee2.json', 'utf8'));
+
+  {
+    const { dependencies, output } = await gateDependencies({
+      git: async (args) => (args[0] === 'merge-base'
+        ? Promise.reject(new Error('not an ancestor'))
+        : releaseGitStub(RELEASE_SHA)(args)),
+      ghApi: async (endpoint) => {
+        if (endpoint.includes('/ci.yml/runs?')) return JSON.stringify(fixture);
+        throw new Error(`unexpected gh api: ${endpoint}`);
+      },
+    }, { branch: 'main', candidate: RELEASE_SHA });
+    await assert.rejects(() => gateDogfood(RELEASE_SHA, dependencies, { branch: 'main', releaseVersion: '0.3.1' }), /gate failed/u);
+    assert.match(output.join(''), /origin\/main does not contain/u);
+  }
+
+  {
+    const { dependencies, output } = await gateDependencies({
+      git: releaseGitStub(RELEASE_SHA),
+      ghApi: async (endpoint) => {
+        if (endpoint.includes('/ci.yml/runs?')) {
+          return JSON.stringify({
+            workflow_runs: [{ ...fixture.workflow_runs[0], head_branch: 'develop' }],
+          });
+        }
+        throw new Error(`unexpected gh api: ${endpoint}`);
+      },
+    }, { branch: 'main', candidate: RELEASE_SHA });
+    await assert.rejects(() => gateDogfood(RELEASE_SHA, dependencies, { branch: 'main', releaseVersion: '0.3.1' }), /gate failed/u);
+    assert.match(output.join(''), /missing successful main push CI/u);
+  }
+
+  {
+    const { dependencies, output } = await gateDependencies({
+      git: releaseGitStub(RELEASE_SHA),
+      ghApi: async (endpoint) => {
+        if (endpoint.includes('/ci.yml/runs?')) return JSON.stringify(fixture);
+        throw new Error(`unexpected gh api: ${endpoint}`);
+      },
+    }, { branch: 'main', candidate: RELEASE_SHA });
+    await assert.rejects(() => gateDogfood(RELEASE_SHA, dependencies, { branch: 'main', releaseVersion: '0.3.2' }), /gate failed/u);
+    assert.match(output.join(''), /RELEASE_VERSION is 0\.3\.1 but the release tag names 0\.3\.2/u);
   }
 });
 

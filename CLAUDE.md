@@ -23,7 +23,8 @@ or anything from Juan's private fleet.
 - LLM: NVIDIA Nemotron models via Nebius Token Factory
   (OpenAI-compatible API, `https://api.tokenfactory.nebius.com/v1/`)
 - Web grounding: Tavily API
-- Env vars: `NEBIUS_API_KEY`, `TAVILY_API_KEY` — fail closed, never commit
+- Env vars: `NEBIUS_API_KEY`, `TAVILY_API_KEY`, optional `OPENAI_API_KEY` and
+  `TYPESAFE_API_KEY` — fail closed, never commit
 
 ## RPI Workflow
 
@@ -68,7 +69,8 @@ Run verification sequentially with `;` or `&&`, never as parallel Bash calls.
 The repair artifact is a GitHub Action + CLI; releases are tagged from `main`.
 The hosted [Case Lab](packages/case-lab/README.md) presents labeled demo results;
 live dispatch has a separate authorization gate. Demo assets (video, sample runs)
-live in `docs/demo/`. This overview does not record a fresh deployment check.
+live in `docs/demo/`. See [`docs/release/v0.3.1-case-lab-record.md`](docs/release/v0.3.1-case-lab-record.md)
+for the most recent deployment check and its outcome.
 
 Rules load from `.claude/rules/` and `.claude/skills/` automatically.
 
@@ -82,13 +84,13 @@ Don't wait to be asked.
 
 Go directly to these paths -- never search for them.
 
-| Topic    | Path                            | Notes                       |
-| -------- | ------------------------------- | --------------------------- |
-| Repository evaluation | [Technical evaluation guide](docs/evaluation/README.md) | Architecture, tests, evidence modes, and limitations |
-| Agent reports | `docs/agents/*-report.md` | Gitignored on public repos; tracked on private (Rule #70) |
-| Active hackathon roadmap | `docs/plans/2026-08-31-sutura-hackathon-winning-roadmap.md` | Remaining work through submission |
-| Research | `docs/research/YYYY-MM-DD-*.md` |                             |
-| Plans    | `docs/plans/YYYY-MM-DD-*.md`    | Phase files in `-phases/`   |
-| ADRs     | `docs/decisions/`               |                             |
-| PR descriptions | `docs/prs/{number}_description.md` |                   |
-| Release playbook | `docs/release/e2e-pro-playbook.md` | Wave A adopted; profile pending first release |
+| Topic                    | Path                                                        | Notes                                                     |
+| ------------------------ | ----------------------------------------------------------- | --------------------------------------------------------- |
+| Repository evaluation    | [Technical evaluation guide](docs/evaluation/README.md)     | Architecture, tests, evidence modes, and limitations      |
+| Agent reports            | `docs/agents/*-report.md`                                   | Gitignored on public repos; tracked on private (Rule #70) |
+| Active hackathon roadmap | `docs/plans/2026-08-31-sutura-hackathon-winning-roadmap.md` | Remaining work through submission                         |
+| Research                 | `docs/research/YYYY-MM-DD-*.md`                             |                                                           |
+| Plans                    | `docs/plans/YYYY-MM-DD-*.md`                                | Phase files in `-phases/`                                 |
+| ADRs                     | `docs/decisions/`                                           |                                                           |
+| PR descriptions          | `docs/prs/{number}_description.md`                          |                                                           |
+| Release playbook         | `docs/release/e2e-pro-playbook.md`                          | Wave A adopted; profile pending first release             |

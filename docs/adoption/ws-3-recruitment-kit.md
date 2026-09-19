@@ -44,27 +44,30 @@ attributable feedback.
    Action commit:
 
    ```bash
-   node scripts/test-public-install.mjs --release 0.2.1
-   npx sutura@0.2.1 init
-   npx sutura@0.2.1 doctor
+   node scripts/test-public-install.mjs --release 0.3.1
+   npx sutura@0.3.1 init
+   npx sutura@0.3.1 doctor
    ```
 
-4. Run the assigned repair, refusal, or flake case through the generated Action.
+4. Review `.github/workflows/sutura.yml`, commit it, and push it through the
+   repository's normal process. Confirm that the workflow reaches the default
+   branch; the monitor is not active before then.
+5. Run the assigned repair, refusal, or flake case through the generated Action.
    Stop the timer only when the first valid result is visible. Record elapsed
    milliseconds and all three exact public evidence URLs: the failed target and
    Sutura workflow URLs ending in `/actions/runs/<number>`, and the completed
    **Sutura repair audit** check URL ending in `/runs/<number>`. The finalizer
    verifies the target/check identity and that the check title proves the recorded
    `fixed`, `refused`, or `flaky-no-patch` outcome.
-5. Record installation, documentation, permission, and result-clarity defects.
+6. Record installation, documentation, permission, and result-clarity defects.
    A blocking defect must be corrected and its resolution recorded before the
    session can count.
-6. Review every free-text field for credentials, private paths, source, logs, and
+7. Review every free-text field for credentials, private paths, source, logs, and
    personal data, then set `publicReviewConfirmed` to true. The validator also
    rejects known credential and private-path patterns.
-7. If the participant wants attribution, ask them to approve the exact quote and
+8. If the participant wants attribution, ask them to approve the exact quote and
    display name after seeing both. Otherwise leave both fields null.
-8. Validate the unmodified repository template before use:
+9. Validate the unmodified repository template before use:
 
    ```bash
    node scripts/adoption-study.mjs validate-template --template docs/adoption/ws-3-participant-record-template.json
@@ -74,7 +77,7 @@ After all three sessions, place only the reviewed public-safe records in the
 ignored `docs/adoption/records/` directory and create terminal evidence:
 
 ```bash
-node scripts/adoption-study.mjs finalize --candidate "$(git rev-list -n 1 v0.2.1)" --records docs/adoption/records --output docs/adoption/sutura-external-adoption-evidence-v1.json
+node scripts/adoption-study.mjs finalize --candidate "$(git rev-list -n 1 v0.3.1)" --records docs/adoption/records --output docs/adoption/sutura-external-adoption-evidence-v1.json
 ```
 
 The finalizer refuses duplicate participants or repositories, incomplete language

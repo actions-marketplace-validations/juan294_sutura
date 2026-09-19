@@ -71,6 +71,7 @@ export class RecordedRepository implements RepositoryPort {
       describeMethodCall,
       'port',
     ),
+    private readonly selectedRuntimeEvidencePaths: readonly string[] = [],
   ) {}
 
   normalizeArgs(args: unknown[]): unknown[] {
@@ -131,7 +132,11 @@ export class RecordedRepository implements RepositoryPort {
     }
     await mkdir(checkoutDir, { recursive: true, mode: 0o700 });
     const contents = new Map(checkout.snapshot.files.map((file) => [file.path, file.content]));
-    const paths = new Set([...checkout.snapshot.runtimeEvidencePaths, ...contents.keys()]);
+    const paths = new Set([
+      ...checkout.snapshot.runtimeEvidencePaths,
+      ...this.selectedRuntimeEvidencePaths,
+      ...contents.keys(),
+    ]);
     for (const path of paths) {
       const target = resolve(checkoutDir, path);
       if (!inside(checkoutDir, target)) {

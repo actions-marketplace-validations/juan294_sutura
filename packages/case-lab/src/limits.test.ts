@@ -17,8 +17,8 @@ describe('caseLabDispatchDecision', () => {
       maxConcurrentRuns: 1,
       maxRunsPerHour: 4,
       worstCaseRunUsd: 0.75,
-      dailySpendStopUsd: 6,
-      maxRunsPerDay: 8,
+      dailySpendStopUsd: 18,
+      maxRunsPerDay: 24,
     });
     expect(Object.isFrozen(CASE_LAB_LIMITS)).toBe(true);
   });
@@ -29,13 +29,13 @@ describe('caseLabDispatchDecision', () => {
   });
 
   it('refuses in a fixed order: disabled, concurrency, hourly throttle, daily spend stop', () => {
-    expect(caseLabDispatchDecision({ ...open, enabled: false, activeRuns: 1, runsInLastHour: 4, runsToday: 8 }))
+    expect(caseLabDispatchDecision({ ...open, enabled: false, activeRuns: 1, runsInLastHour: 4, runsToday: 24 }))
       .toEqual({ allowed: false, reason: 'disabled' });
-    expect(caseLabDispatchDecision({ ...open, activeRuns: 1, runsInLastHour: 4, runsToday: 8 }))
+    expect(caseLabDispatchDecision({ ...open, activeRuns: 1, runsInLastHour: 4, runsToday: 24 }))
       .toEqual({ allowed: false, reason: 'concurrency' });
-    expect(caseLabDispatchDecision({ ...open, runsInLastHour: 4, runsToday: 8 }))
+    expect(caseLabDispatchDecision({ ...open, runsInLastHour: 4, runsToday: 24 }))
       .toEqual({ allowed: false, reason: 'hourly-throttle' });
-    expect(caseLabDispatchDecision({ ...open, runsToday: 8 }))
+    expect(caseLabDispatchDecision({ ...open, runsToday: 24 }))
       .toEqual({ allowed: false, reason: 'daily-spend-stop' });
   });
 

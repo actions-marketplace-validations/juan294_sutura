@@ -22,6 +22,8 @@ export const FORBIDDEN_DISPATCHER_ENV = Object.freeze([
   'CONTREE_TOKEN',
   'CONTREE_PROJECT',
   'TAVILY_API_KEY',
+  'OPENAI_API_KEY',
+  'TYPESAFE_API_KEY',
   'GITHUB_TOKEN',
   'GH_TOKEN',
 ] as const);

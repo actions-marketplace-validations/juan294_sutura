@@ -344,10 +344,12 @@ describe('GitHubAdapter', () => {
 
   it('recovers an in-progress check independently when the marker comment exists', async () => {
     const updates: Array<Record<string, unknown>> = [];
+    const commentUpdates: string[] = [];
     const adapter = new GitHubAdapter(api({
       listIssueComments: async () => [{ id: 44, body: '<!-- marker -->', authorLogin: 'github-actions[bot]' }],
       listCheckRunsForRef: async () => [{ id: 91, headSha: SHA, externalId: 'sutura:owner/repo:workflow-run:77', name: 'Sutura repair audit', status: 'in_progress', conclusion: null }],
       updateCheckRun: async (input) => { updates.push(input); },
+      updateIssueComment: async (_id, body) => { commentUpdates.push(body); },
     }), { owner: 'owner', repo: 'repo', runId: '77' });
 
     await expect(adapter.claimAttempt(9, '<!-- marker -->')).resolves.toBeNull();
@@ -355,6 +357,7 @@ describe('GitHubAdapter', () => {
     expect(updates).toEqual([expect.objectContaining({
       checkRunId: 91, status: 'completed', conclusion: 'action_required',
     })]);
+    expect(commentUpdates).toEqual([expect.stringContaining('Sutura stopped unexpectedly')]);
   });
 
   it('does not rerun work when an existing check has no marker comment', async () => {

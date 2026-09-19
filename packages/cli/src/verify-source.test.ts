@@ -196,6 +196,8 @@ describe('untrusted Git object boundaries', () => {
   });
 
   it('refuses a tracked symlink without copying external bytes', async () => {
+    // Explicit timeout (ci-parity.md): real symlink + git subprocess I/O can
+    // exceed Vitest's 5s default under load.
     const external = await mkdtemp(join(tmpdir(), 'sutura-external-source-'));
     await writeFile(join(external, 'secret'), 'private bytes');
     const { dir, sha } = await fixture(async (dir) => {
@@ -207,5 +209,5 @@ describe('untrusted Git object boundaries', () => {
       await rm(dir, { recursive: true, force: true });
       await rm(external, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 });

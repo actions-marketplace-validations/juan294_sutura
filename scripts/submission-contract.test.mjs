@@ -8,6 +8,10 @@ const root = new URL('../', import.meta.url);
 const submissionUrl = new URL('docs/devpost/sutura-submission.md', root);
 const videoUrl = new URL('docs/devpost/sutura-video-script.md', root);
 const feedbackUrl = new URL('docs/feedback/2026-10-sutura-nebius-feedback.md', root);
+const stage3EvidenceUrl = new URL(
+  'docs/demo/run-manifests/development-validation-v8-evidence.md',
+  root,
+);
 
 async function text(url) {
   return readFile(url, 'utf8');
@@ -126,7 +130,7 @@ test('video script has six contiguous sections and ends before 180 seconds', asy
 });
 
 test('version contract rejects drift in bare, npm, tag, Action, and release-link forms', () => {
-  const current = '0.2.1';
+  const current = '0.3.1';
   const canonical = `Canonical package identity: sutura@${current}.`;
   for (const reference of [
     'Release 9.9.9',
@@ -168,6 +172,27 @@ test('submission sources contain no unfinished markers', async () => {
     assert.doesNotMatch(document, /\b(?:TODO|TBD|placeholder|coming soon|insert here|add later)\b/iu);
     assert.doesNotMatch(document, /https?:\/\/(?:example\.com|localhost)\b/iu);
   }
+});
+
+test('current Stage 3 documentation preserves the measured identity and limits', async () => {
+  const [evidence, guide, manifests] = await Promise.all([
+    text(stage3EvidenceUrl),
+    text(new URL('docs/evaluation/README.md', root)),
+    text(new URL('docs/demo/run-manifests/README.md', root)),
+  ]);
+  for (const document of [evidence, guide, manifests]) {
+    assert.match(document, /042af3aada158347db6006e30a4a0e6e7c65e420/u);
+    assert.match(document, /80\/80|all 80/iu);
+    assert.match(document, /USD\s+6\.431018/u);
+    assert.match(document, /33\/42|33 of 42/u);
+    assert.match(document, /78\.6%/u);
+    assert.match(document, /zero false approvals|false approvals[^\n|]*\|?\s*0/iu);
+    assert.match(document, /4\/8|4 of 8/iu);
+    assert.match(document, /four not run|4 not run/iu);
+    assert.match(document, /held-out[\s\S]{0,80}(?:sealed|unopened)/iu);
+  }
+  assert.match(evidence, /c4db4b99d20004ec5aea5f7598991f03dccb0a14674fbb000b2bab1bc8e6bbfe/u);
+  assert.match(manifests, /historical manifest/iu);
 });
 
 const evaluatorDocs = ['docs/evaluation/README.md', 'docs/evaluation/architecture.md'];

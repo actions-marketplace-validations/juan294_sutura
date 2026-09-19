@@ -1,8 +1,11 @@
-import { adjudicate } from './audit/adjudicate.js';
+import { adjudicate, secondOpinion, type AdjudicationLlm, type SecondOpinionBudget } from './audit/adjudicate.js';
 import { runMechanicalChecks } from './audit/mechanical.js';
+import { vetoVoiceRows } from './audit/veto-voices.js';
+import { typesafeAudit, type TypeSafeAuditBudget } from './audit/typesafe-audit.js';
 import { classify } from './diagnose/classify.js';
 import type { AuditFile, CostLedger, PolicyEvidence } from './domain.js';
 import { vetPatch } from './engine/patch-rules.js';
+import type { TypeSafeAuditClient } from './llm/typesafe.js';
 import {
   evaluatePatchPolicy,
   filterPolicyDeniedText,
@@ -33,6 +36,12 @@ export type AuditOnlyLlm = TierLlm<'nano' | 'ultra'>;
 
 export interface AuditOnlyContext {
   llm: AuditOnlyLlm;
+  /** Optional veto-only GPT-6 Astra second opinion. Absent when OPENAI_API_KEY is unconfigured. */
+  secondOpinion?: AdjudicationLlm;
+  secondOpinionBudget?: SecondOpinionBudget;
+  /** Optional veto-only TypeSafe Jev calibrated audit. Absent when TYPESAFE_API_KEY is unconfigured. */
+  typesafeAudit?: TypeSafeAuditClient;
+  typesafeAuditBudget?: TypeSafeAuditBudget;
   cost: CostLedger;
   beforeLog: string;
   afterLog: string;
@@ -142,12 +151,15 @@ export async function auditOnly(context: AuditOnlyContext): Promise<AuditFile> {
   const builtIn = vetPatch(context.candidateDiff, before);
   const policy = evaluatePatchPolicy(context.candidateDiff, context.policy);
   const mechanical = runMechanicalChecks(context.candidateDiff);
-  const adjudication = await adjudicate(context.llm, {
+  const adjudicationContext = {
     diagnosis: before,
     diff: safeDiff,
     beforeLog: safeBeforeLog,
     afterLog: safeAfterLog,
-  });
+  };
+  const adjudication = await adjudicate(context.llm, adjudicationContext);
+  const second = await secondOpinion(context.secondOpinion, adjudicationContext, context.secondOpinionBudget);
+  const third = await typesafeAudit(context.typesafeAudit, adjudicationContext, context.typesafeAuditBudget);
   const checks = [
     ...mechanical,
     {
@@ -165,6 +177,7 @@ export async function auditOnly(context: AuditOnlyContext): Promise<AuditFile> {
       passed: adjudication.approved,
       evidence: adjudication.reasoning,
     },
+    ...vetoVoiceRows(second, third).rows,
   ];
   const approved = checks.every((check) => check.passed);
   return {

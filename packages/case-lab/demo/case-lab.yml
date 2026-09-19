@@ -35,10 +35,10 @@ concurrency:
 
 env:
   # Must equal packages/case-lab/release.json actionSha and the literal in the Action step.
-  SUTURA_ACTION_SHA: a943ded4c734aed75c5c63f2b2dd63a2f44556c2
+  SUTURA_ACTION_SHA: e724f3b22de79d6ab3f40cffa96de7776c256ce9
   # A juan294/sutura commit that contains packages/case-lab. Updated by `case-lab verify-pin`.
-  SUTURA_CONTROLLER_SHA: f5c3056acc96597f1ae11f411a3b9cfe03ba990f
-  CASE_LAB_DAILY_RUN_CAP: '8'
+  SUTURA_CONTROLLER_SHA: 88446895c17d9d9809ccedab5d47f1a8c4e7e29b
+  CASE_LAB_DAILY_RUN_CAP: '24'
   RESULTS_BRANCH: case-lab-results
 
 jobs:
@@ -181,12 +181,14 @@ jobs:
       - name: Run Sutura at the exact release
         id: sutura
         continue-on-error: true
-        uses: juan294/sutura/packages/action@a943ded4c734aed75c5c63f2b2dd63a2f44556c2
+        uses: juan294/sutura/packages/action@e724f3b22de79d6ab3f40cffa96de7776c256ce9
         with:
           github-token: ${{ github.token }}
           run-id: ${{ steps.failed-ci.outputs.run-id }}
           nebius-api-key: ${{ secrets.NEBIUS_API_KEY }}
           tavily-api-key: ${{ secrets.TAVILY_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
           contree-token: ${{ secrets.CONTREE_TOKEN }}
           contree-project: ${{ vars.CONTREE_PROJECT }}
           capture-replay: 'true'
@@ -241,6 +243,8 @@ jobs:
         env:
           NEBIUS_API_KEY: ${{ secrets.NEBIUS_API_KEY }}
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           CONTREE_TOKEN: ${{ secrets.CONTREE_TOKEN }}
           REQUEST_ID: ${{ inputs.request-id }}
           CASE_ID: ${{ inputs.case-id }}

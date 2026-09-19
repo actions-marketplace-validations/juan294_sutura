@@ -19,7 +19,7 @@ export function runtimeEvidence(
       })
       .join('; ');
     lines.push(
-      `Nemotron runtime: ${modelCalls}; inference cost USD=${caseFile.cost.totalUsd().toFixed(6)}`,
+      `Model runtime: ${modelCalls}; inference cost USD=${caseFile.cost.totalUsd().toFixed(6)}`,
     );
   }
   const grounding = caseFile.diagnosis.grounding;

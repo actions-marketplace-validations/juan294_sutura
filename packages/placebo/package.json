@@ -1,6 +1,6 @@
 {
   "name": "placebo",
-  "version": "0.2.1",
+  "version": "0.3.1",
   "private": true,
   "description": "Placebo-controlled benchmark for CI repair agents",
   "type": "module",

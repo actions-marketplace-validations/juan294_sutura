@@ -1,5 +1,49 @@
 # Changelog
 
+## [Unreleased]
+
+## [0.3.1] - 2026-09-17
+
+### Added
+
+- Repair proposals and diagnosis hypotheses request `response_format: json_object` instead of `json_schema`; the proposal and hypothesis contracts are enforced locally (`parseProposal`, `validateHypotheses`). Provider contract `sutura-super-repair-v6`. Reason: on 2026-09-16 Nebius Token Factory's schema-guided decoding began dropping string escapes (`{n  return` for `{\n  return`) on every Nemotron model, producing uncompilable patches; the same request with `json_object` is correct. Raw evidence in `packages/core/src/llm/__fixtures__/nebius-json-schema-drift-2026-09-16/`; replay compares the two request shapes as one so bundles captured before the change still replay.
+
+- Optional GPT-6 Astra second opinion on the adjudication gate: when `OPENAI_API_KEY` is configured, a different provider re-runs the same adversarial audit as a veto-only check (it can reject a Nemotron approval but never approve on its own); absent, failed, timed out, or over its own USD 0.30 budget, it is recorded `skipped` and the run proceeds on Nemotron alone. The runtime model remains Nemotron on Nebius Token Factory.
+- Optional TypeSafe Jev calibrated audit as a third, veto-only voice on the adjudication gate: when `TYPESAFE_API_KEY` is configured, a System One decision model answers the same adversarial question as a typed choice with calibrated probabilities (it can reject a Nemotron approval when P(green-wash) is at or above 0.5 at confidence at or above 0.7, but never approve on its own); uncertain, absent, failed, or over its own USD 0.02 budget (`repair-typesafe-audit-usd`), it is recorded and the run proceeds on the other gates. The call is recorded as an optional `typesafe` replay boundary.
+- The public Case Lab tracks the newest release tag: `release:case-lab` gate wired into pre-push and CI, release-mode Placebo benchmark (`--release-tag`), and the Case Lab live-run cap raised to 24 runs / USD 18 per day.
+
+### Fixed
+
+- Replay bundle identity checks (`publish.ts`, `replay.ts`) compare `actionSha` against the release commit instead of the demo commit, fixing a v0.3.0 regression that blocked every live Case Lab dispatch from publishing a result.
+- `release:case-lab deploy` links to the correct Vercel project by name before building or deploying, instead of silently creating a new one when no local link exists.
+- Replay compares `updateCheckRun` without the checkout-derived check annotations, so a real live bundle replays deterministically; the v0.3.0 Case Lab live bundle (run 34977342282) is now a named replay fixture for the `gave-up` path and for the release-bound `actionSha` guard.
+- `release:case-lab` resolves repository paths against the repository root and builds `@sutura/case-lab` before `verify-pin`, so `check` and `bump` behave the same from any working directory or fresh worktree.
+- `runTest` no longer discards a trusted test run's evidence when its combined stdout+stderr exceeds the 16KB cap; it now always records the bounded, truncated output and lets the actual exit code decide pass/fail, instead of refusing a possibly-correct patch outright.
+- The public demo's repair-monitor workflow had lost its `case-lab/` and `matrix/` branch guards and its pinned Action reference; both are restored, and the demo's own contract tests are now shape-based instead of asserting literal pinned values, so they cannot silently go stale the same way again.
+
+## [0.3.0] - 2026-09-14
+
+### Added
+
+- Add cumulative fleet dogfood metrics with bounded evidence collection, collaborator-repository support, and separate counts for attempted, claimed, provider-invoked, search-started, fixed, non-repairable, and unknown runs.
+- Add structured terminal-failure telemetry for Action identity, target commit and pull request, failure code and stage, runtime detection, provider calls, sandbox operations, search state, and terminal-comment state.
+- Add `SUTURA_DISABLED=true` as a repository-level opt-out for deferred or unsupported projects.
+
+### Fixed
+
+- Detect the project runtime from root manifests before scanning nested files, while bounding traversal and retained evidence for large monorepositories.
+- Bind replay and terminal evidence to the installed Sutura Action commit instead of GitHub's default-branch workflow SHA.
+- Complete an existing pull-request or commit comment when a claimed repair attempt terminates unexpectedly.
+- Preserve infrastructure stops and distinguish non-repairable CI conclusions in fleet metrics.
+- Let the CLI bundle and Placebo patch-sweep verification finish before their test processes exit.
+
+### Changed
+
+- Record the clean Stage 3 development and validation measurement: 80/80 terminal results, 15/15 deceptive patches rejected, zero false approvals, and zero infrastructure stops.
+- Refresh production and development dependencies.
+
+Retired guidance: none.
+
 ## [0.2.1] - 2026-09-13
 
 ### Added

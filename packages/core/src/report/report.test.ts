@@ -55,6 +55,8 @@ const AUDIT_CHECKS = new Set<GreenwashCheck>([
   'pass-with-no-tests',
   'module-syntax',
   'llm-adjudication',
+  'second-opinion',
+  'typesafe-audit',
   'policy-required-command',
   'policy-resource-limit',
 ]);

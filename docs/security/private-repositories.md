@@ -27,7 +27,11 @@ The protected assets are repository source, unreleased product details, CI logs,
 
 ## Unsupported configurations
 
-Sutura v0.2 refuses private registries that need `.npmrc`, embedded URL credentials, Yarn authentication fields, or copied registry credentials. It also refuses an unverified Yarn installer version. Use a public dependency set or wait for a credential-broker design that does not expose registry secrets to repository code.
+Sutura 0.3.0 refuses private registries that need `.npmrc`, embedded URL
+credentials, Yarn authentication fields, or copied registry credentials. It
+also refuses an unverified Yarn installer version. Use a public dependency set
+or wait for a credential-broker design that does not expose registry secrets to
+repository code.
 
 Do not give the workflow broad organization tokens, production credentials, deployment keys, signing keys, or cloud administrator roles. Do not disable branch protection for Sutura.
 
@@ -38,14 +42,15 @@ Do not give the workflow broad organization tokens, production credentials, depl
   inference Zero Data Retention. Do not upload private-repository evaluation data
   merely because ZDR is enabled.
 - Token Factory, Tavily, ConTree, GitHub, and package registries remain external data processors with their own retention and access policies.
-- ConTree images can retain private source for the documented image-retention period. Sutura v0.2 cannot delete them through a verified API.
+- ConTree images can retain private source for the documented image-retention
+  period. Sutura 0.3.0 cannot delete them through a verified API.
 - A malicious public package can run code during the post-overlay rebuild. Networking is disabled, but that code can read overlaid source inside the sandbox.
 - A generated patch can be logically wrong even when tests and audit pass. Human review remains required.
 - GitHub comments and artifacts can expose sanitized failure context to repository collaborators who can read Actions data.
 
 ## Maintainer checklist
 
-- Pin Sutura to an immutable release commit or tag.
+- Pin Sutura to an immutable release commit, not a mutable branch or tag.
 - Confirm GitHub permissions are limited to `actions: read`, `checks: write`,
   `contents: write`, and `pull-requests: write`.
 - Confirm the Token Factory ZDR and provider retention settings required by your organization.

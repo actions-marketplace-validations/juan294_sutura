@@ -16,6 +16,7 @@ import {
   boundedText,
   rawBody,
   type RecordedBody,
+  type RecordedHttpBoundary,
   type RecordedHttpExchange,
   type ReplayRecorder,
 } from './bundle.js';
@@ -164,15 +165,17 @@ function recordedBodyReader(
   };
 }
 
-export function recordingNebiusFetch(
+/** One recorder for every OpenAI-shaped HTTP boundary; the boundary name is the only difference between them. */
+function recordingHttpFetch(
+  boundary: Exclude<RecordedHttpBoundary, 'contree' | 'tavily'>,
   recorder: ReplayRecorder,
   fetch: NebiusFetch,
 ): NebiusFetch {
   return async (input: string, init: HttpRequestInit): Promise<HttpResponse> => {
-    const sequence = recorder.reserveHttpSequence('nebius');
+    const sequence = recorder.reserveHttpSequence(boundary);
     const startedAt = Date.now();
     const request = {
-      boundary: 'nebius' as const,
+      boundary,
       request: {
         method: init.method,
         url: input,
@@ -213,6 +216,27 @@ export function recordingNebiusFetch(
       text: body.text,
     };
   };
+}
+
+export function recordingNebiusFetch(
+  recorder: ReplayRecorder,
+  fetch: NebiusFetch,
+): NebiusFetch {
+  return recordingHttpFetch('nebius', recorder, fetch);
+}
+
+export function recordingOpenAiFetch(
+  recorder: ReplayRecorder,
+  fetch: NebiusFetch,
+): NebiusFetch {
+  return recordingHttpFetch('openai', recorder, fetch);
+}
+
+export function recordingTypeSafeFetch(
+  recorder: ReplayRecorder,
+  fetch: NebiusFetch,
+): NebiusFetch {
+  return recordingHttpFetch('typesafe', recorder, fetch);
 }
 
 export function recordingTavilyFetch(
