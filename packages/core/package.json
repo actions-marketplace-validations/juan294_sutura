@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "acorn": "8.18.0",
-    "p-limit": "^7.3.2"
+    "acorn": "8.19.0",
+    "p-limit": "^7.3.3"
   }
 }
